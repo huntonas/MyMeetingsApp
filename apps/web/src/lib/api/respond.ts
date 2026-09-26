@@ -4,6 +4,7 @@ import type { z } from "zod";
 // Add a policy here when the first route that needs it lands.
 const CACHE_POLICIES = {
   none: "no-store",
+  vocabulary: "public, s-maxage=3600, stale-while-revalidate=86400",
 } as const;
 
 type CachePolicy = keyof typeof CACHE_POLICIES;

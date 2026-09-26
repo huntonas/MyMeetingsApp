@@ -26,6 +26,7 @@
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
     "@types/react": "19.3.0",
+    "@vercel/config": "^0.7.2",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",
     "vitest": "^5.0.2",

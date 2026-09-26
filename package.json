@@ -13,7 +13,7 @@
     "lint": "eslint --max-warnings=0 .",
     "typecheck": "turbo run typecheck",
     "knip": "knip",
-    "knip:production": "knip --production --strict",
+    "knip:production": "knip --production --strict --include-entry-exports",
     "test": "turbo run test",
     "build": "turbo run build"
   },

@@ -46,4 +46,15 @@ describe("GET /api/v1/vocabulary", () => {
     expect(slugs.indexOf("big-book")).toBe(slugs.indexOf("crosstalk") - 1);
     expect(slugs.indexOf("a-first")).toBe(slugs.indexOf("starts-on-time") - 1);
   });
+
+  it("breaks sort-order ties by slug so the order never shuffles", async () => {
+    // Inserted in reverse order; without a tie-breaker, Postgres may return ties in any order.
+    const tied = Array.from({ length: 20 }, (_, i) => `tied-${String.fromCharCode(116 - i)}`);
+    for (const slug of tied) {
+      await db.insert(tags).values({ slug, label: slug, category: "feel", sortOrder: 50 });
+    }
+    const { body } = await getVocabulary();
+    const returned = body.tags.map((tag) => tag.slug).filter((slug) => slug.startsWith("tied-"));
+    expect(returned).toEqual([...tied].reverse());
+  });
 });

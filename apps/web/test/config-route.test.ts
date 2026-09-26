@@ -75,11 +75,12 @@ describe("GET /api/v1/config", () => {
     expect(warnings(warn)).toContain("MIN_VERSION_IOS");
   });
 
-  it("keeps a feature on and warns when its switch is neither on nor off", async () => {
+  it("switches a feature off and warns when its switch is neither on nor off", async () => {
+    // A mistyped "off" during an incident must still turn the feature off.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     stubConfig({ FEATURE_TAGGING: "of" });
     const { body } = await getConfig();
-    expect(body.features.tagging).toBe(true);
+    expect(body.features.tagging).toBe(false);
     expect(warnings(warn)).toContain("FEATURE_TAGGING");
   });
 

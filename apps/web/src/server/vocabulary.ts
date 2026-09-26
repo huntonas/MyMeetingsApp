@@ -13,5 +13,6 @@ export async function getActiveVocabulary() {
     .orderBy(
       sql`array_position(array[${sqlStringList(TAG_CATEGORIES)}]::text[], ${tags.category})`,
       asc(tags.sortOrder),
+      asc(tags.slug),
     );
 }

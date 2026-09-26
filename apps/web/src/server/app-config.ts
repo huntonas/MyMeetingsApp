@@ -14,13 +14,13 @@ function version(name: VersionVar): string {
   return "0.0.0";
 }
 
-// Features are on unless explicitly switched off.
+// Features are on when unset or "on". Anything unrecognized switches the feature off, so a mistyped
+// "off" during an incident still works.
 function enabled(name: FeatureVar): boolean {
   const value = readEnv(name)?.toLowerCase();
   if (value === undefined || value === "on") return true;
-  if (value === "off") return false;
-  console.warn(`[config] ${name} should be "on" or "off"; keeping it on`);
-  return true;
+  if (value !== "off") console.warn(`[config] ${name} should be "on" or "off"; switching it off`);
+  return false;
 }
 
 export function readAppConfig(): AppConfigResponse {

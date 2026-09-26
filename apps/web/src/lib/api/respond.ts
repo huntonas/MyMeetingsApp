@@ -1,4 +1,5 @@
 import { ApiErrorBody, ERROR_MESSAGES, type ErrorCode } from "@mymeetingapp/shared";
+import { DrizzleQueryError } from "drizzle-orm";
 import type { z } from "zod";
 
 // Add a policy here when the first route that needs it lands.
@@ -36,18 +37,24 @@ function apiError(code: ErrorCode): Response {
   );
 }
 
+// Drizzle puts a failed query's parameters (coordinates, device IDs) in its message, so for query errors
+// log the SQL text and the database's own error instead.
+function describeError(error: unknown): string {
+  if (error instanceof DrizzleQueryError) {
+    return `database query failed: ${error.query}\ncaused by: ${describeError(error.cause)}`;
+  }
+  return error instanceof Error ? (error.stack ?? error.message) : String(error);
+}
+
 // Logs only the error itself. Never log the request: its headers carry raw device IDs.
 export function withErrors<Args extends unknown[]>(
-  handler: (...args: Args) => Promise<Response>,
+  handler: (...args: Args) => Response | Promise<Response>,
 ): (...args: Args) => Promise<Response> {
   return async (...args) => {
     try {
       return await handler(...args);
     } catch (error) {
-      console.error(
-        "[api] unhandled error:",
-        error instanceof Error ? (error.stack ?? error.message) : error,
-      );
+      console.error("[api] unhandled error:", describeError(error));
       return apiError("server_error");
     }
   };

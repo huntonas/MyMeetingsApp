@@ -60,7 +60,7 @@ export default defineConfig([
             {
               name: "next/server",
               importNames: ["NextResponse"],
-              message: "Use jsonResponse() or apiError() from @/lib/api/respond.",
+              message: "Use jsonResponse() from @/lib/api/respond; for failures, throw inside withErrors.",
             },
           ],
           patterns: [PARENT_IMPORT],
@@ -70,7 +70,7 @@ export default defineConfig([
         "error",
         {
           selector: "MemberExpression[object.name='Response'][property.name='json']",
-          message: "Use jsonResponse() or apiError() from @/lib/api/respond.",
+          message: "Use jsonResponse() from @/lib/api/respond; for failures, throw inside withErrors.",
         },
       ],
     },

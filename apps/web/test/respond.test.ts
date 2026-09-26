@@ -1,9 +1,16 @@
 import { format } from "node:util";
 
 import { VocabularyResponse } from "@mymeetingapp/shared";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { db, pool } from "@/db/client";
+import { tags } from "@/db/schema";
 import { jsonResponse, withErrors } from "@/lib/api/respond";
+
+import { resetDb } from "./db";
+
+beforeEach(resetDb);
+afterAll(() => pool.end());
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -27,7 +34,8 @@ describe("jsonResponse", () => {
 
   it("throws when the data breaks the contract", () => {
     const broken = { tags: [{ ...tag, category: "vibes" }] };
-    expect(() => jsonResponse(VocabularyResponse, broken as never, "none")).toThrow();
+    // @ts-expect-error -- deliberately breaks the contract
+    expect(() => jsonResponse(VocabularyResponse, broken, "none")).toThrow();
   });
 });
 
@@ -40,6 +48,21 @@ describe("withErrors", () => {
     );
     const res = await handler(new Request("http://test/api"));
     expect(await res.json()).toEqual({ tags: [] });
+  });
+
+  it("accepts a handler that returns its response directly", async () => {
+    const handler = withErrors((_req: Request) => jsonResponse(VocabularyResponse, { tags: [] }, "none"));
+    const res = await handler(new Request("http://test/api"));
+    expect(await res.json()).toEqual({ tags: [] });
+  });
+
+  it("catches an error thrown synchronously by the handler", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const handler = withErrors((_req: Request): Response => {
+      throw new Error("sync boom");
+    });
+    const res = await handler(new Request("http://test/api"));
+    expect(res.status).toBe(500);
   });
 
   it("turns a thrown error into the server_error envelope, never cached", async () => {
@@ -71,5 +94,23 @@ describe("withErrors", () => {
     const logged = log.mock.calls.map((args) => format(...args)).join("\n");
     expect(logged).toContain("boom");
     expect(logged).not.toContain("raw-device-id-123");
+  });
+
+  it("never logs a failed query's parameters, which can carry coordinates or device IDs", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const tag = { slug: "coffee", label: "Coffee", category: "practical", sortOrder: 1 } as const;
+    await db.insert(tags).values(tag);
+    const duplicateInsert = withErrors(async (_req: Request) => {
+      await db.insert(tags).values({ ...tag, label: "36.16,-86.78 device-hash-abc" });
+      return jsonResponse(VocabularyResponse, { tags: [] }, "none");
+    });
+
+    const res = await duplicateInsert(new Request("http://test/api"));
+
+    expect(res.status).toBe(500);
+    const logged = log.mock.calls.map((args) => format(...args)).join("\n");
+    expect(logged).toContain("tags_slug_unique");
+    expect(logged).not.toContain("36.16,-86.78");
+    expect(logged).not.toContain("device-hash-abc");
   });
 });

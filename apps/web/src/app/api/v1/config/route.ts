@@ -5,6 +5,4 @@ import { readAppConfig } from "@/server/app-config";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrors((_req: Request) =>
-  Promise.resolve(jsonResponse(AppConfigResponse, readAppConfig(), "config")),
-);
+export const GET = withErrors((_req: Request) => jsonResponse(AppConfigResponse, readAppConfig(), "config"));

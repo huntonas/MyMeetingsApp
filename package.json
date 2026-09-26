@@ -7,7 +7,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm knip && pnpm test",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm knip && pnpm check:migrations && pnpm test",
+    "check:migrations": "pnpm --filter web db:generate && git diff --exit-code -- apps/web/drizzle && git status --porcelain -- apps/web/drizzle | (! grep .)",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint --max-warnings=0 .",

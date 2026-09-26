@@ -55,15 +55,20 @@ describe("tags table", () => {
   const valid = { slug: "big-book", label: "Big Book", category: "format", sortOrder: 99 } as const;
 
   it("rejects an unknown category", async () => {
-    await expect(db.insert(tags).values({ ...valid, category: "vibes" as never })).rejects.toThrow();
+    // @ts-expect-error -- deliberately invalid category, to exercise the database constraint
+    const insert = db.insert(tags).values({ ...valid, category: "vibes" });
+    await expect(insert).rejects.toMatchObject({ cause: { constraint: "tags_category_check" } });
   });
 
   it("rejects an unknown status", async () => {
-    await expect(db.insert(tags).values({ ...valid, status: "deleted" as never })).rejects.toThrow();
+    // @ts-expect-error -- deliberately invalid status, to exercise the database constraint
+    const insert = db.insert(tags).values({ ...valid, status: "deleted" });
+    await expect(insert).rejects.toMatchObject({ cause: { constraint: "tags_status_check" } });
   });
 
   it("rejects a duplicate slug", async () => {
     await db.insert(tags).values(valid);
-    await expect(db.insert(tags).values({ ...valid, label: "Other" })).rejects.toThrow();
+    const insert = db.insert(tags).values({ ...valid, label: "Other" });
+    await expect(insert).rejects.toMatchObject({ cause: { constraint: "tags_slug_unique" } });
   });
 });

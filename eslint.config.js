@@ -31,6 +31,11 @@ export default defineConfig([
     },
   },
   {
+    // Command-line scripts report to the terminal.
+    files: ["apps/web/scripts/**/*.ts"],
+    rules: { "no-console": "off" },
+  },
+  {
     // Shared package tests exercise the public entry point only.
     files: ["packages/shared/test/**/*.ts"],
     rules: {

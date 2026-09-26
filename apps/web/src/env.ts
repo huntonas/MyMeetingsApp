@@ -1,7 +1,15 @@
-// The only place app code reads process.env. Add a name here when its first consumer lands.
-type EnvName = "DATABASE_URL";
+import { existsSync } from "node:fs";
+
+// The only place code reads process.env. Add a name here when its first consumer lands.
+type EnvName = "DATABASE_URL" | "DATABASE_URL_UNPOOLED";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();
   return value === "" ? undefined : value;
+}
+
+// For tooling (drizzle-kit, scripts). Next.js loads .env.local itself.
+// Variables already set in the environment always win over the file.
+export function loadLocalEnvFile(): void {
+  if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 }

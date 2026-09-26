@@ -5,6 +5,7 @@ import type { z } from "zod";
 const CACHE_POLICIES = {
   none: "no-store",
   vocabulary: "public, s-maxage=3600, stale-while-revalidate=86400",
+  config: "public, s-maxage=300, stale-while-revalidate=600",
 } as const;
 
 type CachePolicy = keyof typeof CACHE_POLICIES;

@@ -1,7 +1,15 @@
 import { existsSync } from "node:fs";
 
 // The only place code reads process.env. Add a name here when its first consumer lands.
-type EnvName = "DATABASE_URL" | "DATABASE_URL_UNPOOLED";
+type EnvName =
+  | "DATABASE_URL"
+  | "DATABASE_URL_UNPOOLED"
+  | "MIN_VERSION_IOS"
+  | "MIN_VERSION_ANDROID"
+  | "LATEST_VERSION_IOS"
+  | "LATEST_VERSION_ANDROID"
+  | "FEATURE_TAGGING"
+  | "FEATURE_SUGGESTIONS";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

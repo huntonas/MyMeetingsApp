@@ -27,7 +27,7 @@ export function jsonResponse<Schema extends z.ZodType>(
   });
 }
 
-export function apiError(code: ErrorCode): Response {
+function apiError(code: ErrorCode): Response {
   return jsonResponse(
     ApiErrorBody,
     { error: { code, message: ERROR_MESSAGES[code] } },

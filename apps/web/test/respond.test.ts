@@ -3,7 +3,7 @@ import { format } from "node:util";
 import { VocabularyResponse } from "@mymeetingapp/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { apiError, jsonResponse, withErrors } from "@/lib/api/respond";
+import { jsonResponse, withErrors } from "@/lib/api/respond";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -31,20 +31,6 @@ describe("jsonResponse", () => {
   });
 });
 
-describe("apiError", () => {
-  it("sends the error envelope with its status and no caching", async () => {
-    const res = apiError("server_error");
-    expect(res.status).toBe(500);
-    expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.json()).toEqual({
-      error: {
-        code: "server_error",
-        message: "Something went wrong on our end. Please try again in a few minutes.",
-      },
-    });
-  });
-});
-
 describe("withErrors", () => {
   const failing = withErrors((_req: Request) => Promise.reject(new Error("boom")));
 
@@ -56,11 +42,17 @@ describe("withErrors", () => {
     expect(await res.json()).toEqual({ tags: [] });
   });
 
-  it("turns a thrown error into server_error", async () => {
+  it("turns a thrown error into the server_error envelope, never cached", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const res = await failing(new Request("http://test/api"));
     expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ error: { code: "server_error" } });
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({
+      error: {
+        code: "server_error",
+        message: "Something went wrong on our end. Please try again in a few minutes.",
+      },
+    });
   });
 
   it("turns a contract violation into server_error instead of sending bad data", async () => {

@@ -113,7 +113,7 @@ The next sync will apply the new count.
 
 ### Mailbox for feed requests
 
-The feed sync includes `support@mymeetingapp.com` in the User-Agent header of every HTTP request to feed sources. This mailbox must exist and be monitored, as feed maintainers may contact it with questions about the app.
+The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of every HTTP request to feed sources. This mailbox must exist and be monitored, as feed maintainers may contact it with questions about the app.
 
 ## Rules
 

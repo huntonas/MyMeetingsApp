@@ -80,7 +80,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Restricted feeds:** some intergroups deliberately restrict their feeds (an explicit restricted response, a key requirement, or an auth requirement). Record these as `restricted`, never attempt to bypass them, and list them in the report as "contact the intergroup."
 
-**Politeness:** respect robots.txt, at most one request per second per host, a descriptive User-Agent with a contact email at mymeetingapp.com, and a timeout per request. Never hammer a site with retries.
+**Politeness:** respect robots.txt, at most one request per second per host, a descriptive User-Agent with the contact email admin@goodersoftwarellc.com, and a timeout per request. Never hammer a site with retries.
 
 **Output:**
 

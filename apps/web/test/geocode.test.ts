@@ -76,4 +76,25 @@ describe("geocodePendingAddresses", () => {
     await applyFeedSnapshot(feedId, [feedMeeting({ latitude: null, longitude: null })]);
     expect(await geocodePendingAddresses(createHostThrottle(), Date.now() - 1)).toBe(0);
   });
+
+  it.each([
+    ["an empty object body", JSON.stringify({})],
+    ["a null body", JSON.stringify(null)],
+    [
+      "non-numeric coordinates",
+      JSON.stringify({ result: { addressMatches: [{ coordinates: { x: "a", y: 1 } }] } }),
+    ],
+  ])("records no_match, with no coordinates, for %s", async (_label, body) => {
+    const server = await startServer(() => ({ status: 200, body }));
+    vi.stubEnv("CENSUS_GEOCODER_URL", `${server.baseUrl}/geocode`);
+    const feedId = await seedFeed("a");
+    await applyFeedSnapshot(feedId, [feedMeeting({ latitude: null, longitude: null })]);
+
+    expect(await geocodePendingAddresses(createHostThrottle(), Date.now() + 60_000)).toBe(1);
+    await server.close();
+
+    expect(await db.select().from(addressGeocodes)).toEqual([
+      expect.objectContaining({ status: "no_match", latitude: null, longitude: null }),
+    ]);
+  });
 });

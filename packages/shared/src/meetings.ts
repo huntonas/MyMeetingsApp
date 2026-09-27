@@ -147,6 +147,7 @@ export const OnlineMeetingsQuery = z.object({
     .regex(/^[0-6]$/)
     .transform(Number),
 });
+export type OnlineMeetingsQuery = z.infer<typeof OnlineMeetingsQuery>;
 
 export const OnlineMeetingsResponse = z.object({ meetings: z.array(MeetingSummary) });
 export type OnlineMeetingsResponse = z.infer<typeof OnlineMeetingsResponse>;

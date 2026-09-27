@@ -1,4 +1,5 @@
 import { and, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { db } from "@/db/client";
 import { addressGeocodes, feedMeetings } from "@/db/schema";
@@ -11,14 +12,17 @@ const DEFAULT_GEOCODER_URL = "https://geocoding.geo.census.gov/geocoder/location
 const BATCH_SIZE = 100;
 const TIMEOUT_MS = 15_000;
 
+// Only the first match's coordinates are read; anything else in the response is ignored.
+const CensusResponse = z.object({
+  result: z.object({
+    addressMatches: z.array(z.object({ coordinates: z.object({ x: z.number(), y: z.number() }) })),
+  }),
+});
+
 function parseCensusResponse(json: unknown): { latitude: number; longitude: number } | null {
-  if (typeof json !== "object" || json === null) return null;
-  const matches: unknown = (json as { result?: { addressMatches?: unknown } }).result?.addressMatches;
-  if (!Array.isArray(matches)) return null;
-  const coordinates: unknown = (matches[0] as { coordinates?: unknown } | undefined)?.coordinates;
-  if (typeof coordinates !== "object" || coordinates === null) return null;
-  const { x, y } = coordinates as { x?: unknown; y?: unknown };
-  return typeof x === "number" && typeof y === "number" ? { latitude: y, longitude: x } : null;
+  const parsed = CensusResponse.safeParse(json);
+  const coordinates = parsed.success ? parsed.data.result.addressMatches[0]?.coordinates : undefined;
+  return coordinates === undefined ? null : { latitude: coordinates.y, longitude: coordinates.x };
 }
 
 async function geocode(

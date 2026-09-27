@@ -73,6 +73,8 @@ Use the `db:add-feed` CLI:
    ```
 3. Restore the local env: `mv apps/web/.env.local.bak apps/web/.env.local`.
 
+Running it again with an existing slug updates that feed. A changed URL or priority makes the feed due at once and fetched in full on the next sync (no cached `ETag`), which also re-picks each meeting's primary source. A feed that opted out and later opts back in is also fetched in full.
+
 ### Triggering a sync by hand
 
 To run the sync immediately (e.g., after adding a feed), use `vercel curl`:
@@ -81,7 +83,17 @@ To run the sync immediately (e.g., after adding a feed), use `vercel curl`:
 vercel curl /api/cron/sync-feeds -- --header "Authorization: Bearer $CRON_SECRET"
 ```
 
-The response is a count summary only, for example `{ synced: 1, failed: 0, skipped: 0 }`.
+The response is a count summary only (`SyncSummary`), for example:
+
+```json
+{ "status": "done", "synced": 1, "unchanged": 0, "failed": 0, "geocoded": 3 }
+```
+
+`status` is `"locked"`, with every count 0, when another sync run is still going.
+
+### Direct database connection for the sync lock
+
+The sync holds a session-level advisory lock so only one run happens at a time. That needs a real database session, which Neon's PgBouncer pooler (transaction mode) can't give. `DATABASE_URL_UNPOOLED` must therefore be the direct host (without `-pooler` in the hostname). The Neon integration provides it; confirm its host has no `-pooler` in every environment. If it is unset, the sync falls back to `DATABASE_URL`, which in production is the pooled host and would break the lock.
 
 ### TLS configuration
 
@@ -89,7 +101,7 @@ Connection strings are upgraded to `sslmode=verify-full` in the application code
 
 ### Shrink guard
 
-If a feed previously had 20+ meetings and suddenly returns fewer than half as many, the sync will reject the update and set `feeds.last_error` to `"meeting count dropped from X to Y; not applied"`. This prevents accidental deletion of meetings.
+If a feed previously had 20 or more listings (one per meeting per day) and suddenly returns fewer than half as many, the sync will reject the update and set `feeds.last_error` to `"meeting count dropped from X to Y; not applied"`. This prevents accidental deletion of meetings.
 
 If the drop is legitimate (e.g., the data source changed), reset the stored count in the Neon console:
 

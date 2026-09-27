@@ -77,11 +77,7 @@ Running it again with an existing slug updates that feed. A changed URL or prior
 
 ### Triggering a sync by hand
 
-To run the sync immediately (e.g., after adding a feed), use `vercel curl`:
-
-```bash
-vercel curl /api/cron/sync-feeds -- --header "Authorization: Bearer $CRON_SECRET"
-```
+`CRON_SECRET` is stored as a sensitive variable, so its value can't be read back with the CLI (`vercel env run`/`pull` leave it empty). To run the sync immediately (e.g. after adding a feed), open the Vercel dashboard → the project → **Settings → Cron Jobs** and click **Run** next to `/api/cron/sync-feeds`. Vercel sends the secret itself. Otherwise, wait for the next 15-minute run.
 
 The response is a count summary only (`SyncSummary`), for example:
 

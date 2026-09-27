@@ -47,7 +47,7 @@
    - `packages/feed-kit` holds the throttle, `USER_AGENT`, `addressKey` and the `RegistryEntry` schema.
    - `packages/test-server` holds the real local HTTP server used by tests.
    - Phase 2 code moves onto both packages. Nothing is copied.
-8. **The first full run needs your go-ahead.** It sends requests to about 700 third-party sites, so the tool is built and tested first, then run once you say so. Ideally that's after the Code for Recovery contact in spec §4.
+8. **The first full run needs your go-ahead.** It sends requests to about 700 third-party sites, so the tool is built and tested first, then run once you say so. No one is asked for permission first (spec §4, good-citizen rules).
 
 ## Global Constraints
 
@@ -1117,7 +1117,7 @@ None.
 This sends requests to about 700 third-party sites, so **don't start without the user's explicit go-ahead.**
 
 - [ ] **Step 1: Confirm with the user.**
-  - They want to run now, or after the Code for Recovery contact and any ippolicy@aa.org question.
+  - They want to run now, or after any ippolicy@aa.org question.
   - They accept the expected duration.
 - [ ] **Step 2: Pilot.** Run `pnpm --filter feed-discovery discover --state VT,TN`, then show the user the resulting `coverage.md` and spot-check three entries by hand.
 - [ ] **Step 3: Full run.** Run `pnpm --filter feed-discovery discover`, then commit `registry.yaml` and `coverage.md` on a branch and open a PR.

@@ -108,7 +108,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Re-verification:** flag feeds that stop responding, new entities in the directory, and meeting-count drops over 30%.
 
-**Before launch:** contact Code for Recovery (maintainers of the Meeting Guide spec) about third-party use of feeds at national scale, and honor any opt-out an entity or group requests.
+**Good-citizen rules (instead of seeking permission):** feeds are public data owned by each entity, so no one is contacted for permission. We honor every restriction an entity sets, identify ourselves honestly in the User-Agent, respect robots.txt, sync each feed no more than every 12 hours, and honor any opt-out an entity or group requests promptly. Only Google Sheet feeds pass through a third party's server (`sheets.code4recovery.org`). If Sheet feeds turn out to matter for coverage, read public Sheets directly through Google's Sheets API instead of relying on that service.
 
 ## 5. Tagging system
 
@@ -320,7 +320,6 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 ## 16. Before launch (non-engineering)
 
-- Contact Code for Recovery about national-scale third-party use of feeds.
 - Legal review of whether Washington's My Health My Data Act and the FTC Health Breach Notification Rule apply, and of the privacy policy and terms.
 - Confirm use of the "AA" mark in store metadata is descriptive only.
 

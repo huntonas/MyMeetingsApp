@@ -21,7 +21,8 @@ Needs the dashboard (no CLI or API for these):
    - **Custom Environment Variable Prefix:** empty.
    - **Sensitive:** off, because sensitive values can't be read back by `vercel env run`. Revisit before launch.
 2. **`seed` branch:** in the Neon console (open it from the Storage page), create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables. Set `seed` as the parent for preview branches if the integration allows it.
-   - If it doesn't, previews branch from `main`. That is acceptable only until Phase 3 adds device data, and a CI step that creates preview branches from `seed` through the Neon API is required before Phase 3 ships.
+   - Confirmed 2026-09-26: the integration has no parent setting, so previews branch from `main` (e.g. `preview/phase-1-foundation`, created by Vercel). Make sure `seed` has no expiration date in Neon.
+   - Because previews branch from `main`, that is acceptable only until Phase 3 adds device data, and a CI step that creates preview branches from `seed` through the Neon API is required before Phase 3 ships.
 
 Done on 2026-09-26: `seed` and `main` are migrated and hold the 26 starter tags.
 

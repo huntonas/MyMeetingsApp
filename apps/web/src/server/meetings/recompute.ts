@@ -6,30 +6,40 @@ import { meetings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 
 // Spec §3: a canonical meeting shows its highest-priority active source and is archived once none remain.
+// Coordinates come from that source, then its address's geocode, then the highest-priority active source
+// that has them. A time zone the feed doesn't give is kept once looked up, so the lookup runs only once.
 export async function recomputeMeetings(meetingIds: string[], executor: Executor = db): Promise<void> {
   if (meetingIds.length === 0) return;
   const ids = sqlArray(meetingIds, "uuid");
 
   await executor.execute(sql`
-    with primary_source as (
-      select distinct on (fm.meeting_id)
-        fm.meeting_id, fm.id, fm.day, fm.time, fm.timezone, fm.address_key, fm.latitude, fm.longitude
+    with active_source as (
+      select fm.meeting_id, fm.id, fm.day, fm.time, fm.timezone, fm.address_key, fm.latitude, fm.longitude,
+        f.priority
       from feed_meetings fm
       join feeds f on f.id = fm.feed_id
       where fm.meeting_id = any(${ids}) and fm.archived_at is null and not f.opted_out
-      order by fm.meeting_id, f.priority, fm.id
+    ),
+    primary_source as (
+      select distinct on (meeting_id) * from active_source order by meeting_id, priority, id
+    ),
+    located_source as (
+      select distinct on (meeting_id) meeting_id, latitude, longitude from active_source
+      where latitude is not null and longitude is not null
+      order by meeting_id, priority, id
     )
     update meetings m set
       primary_feed_meeting_id = p.id,
       day = p.day,
       time = p.time,
-      latitude = coalesce(p.latitude, g.latitude),
-      longitude = coalesce(p.longitude, g.longitude),
-      timezone = p.timezone,
+      latitude = coalesce(p.latitude, g.latitude, l.latitude),
+      longitude = coalesce(p.longitude, g.longitude, l.longitude),
+      timezone = coalesce(p.timezone, m.timezone),
       archived_at = null,
       updated_at = now()
     from primary_source p
     left join address_geocodes g on g.address_key = p.address_key and g.status = 'matched'
+    left join located_source l on l.meeting_id = p.meeting_id
     where m.id = p.meeting_id
   `);
 

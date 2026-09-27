@@ -7,3 +7,13 @@ export function sqlStringList(values: readonly string[]): SQL {
   }
   return sql.raw(values.map((value) => `'${value}'`).join(", "));
 }
+
+// node-postgres doesn't bind a JS array as a Postgres array literal through sql``, so build one
+// explicitly from individually bound, cast parameters. Postgres needs an explicit cast for an empty array.
+export function sqlArray(values: readonly string[], type: "uuid" | "text"): SQL {
+  if (values.length === 0) return sql.raw(`array[]::${type}[]`);
+  return sql`array[${sql.join(
+    values.map((value) => sql`${value}::${sql.raw(type)}`),
+    sql`, `,
+  )}]`;
+}

@@ -3,15 +3,12 @@ import { and, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 
 import { db, type Executor } from "@/db/client";
 import { meetings } from "@/db/schema";
+import { sqlArray } from "@/db/sql";
 
 // Spec §3: a canonical meeting shows its highest-priority active source and is archived once none remain.
 export async function recomputeMeetings(meetingIds: string[], executor: Executor = db): Promise<void> {
   if (meetingIds.length === 0) return;
-  // node-postgres doesn't bind a JS array as a Postgres array literal through sql``, so build one explicitly.
-  const ids = sql.join(
-    meetingIds.map((id) => sql`${id}::uuid`),
-    sql`, `,
-  );
+  const ids = sqlArray(meetingIds, "uuid");
 
   await executor.execute(sql`
     with primary_source as (
@@ -19,7 +16,7 @@ export async function recomputeMeetings(meetingIds: string[], executor: Executor
         fm.meeting_id, fm.id, fm.day, fm.time, fm.timezone, fm.address_key, fm.latitude, fm.longitude
       from feed_meetings fm
       join feeds f on f.id = fm.feed_id
-      where fm.meeting_id = any(array[${ids}]) and fm.archived_at is null and not f.opted_out
+      where fm.meeting_id = any(${ids}) and fm.archived_at is null and not f.opted_out
       order by fm.meeting_id, f.priority, fm.id
     )
     update meetings m set
@@ -38,7 +35,7 @@ export async function recomputeMeetings(meetingIds: string[], executor: Executor
 
   await executor.execute(sql`
     update meetings m set archived_at = now(), updated_at = now()
-    where m.id = any(array[${ids}]) and m.archived_at is null and not exists (
+    where m.id = any(${ids}) and m.archived_at is null and not exists (
       select 1 from feed_meetings fm join feeds f on f.id = fm.feed_id
       where fm.meeting_id = m.id and fm.archived_at is null and not f.opted_out
     )

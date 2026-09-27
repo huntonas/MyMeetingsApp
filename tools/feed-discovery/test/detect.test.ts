@@ -2,7 +2,7 @@ import { startServer } from "@mymeetingapp/test-server";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createCrawler } from "../src/crawler";
-import { detectFeed, sheetStorageUrl } from "../src/detect";
+import { classifyFeedType, detectFeed, sheetStorageUrl } from "../src/detect";
 
 type Routes = Record<string, { status: number; body?: string; headers?: Record<string, string> }>;
 const servers: { close(): Promise<void> }[] = [];
@@ -26,6 +26,22 @@ describe("detectFeed", () => {
     expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({
       feedType: "tsml",
       feedUrl: `${s.baseUrl}/wp-json/tsml/meetings`,
+    });
+  });
+
+  it("detects a feed served under the website's own path", async () => {
+    const s = await site({ "/aa/wp-json/tsml/meetings": { status: 200, body: meetings, headers: json } });
+    expect(await detectFeed(`${s.baseUrl}/aa`, createCrawler())).toMatchObject({
+      feedType: "tsml",
+      feedUrl: `${s.baseUrl}/aa/wp-json/tsml/meetings`,
+    });
+  });
+
+  it("does not credit a root-only feed to a website served under a path", async () => {
+    const s = await site({ "/wp-json/tsml/meetings": { status: 200, body: meetings, headers: json } });
+    expect(await detectFeed(`${s.baseUrl}/aa`, createCrawler())).toEqual({
+      feedType: "none_found",
+      notes: "",
     });
   });
 
@@ -80,6 +96,60 @@ describe("detectFeed", () => {
     });
   });
 
+  it("falls through to the next step when the linked feed isn't a JSON array", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body:
+          '<link rel="alternate" type="application/json" title="Meetings Feed" href="/feed.json">' +
+          '<meta name="12_step_meeting_list" content="1">',
+      },
+      "/feed.json": { status: 200, body: "{}", headers: json },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toEqual({
+      feedType: "restricted",
+      feedUrl: null,
+      notes: "TSML installed; sharing restricted",
+    });
+  });
+
+  it("matches the Meetings Feed link tolerantly (rel token, type, title case-insensitive)", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body: '<link rel="ALTERNATE stylesheet" type="Application/JSON" title="meetings feed" href="/feed.json">',
+      },
+      "/feed.json": { status: 200, body: meetings, headers: json },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({
+      feedType: "meeting_guide_json",
+      feedUrl: `${s.baseUrl}/feed.json`,
+    });
+  });
+
+  it("treats a keyed Meetings Feed link as restricted and never fetches it", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body: '<link rel="alternate" type="application/json" title="Meetings Feed" href="/feed.json?key=abc">',
+      },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({ feedType: "restricted" });
+    expect(s.requests.map((r) => r.path)).not.toContain("/feed.json?key=abc");
+  });
+
+  it("resolves a relative data-src against the homepage's URL after a redirect", async () => {
+    const s = await site({
+      "/": { status: 301, headers: { Location: "/home/" } },
+      "/home/": { status: 200, body: '<div id="tsml-ui" data-src="feed.json"></div>' },
+      "/home/feed.json": { status: 200, body: meetings, headers: json },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({
+      feedType: "meeting_guide_json",
+      feedUrl: `${s.baseUrl}/home/feed.json`,
+    });
+  });
+
   it("treats a TSML UI source that carries a sharing key as restricted and never fetches it", async () => {
     const s = await site({
       "/": {
@@ -89,6 +159,36 @@ describe("detectFeed", () => {
     });
     expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({ feedType: "restricted" });
     expect(s.requests.map((r) => r.path)).not.toContain("/wp-admin/admin-ajax.php?action=meetings&key=abc");
+  });
+
+  it("skips a keyed data-src source and uses the next open source", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body: '<div id="tsml-ui" data-src="/private.json?key=abc,/feed.json"></div>',
+      },
+      "/feed.json": { status: 200, body: meetings, headers: json },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({
+      feedType: "meeting_guide_json",
+      feedUrl: `${s.baseUrl}/feed.json`,
+    });
+    expect(s.requests.map((r) => r.path)).not.toContain("/private.json?key=abc");
+  });
+
+  it("finds nothing without throwing when a link href and data-src are malformed", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body:
+          '<link rel="alternate" type="application/json" title="Meetings Feed" href="https://[x">' +
+          '<div id="tsml-ui" data-src="//"></div>',
+      },
+    });
+    await expect(detectFeed(s.baseUrl, createCrawler())).resolves.toEqual({
+      feedType: "none_found",
+      notes: "",
+    });
   });
 
   it("reports TSML installed with sharing restricted", async () => {
@@ -139,5 +239,15 @@ describe("sheetStorageUrl", () => {
 
   it("returns null for a URL that isn't a Google Sheet", () => {
     expect(sheetStorageUrl("https://example.org/feed.json")).toBeNull();
+  });
+});
+
+describe("classifyFeedType", () => {
+  it("classifies a code4recovery storage URL as a google sheet feed", () => {
+    expect(classifyFeedType("https://sheets.code4recovery.org/storage/1AbCdEf23.json")).toBe("google_sheet");
+  });
+
+  it("classifies any other feed URL as meeting_guide_json", () => {
+    expect(classifyFeedType("https://example.org/feed.json")).toBe("meeting_guide_json");
   });
 });

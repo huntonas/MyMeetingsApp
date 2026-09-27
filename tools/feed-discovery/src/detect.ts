@@ -14,8 +14,9 @@ export type Detection =
 
 const TSML_RESTRICTED_NOTE = "TSML feed restricted; contact the intergroup";
 
-// A 2xx response whose body parses as JSON is a feed; anything else (error status, non-JSON, non-array
-// JSON) is not a definite feed, so callers fall through to the next probe in the spec's order.
+// A 2xx response whose body parses as a JSON array is a feed; anything else (error status, non-JSON,
+// or JSON that isn't an array) is not a definite feed, so callers fall through to the next probe in
+// the spec's order.
 function jsonArray(result: CrawlResult): unknown[] | null {
   if (result.kind !== "response" || result.status < 200 || result.status >= 300) return null;
   try {
@@ -57,10 +58,35 @@ export function sheetStorageUrl(url: string): string | null {
   return `https://sheets.code4recovery.org/storage/${id}.json`;
 }
 
+// A feed served from code4recovery's Google Sheet storage endpoint is a `google_sheet`; any other
+// feed URL is `meeting_guide_json`. Shared by the linked feed (step 3) and the TSML UI's data-src
+// sources (step 4), so both classify the same way whether or not the URL went through
+// `sheetStorageUrl`'s rewrite.
+export function classifyFeedType(url: string): "google_sheet" | "meeting_guide_json" {
+  return new URL(url).host === "sheets.code4recovery.org" ? "google_sheet" : "meeting_guide_json";
+}
+
+// Checks a raw href or data-src value for a sharing key, before any URL resolution. A source that
+// carries one is recorded as restricted and never requested; keys are never guessed.
+function hasSharingKey(rawValue: string): boolean {
+  return rawValue.includes("key=");
+}
+
+// Resolves an href or data-src value against a base URL (typically the homepage's final URL, after
+// redirects), without ever throwing on malformed input.
+function resolveUrl(value: string, base: string): string | null {
+  try {
+    return new URL(value, base).toString();
+  } catch {
+    return null;
+  }
+}
+
 // Detects a site's meeting feed in the spec §4 order, stopping at the first definite answer. Every
-// probe is relative to the site's origin, ignoring any path on `website` itself.
+// probe is built from the given website's own URL, normalized with a trailing slash, including any
+// path it carries (e.g. `https://area.org/district5`) — never from just its origin.
 export async function detectFeed(website: string, crawler: Crawler): Promise<Detection> {
-  const origin = new URL(website).origin;
+  const base = website.endsWith("/") ? website : `${website}/`;
   // Every probe's result, so that if nothing definite turns up, the final answer can tell "every probe
   // was blocked by robots.txt" apart from "the site was reachable but had no feed".
   const probeResults: CrawlResult[] = [];
@@ -71,7 +97,7 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
   }
 
   // Step 1: TSML REST feed.
-  const restUrl = `${origin}/wp-json/tsml/meetings`;
+  const restUrl = new URL("wp-json/tsml/meetings", base).toString();
   const restResult = await probe(restUrl);
   const restArray = jsonArray(restResult);
   if (restArray !== null) return { feedType: "tsml", feedUrl: restUrl, body: restArray, notes: "" };
@@ -84,7 +110,7 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
   }
 
   // Step 2: legacy TSML AJAX feed.
-  const ajaxUrl = `${origin}/wp-admin/admin-ajax.php?action=meetings`;
+  const ajaxUrl = new URL("wp-admin/admin-ajax.php?action=meetings", base).toString();
   const ajaxResult = await probe(ajaxUrl);
   const ajaxArray = jsonArray(ajaxResult);
   if (ajaxArray !== null) return { feedType: "tsml", feedUrl: ajaxUrl, body: ajaxArray, notes: "" };
@@ -93,29 +119,37 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
   }
 
   // Steps 3-6 all read the homepage, so fetch it once.
-  const homeResult = await probe(origin);
+  const homeResult = await probe(base);
   if (homeResult.kind === "response") {
     const root = parse(homeResult.body);
     const homeUrl = homeResult.url;
+    // Set from the first keyed source seen in step 3 or step 4. If no open feed turns up in either
+    // step, that's reported as restricted instead of silently falling through to later steps.
+    let keyedFeedUrl: string | null = null;
 
-    // Step 3: a Meetings Feed <link>.
-    const feedLink = root
-      .querySelectorAll("link")
-      .find(
-        (el) =>
-          el.getAttribute("rel") === "alternate" &&
-          el.getAttribute("type") === "application/json" &&
-          el.getAttribute("title") === "Meetings Feed",
+    // Step 3: a Meetings Feed <link>, matched tolerantly: rel carries the "alternate" token, and type
+    // and title match case-insensitively.
+    const feedLink = root.querySelectorAll("link").find((el) => {
+      const relTokens = el.getAttribute("rel")?.toLowerCase().split(/\s+/) ?? [];
+      return (
+        relTokens.includes("alternate") &&
+        el.getAttribute("type")?.toLowerCase() === "application/json" &&
+        el.getAttribute("title")?.toLowerCase() === "meetings feed"
       );
+    });
     const feedHref = feedLink?.getAttribute("href");
     if (feedHref !== undefined) {
-      const feedUrl = new URL(feedHref, homeUrl).toString();
-      const feedResult = await probe(feedUrl);
-      const array = jsonArray(feedResult);
-      if (array !== null) {
-        const feedType =
-          new URL(feedUrl).host === "sheets.code4recovery.org" ? "google_sheet" : "meeting_guide_json";
-        return { feedType, feedUrl, body: array, notes: "" };
+      if (hasSharingKey(feedHref)) {
+        keyedFeedUrl = resolveUrl(feedHref, homeUrl);
+      } else {
+        const feedUrl = resolveUrl(feedHref, homeUrl);
+        if (feedUrl !== null) {
+          const feedResult = await probe(feedUrl);
+          const array = jsonArray(feedResult);
+          if (array !== null) {
+            return { feedType: classifyFeedType(feedUrl), feedUrl, body: array, notes: "" };
+          }
+        }
       }
     }
 
@@ -125,24 +159,25 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
       for (const rawSource of dataSrc.split(",")) {
         const source = rawSource.trim();
         if (source === "") continue;
-        const sourceUrl = new URL(source, homeUrl).toString();
-        // Never request a source that carries a sharing key, and never try to guess one.
-        if (source.includes("key=")) {
-          return { feedType: "restricted", feedUrl: sourceUrl, notes: TSML_RESTRICTED_NOTE };
+        // Never request a source that carries a sharing key, and never try to guess one. Keep looking
+        // at the other sources instead of stopping here.
+        if (hasSharingKey(source)) {
+          keyedFeedUrl ??= resolveUrl(source, homeUrl);
+          continue;
         }
-        const sheetUrl = sheetStorageUrl(sourceUrl);
-        const targetUrl = sheetUrl ?? sourceUrl;
+        const sourceUrl = resolveUrl(source, homeUrl);
+        if (sourceUrl === null) continue;
+        const targetUrl = sheetStorageUrl(sourceUrl) ?? sourceUrl;
         const sourceResult = await probe(targetUrl);
         const array = jsonArray(sourceResult);
         if (array !== null) {
-          return {
-            feedType: sheetUrl !== null ? "google_sheet" : "meeting_guide_json",
-            feedUrl: targetUrl,
-            body: array,
-            notes: "",
-          };
+          return { feedType: classifyFeedType(targetUrl), feedUrl: targetUrl, body: array, notes: "" };
         }
       }
+    }
+
+    if (keyedFeedUrl !== null) {
+      return { feedType: "restricted", feedUrl: keyedFeedUrl, notes: TSML_RESTRICTED_NOTE };
     }
 
     // Step 5: a restricted TSML install with no open feed found above.

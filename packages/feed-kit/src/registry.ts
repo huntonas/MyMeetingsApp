@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const FEED_TYPES = [
+const FEED_TYPES = [
   "tsml",
   "meeting_guide_json",
   "google_sheet",
@@ -8,7 +8,7 @@ export const FEED_TYPES = [
   "none_found",
   "restricted",
 ] as const;
-export const REGISTRY_ENTITY_TYPES = ["area", "district", "intergroup", "central_office"] as const;
+const REGISTRY_ENTITY_TYPES = ["area", "district", "intergroup", "central_office"] as const;
 
 const WebUrl = z.url({ protocol: /^https?$/ });
 

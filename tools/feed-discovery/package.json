@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "discover": "tsx src/main.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@mymeetingapp/test-server": "workspace:*",
     "@types/node": "^24.19.0",
+    "tsx": "^4.23.15",
     "vitest": "^5.0.2"
   }
 }

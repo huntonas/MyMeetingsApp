@@ -10,7 +10,8 @@
       "includeEntryExports": false
     },
     "tools/*": {
-      "project": ["src/**/*.ts!", "test/**/*.ts"]
+      "project": ["src/**/*.ts!", "test/**/*.ts"],
+      "includeEntryExports": false
     },
     "apps/web": {
       "entry": ["scripts/*.ts!"],

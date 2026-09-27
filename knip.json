@@ -6,7 +6,8 @@
       "project": ["src/**/*.ts!", "test/**/*.ts"]
     },
     "packages/test-server": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      "includeEntryExports": false
     },
     "apps/web": {
       "entry": ["scripts/*.ts!"],

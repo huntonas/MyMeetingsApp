@@ -4,9 +4,8 @@ import type { HostThrottle } from "@/server/feeds/throttle";
 
 const TIMEOUT_MS = 30_000;
 const MAX_BYTES = 50 * 1024 * 1024;
-// Task 10 reuses this for the geocoder's User-Agent; kept module-private until then so knip
-// doesn't flag it as an unused export.
-const USER_AGENT = `${BRAND.appName}/1.0 (+https://${BRAND.domain}; ${BRAND.contactEmail})`;
+// Shared with the geocoder's User-Agent header (@/server/meetings/geocode).
+export const USER_AGENT = `${BRAND.appName}/1.0 (+https://${BRAND.domain}; ${BRAND.contactEmail})`;
 
 export type FeedFetchResult =
   | { kind: "ok"; body: unknown; etag: string | null; lastModified: string | null }

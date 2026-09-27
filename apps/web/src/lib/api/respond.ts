@@ -1,7 +1,7 @@
 import { ApiErrorBody, ERROR_MESSAGES, type ErrorCode } from "@mymeetingapp/shared";
-import { DrizzleQueryError } from "drizzle-orm";
-import { DatabaseError } from "pg";
 import type { z } from "zod";
+
+import { logError } from "@/lib/log";
 
 // Add a policy here when the first route that needs it lands.
 const CACHE_POLICIES = {
@@ -51,20 +51,6 @@ export class ApiError extends Error {
   }
 }
 
-// Query parameters can carry coordinates and device IDs. Drizzle puts them in its error message, and the
-// database's own message can quote an offending value, so for database errors only the SQL text and the
-// database's structured fields are logged.
-function describeError(error: unknown): string {
-  if (error instanceof DrizzleQueryError) {
-    return `database query failed: ${error.query}\ncaused by: ${describeError(error.cause)}`;
-  }
-  if (error instanceof DatabaseError) {
-    const { code, severity, constraint, table, column, routine } = error;
-    return `database error ${JSON.stringify({ code, severity, constraint, table, column, routine })}`;
-  }
-  return error instanceof Error ? (error.stack ?? error.message) : String(error);
-}
-
 // Logs only the error itself. Never log the request: its headers carry raw device IDs.
 export function withErrors<Args extends unknown[]>(
   handler: (...args: Args) => Response | Promise<Response>,
@@ -74,7 +60,7 @@ export function withErrors<Args extends unknown[]>(
       return await handler(...args);
     } catch (error) {
       if (error instanceof ApiError) return apiError(error.code);
-      console.error("[api] unhandled error:", describeError(error));
+      logError("[api] unhandled error", error);
       return apiError("server_error");
     }
   };

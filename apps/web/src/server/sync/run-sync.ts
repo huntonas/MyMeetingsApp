@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { directDatabaseUrl } from "@/db/connection-url";
 import { feedMeetings, feeds } from "@/db/schema";
+import { logError } from "@/lib/log";
 import { fetchFeed } from "@/server/feeds/fetch-feed";
 import { FeedFormatError, normalizeFeed } from "@/server/feeds/normalize";
 import { createHostThrottle, type HostThrottle } from "@/server/feeds/throttle";
@@ -107,6 +108,10 @@ async function dueFeeds(): Promise<Feed[]> {
 export async function runSync(budgetMs: number): Promise<SyncSummary> {
   const deadline = Date.now() + budgetMs;
   const lockClient = new Client({ connectionString: directDatabaseUrl() });
+  // An idle client emits 'error' when its session drops; unhandled, that would crash the process.
+  lockClient.on("error", (error) => {
+    logError("[sync] lock session error", error);
+  });
   await lockClient.connect();
   try {
     const { rows } = await lockClient.query<{ locked: boolean }>(
@@ -125,10 +130,7 @@ export async function runSync(budgetMs: number): Promise<SyncSummary> {
         try {
           outcome = await syncFeed(feed, throttle);
         } catch (error) {
-          console.error(
-            `[sync] feed ${String(feed.id)} failed:`,
-            error instanceof Error ? error.name : "unknown error",
-          );
+          logError(`[sync] feed ${String(feed.id)} failed`, error);
           outcome = await recordFailure(feed, "sync failed; see logs");
         }
         counts[outcome] += 1;

@@ -13,14 +13,17 @@ interface Reply {
   headers?: Record<string, string>;
 }
 
-export async function startServer(handler: (path: string, headers: IncomingHttpHeaders) => Reply) {
+export async function startServer(
+  handler: (path: string, headers: IncomingHttpHeaders) => Reply | Promise<Reply>,
+) {
   const requests: RecordedRequest[] = [];
   const server = createServer((req, res) => {
     const path = req.url ?? "/";
     requests.push({ path, headers: req.headers, at: Date.now() });
-    const reply = handler(path, req.headers);
-    res.writeHead(reply.status, reply.headers);
-    res.end(reply.body);
+    void Promise.resolve(handler(path, req.headers)).then((reply) => {
+      res.writeHead(reply.status, reply.headers);
+      res.end(reply.body);
+    });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;

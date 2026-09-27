@@ -1,5 +1,7 @@
-import { eq, isNull } from "drizzle-orm";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { format } from "node:util";
+
+import { eq, isNull, sql } from "drizzle-orm";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
 import { feedMeetings, feeds, meetings } from "@/db/schema";
@@ -12,6 +14,7 @@ import { startServer } from "./http-server";
 const servers: { close(): Promise<void> }[] = [];
 beforeEach(resetDb);
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(servers.splice(0).map((server) => server.close()));
 });
 afterAll(() => pool.end());
@@ -31,10 +34,7 @@ function meetingJson(count: number) {
   );
 }
 
-async function feedServing(
-  slug: string,
-  reply: () => { status: number; body?: string; headers?: Record<string, string> },
-) {
+async function feedServing(slug: string, reply: Parameters<typeof startServer>[0]) {
   const server = await startServer(reply);
   servers.push(server);
   const id = await upsertFeed({
@@ -152,6 +152,31 @@ describe("runSync", () => {
     expect((await feed(odd.id))?.lastError).toBe("Feed is not a JSON array of meetings");
   });
 
+  it("logs a database failure's query and constraint, but none of the feed's content", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const poisoned = await feedServing("poisoned", () => ({
+      status: 200,
+      body: JSON.stringify([
+        { slug: "p", name: "Secret Poison Group", day: 1, time: "19:00", formatted_address: "77 Hidden Ln" },
+      ]),
+    }));
+    // A constraint the feed's content breaks, so applying the feed fails inside the database.
+    await db.execute(
+      sql`alter table feed_meetings add constraint probe_check check (name <> 'Secret Poison Group')`,
+    );
+    try {
+      expect(await runSync(60_000)).toMatchObject({ failed: 1 });
+    } finally {
+      await db.execute(sql`alter table feed_meetings drop constraint probe_check`);
+    }
+    const logged = log.mock.calls.map((args) => format(...args)).join("\n");
+    expect(logged).toContain(`feed ${String(poisoned.id)}`);
+    expect(logged).toContain('insert into "feed_meetings"');
+    expect(logged).toContain("probe_check");
+    expect(logged).not.toContain("Secret Poison");
+    expect(logged).not.toContain("Hidden Ln");
+  });
+
   it("stops starting feeds when the budget is spent", async () => {
     await feedServing("late", () => ({ status: 200, body: meetingJson(1) }));
     expect(await runSync(0)).toMatchObject({ status: "done", synced: 0 });
@@ -164,6 +189,20 @@ describe("runSync", () => {
     await runSync(60_000);
     expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(0);
     expect(await db.select().from(feedMeetings).where(isNull(feedMeetings.archivedAt))).toHaveLength(0);
+  });
+
+  it("logs a lock session dropped mid-run instead of crashing, and still syncs", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const dropped = await feedServing("dropped", async () => {
+      await db.execute(sql`
+        select pg_terminate_backend(pid) from pg_locks where locktype = 'advisory' and objid = 7202609
+      `);
+      return { status: 200, body: meetingJson(2) };
+    });
+    // The unlock then fails on the dead session, which the cron route reports as a logged server_error.
+    await expect(runSync(60_000)).rejects.toThrow("not queryable");
+    expect(await feed(dropped.id)).toMatchObject({ meetingCount: 2, lastError: null });
+    expect(log.mock.calls.map((args) => format(...args)).join("\n")).toContain("[sync] lock session error");
   });
 
   it("lets only one run happen at a time", async () => {

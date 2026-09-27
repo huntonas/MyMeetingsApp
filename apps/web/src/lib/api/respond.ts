@@ -1,5 +1,6 @@
 import { ApiErrorBody, ERROR_MESSAGES, type ErrorCode } from "@mymeetingapp/shared";
 import { DrizzleQueryError } from "drizzle-orm";
+import { DatabaseError } from "pg";
 import type { z } from "zod";
 
 // Add a policy here when the first route that needs it lands.
@@ -37,11 +38,16 @@ function apiError(code: ErrorCode): Response {
   );
 }
 
-// Drizzle puts a failed query's parameters (coordinates, device IDs) in its message, so for query errors
-// log the SQL text and the database's own error instead.
+// Query parameters can carry coordinates and device IDs. Drizzle puts them in its error message, and the
+// database's own message can quote an offending value, so for database errors only the SQL text and the
+// database's structured fields are logged.
 function describeError(error: unknown): string {
   if (error instanceof DrizzleQueryError) {
     return `database query failed: ${error.query}\ncaused by: ${describeError(error.cause)}`;
+  }
+  if (error instanceof DatabaseError) {
+    const { code, severity, constraint, table, column, routine } = error;
+    return `database error ${JSON.stringify({ code, severity, constraint, table, column, routine })}`;
   }
   return error instanceof Error ? (error.stack ?? error.message) : String(error);
 }

@@ -1,6 +1,7 @@
 import { format } from "node:util";
 
 import { VocabularyResponse } from "@mymeetingapp/shared";
+import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
@@ -111,6 +112,21 @@ describe("withErrors", () => {
     const logged = log.mock.calls.map((args) => format(...args)).join("\n");
     expect(logged).toContain("tags_slug_unique");
     expect(logged).not.toContain("36.16,-86.78");
+    expect(logged).not.toContain("device-hash-abc");
+  });
+
+  it("never logs a value the database quotes back in its own error message", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const badCast = withErrors(async (_req: Request) => {
+      await db.execute(sql`select ${"36.16 device-hash-abc"}::double precision`);
+      return jsonResponse(VocabularyResponse, { tags: [] }, "none");
+    });
+
+    const res = await badCast(new Request("http://test/api"));
+
+    expect(res.status).toBe(500);
+    const logged = log.mock.calls.map((args) => format(...args)).join("\n");
+    expect(logged).toContain("22P02"); // invalid_text_representation
     expect(logged).not.toContain("device-hash-abc");
   });
 });

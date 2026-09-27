@@ -1,31 +1,36 @@
 # Deploying mymeetingapp (web + API)
 
-Vercel (Pro team) hosts `apps/web`, and Neon provides Postgres. Builds run `pnpm run db:migrate && pnpm run build` (see `apps/web/vercel.ts`), so each deployment migrates its own database branch before building.
+Vercel (team `huntonas-projects`; Pro needed from Phase 2) hosts `apps/web`, and Neon provides Postgres. Builds run `pnpm run db:migrate && pnpm run build` (see `apps/web/vercel.ts`), so each deployment migrates its own database branch before building.
 
 ## One-time setup
 
-1. Push the repository to a private GitHub repository.
-2. In Vercel, import the repository into the Pro team.
-   - **Root Directory:** `apps/web`
-   - **Node.js version:** 24
-3. In the project's **Storage** tab, add **Neon** from the Vercel Marketplace and connect it to Production and Preview. Confirm the project now has:
-   - `DATABASE_URL`: pooled (host contains `-pooler`)
-   - `DATABASE_URL_UNPOOLED`: direct
-4. Turn on Neon **preview branching**, so each preview deployment gets its own database branch.
-5. In Neon, create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables.
-   - Set `seed` as the parent for preview branches in the integration settings.
-   - If the integration can't choose a parent branch, record that here. Previews then branch from `main`, which is acceptable only until Phase 3 adds device data. A CI step that creates preview branches from `seed` through the Neon API is then required before Phase 3 ships.
-6. Add these variables for Production and Preview (values as in `apps/web/.env.example`):
-   - `MIN_VERSION_IOS`, `MIN_VERSION_ANDROID`
-   - `LATEST_VERSION_IOS`, `LATEST_VERSION_ANDROID`
-   - `FEATURE_TAGGING`, `FEATURE_SUGGESTIONS`
-7. Deploy once, so the migrations create the tables on `main`. Then seed the vocabulary on `main` and on `seed`:
-   ```bash
-   cd apps/web
-   DATABASE_URL="<main branch pooled URL>" pnpm db:seed
-   DATABASE_URL="<seed branch pooled URL>" pnpm db:seed
-   ```
-   Copy the URLs from the Neon console. Don't save them to a file.
+Done with the Vercel CLI (60.x) on 2026-09-26:
+
+- Project `mymeetingapp` in team `huntonas-projects`: root directory `apps/web`, framework Next.js, Node.js 24.x (`vercel project add`, then `vercel api -X PATCH /v9/projects/mymeetingapp`).
+- `apps/web` linked to it (`vercel link --yes --team huntonas-projects --project mymeetingapp`; `.vercel/` is git-ignored).
+- Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, connected to Production, Preview and Development. Command: `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`.
+  - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
+  - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
+
+Needs the dashboard (no CLI or API for these):
+
+1. **GitHub access:** give the Vercel GitHub App access to `huntonas/MyMeetingsApp` (GitHub → Settings → Applications → Vercel → Configure). Then run `vercel git connect --yes` from `apps/web`.
+2. **Preview branching:** in Vercel → Storage → `mymeetingapp-db` → Settings, turn on a database branch per Preview deployment. Until this is on, Preview uses the production database, so **do it before the first preview deploys**.
+3. **`seed` branch:** in the Neon console (open it from the Storage page), create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables. Set `seed` as the parent for preview branches if the integration allows it.
+   - If it doesn't, previews branch from `main`. That is acceptable only until Phase 3 adds device data, and a CI step that creates preview branches from `seed` through the Neon API is required before Phase 3 ships.
+
+After the first production deploy has run the migrations, seed the vocabulary on `main` and `seed`:
+
+```bash
+cd apps/web
+DATABASE_URL="<branch pooled URL>" pnpm db:seed
+```
+
+Copy each branch's pooled URL from the Neon console. Don't save it to a file.
+
+`MIN_VERSION_*`, `LATEST_VERSION_*` and `FEATURE_*` are unset on purpose: unset means "never force an upgrade" and "feature on". Add one only when it needs a different value (`vercel env add <NAME> production`).
+
+**Plan:** the team is on Hobby. Phase 2's 15-minute feed-sync cron needs Pro, so upgrade before Phase 2 deploys.
 
 ## Checking a deployment
 

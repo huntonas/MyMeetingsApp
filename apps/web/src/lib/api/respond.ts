@@ -9,6 +9,7 @@ const CACHE_POLICIES = {
   vocabulary: "public, s-maxage=3600, stale-while-revalidate=86400",
   config: "public, s-maxage=300, stale-while-revalidate=600",
   meetingDetail: "public, s-maxage=300, stale-while-revalidate=600",
+  onlineMeetings: "public, s-maxage=900, stale-while-revalidate=3600",
 } as const;
 
 type CachePolicy = keyof typeof CACHE_POLICIES;

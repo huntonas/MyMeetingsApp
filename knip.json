@@ -9,6 +9,9 @@
       "project": ["src/**/*.ts"],
       "includeEntryExports": false
     },
+    "tools/*": {
+      "project": ["src/**/*.ts!", "test/**/*.ts"]
+    },
     "apps/web": {
       "entry": ["scripts/*.ts!"],
       "project": ["src/**/*.{ts,tsx}!", "scripts/**/*.ts!", "test/**/*.ts", "*.ts"]

@@ -1,0 +1,19 @@
+{
+  "name": "feed-discovery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mymeetingapp/feed-kit": "workspace:*",
+    "robots-parser": "^3.0.1"
+  },
+  "devDependencies": {
+    "@mymeetingapp/test-server": "workspace:*",
+    "@types/node": "^24.19.0",
+    "vitest": "^5.0.2"
+  }
+}

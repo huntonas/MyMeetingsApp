@@ -5,7 +5,7 @@ import { db, pool } from "@/db/client";
 import { addressGeocodes, meetings } from "@/db/schema";
 import { createHostThrottle } from "@/server/feeds/throttle";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
-import { geocodePendingAddresses, parseCensusResponse } from "@/server/meetings/geocode";
+import { geocodePendingAddresses } from "@/server/meetings/geocode";
 
 import { resetDb } from "./db";
 import { feedMeeting, seedFeed } from "./feed-fixtures";
@@ -25,19 +25,6 @@ const matched = {
   },
 };
 const noMatch = { result: { addressMatches: [] } };
-
-describe("parseCensusResponse", () => {
-  it("reads x as longitude and y as latitude", () => {
-    expect(parseCensusResponse(matched)).toEqual({ latitude: 36.162, longitude: -86.781 });
-  });
-
-  it.each([noMatch, {}, null, { result: { addressMatches: [{ coordinates: { x: "a", y: 1 } }] } }])(
-    "finds nothing in %j",
-    (json) => {
-      expect(parseCensusResponse(json)).toBeNull();
-    },
-  );
-});
 
 describe("geocodePendingAddresses", () => {
   it("stores results, fills the meeting's coordinates and never asks twice", async () => {

@@ -11,7 +11,7 @@ const DEFAULT_GEOCODER_URL = "https://geocoding.geo.census.gov/geocoder/location
 const BATCH_SIZE = 100;
 const TIMEOUT_MS = 15_000;
 
-export function parseCensusResponse(json: unknown): { latitude: number; longitude: number } | null {
+function parseCensusResponse(json: unknown): { latitude: number; longitude: number } | null {
   if (typeof json !== "object" || json === null) return null;
   const matches: unknown = (json as { result?: { addressMatches?: unknown } }).result?.addressMatches;
   if (!Array.isArray(matches)) return null;

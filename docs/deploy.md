@@ -7,6 +7,7 @@ Vercel (team `huntonas-projects`; Pro needed from Phase 2) hosts `apps/web`, and
 Done with the Vercel CLI (60.x) on 2026-09-26:
 
 - Project `mymeetingapp` in team `huntonas-projects`: root directory `apps/web`, framework Next.js, Node.js 24.x (`vercel project add`, then `vercel api -X PATCH /v9/projects/mymeetingapp`).
+- GitHub repository `huntonas/MyMeetingsApp` connected, with `main` as the production branch.
 - `apps/web` linked to it (`vercel link --yes --team huntonas-projects --project mymeetingapp`; `.vercel/` is git-ignored).
 - Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, connected to Production, Preview and Development. Command: `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`.
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
@@ -14,9 +15,8 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 
 Needs the dashboard (no CLI or API for these):
 
-1. **GitHub access:** give the Vercel GitHub App access to `huntonas/MyMeetingsApp` (GitHub → Settings → Applications → Vercel → Configure). Then run `vercel git connect --yes` from `apps/web`.
-2. **Preview branching:** in Vercel → Storage → `mymeetingapp-db` → Settings, turn on a database branch per Preview deployment. Until this is on, Preview uses the production database, so **do it before the first preview deploys**.
-3. **`seed` branch:** in the Neon console (open it from the Storage page), create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables. Set `seed` as the parent for preview branches if the integration allows it.
+1. **Preview branching:** in Vercel → Storage → `mymeetingapp-db` → Settings, turn on a database branch per Preview deployment. Until this is on, Preview uses the production database, so **do it before the first preview deploys**.
+2. **`seed` branch:** in the Neon console (open it from the Storage page), create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables. Set `seed` as the parent for preview branches if the integration allows it.
    - If it doesn't, previews branch from `main`. That is acceptable only until Phase 3 adds device data, and a CI step that creates preview branches from `seed` through the Neon API is required before Phase 3 ships.
 
 After the first production deploy has run the migrations, seed the vocabulary on `main` and `seed`:

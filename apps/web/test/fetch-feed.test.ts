@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { fetchFeed } from "@/server/feeds/fetch-feed";
 import { createHostThrottle } from "@/server/feeds/throttle";
 
-import { startServer } from "./http-server";
+import { startServer } from "@mymeetingapp/test-server";
 
 const noCache = { etag: null, lastModified: null };
 const servers: { close(): Promise<void> }[] = [];

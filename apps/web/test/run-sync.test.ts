@@ -10,7 +10,7 @@ import { upsertFeed } from "@/db/upsert-feed";
 import { runSync } from "@/server/sync/run-sync";
 
 import { resetDb } from "./db";
-import { startServer } from "./http-server";
+import { startServer } from "@mymeetingapp/test-server";
 
 const servers: { close(): Promise<void> }[] = [];
 beforeEach(resetDb);

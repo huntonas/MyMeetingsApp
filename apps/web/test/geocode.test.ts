@@ -9,7 +9,7 @@ import { geocodePendingAddresses } from "@/server/meetings/geocode";
 
 import { resetDb } from "./db";
 import { feedMeeting, seedFeed } from "./feed-fixtures";
-import { startServer } from "./http-server";
+import { startServer } from "@mymeetingapp/test-server";
 
 beforeEach(resetDb);
 afterEach(() => {

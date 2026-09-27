@@ -26,6 +26,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@mymeetingapp/test-server": "workspace:*",
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
     "@types/react": "19.3.0",

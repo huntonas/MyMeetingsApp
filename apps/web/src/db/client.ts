@@ -14,3 +14,6 @@ export const pool = new Pool({
 attachDatabasePool(pool);
 
 export const db = drizzle({ client: pool });
+
+// Either the pooled client or a transaction, so functions can run standalone or inside one.
+export type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];

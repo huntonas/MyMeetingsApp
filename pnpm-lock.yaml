@@ -196,6 +196,9 @@ importers:
       '@mymeetingapp/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@photostructure/tz-lookup':
+        specifier: ^11.7.0
+        version: 11.7.0
       '@vercel/functions':
         specifier: ^3.9.9
         version: 3.9.9
@@ -1257,6 +1260,9 @@ packages:
     resolution: {integrity: sha512-UqGPmo56KDfLlfXFAFIrNflHT8tFxWGEivWg3Zeyp4Uy2NlKN1FGPr6/BxcLGG3+kZ6Wp14g5Uj+n71boqZfiw==, tarball: https://registry.npmjs.org/@oxc-resolver/binding-win32-x64-msvc/-/binding-win32-x64-msvc-11.24.2.tgz}
     cpu: [x64]
     os: [win32]
+
+  '@photostructure/tz-lookup@11.7.0':
+    resolution: {integrity: sha512-QbKHXvleluMIlAHf2JiQTJNU5rLQBeQhLobyRqgXZ6NNGKqNikaRkjYviJ4nMU7Y75QE7bBYM8xjiFGjAukyhw==, tarball: https://registry.npmjs.org/@photostructure/tz-lookup/-/tz-lookup-11.7.0.tgz}
 
   '@rolldown/binding-android-arm-eabi@1.2.11':
     resolution: {integrity: sha512-A5kXfGKvKWWZE0TtPrfsvT+q4Y5d1QG8gGUzpYjGydM+fARM9MuX90PrXYXe0XbsDVgyxxNzHo6giCj90bsFNw==, tarball: https://registry.npmjs.org/@rolldown/binding-android-arm-eabi/-/binding-android-arm-eabi-1.2.11.tgz}
@@ -3023,6 +3029,8 @@ snapshots:
 
   '@oxc-resolver/binding-win32-x64-msvc@11.24.2':
     optional: true
+
+  '@photostructure/tz-lookup@11.7.0': {}
 
   '@rolldown/binding-android-arm-eabi@1.2.11':
     optional: true

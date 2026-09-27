@@ -45,6 +45,17 @@ describe("detectFeed", () => {
     });
   });
 
+  it("drops a query string and fragment from the website when building the base", async () => {
+    const s = await site({
+      "/": { status: 200, body: '<div id="tsml-ui" data-src="/feed.json"></div>' },
+      "/feed.json": { status: 200, body: meetings, headers: json },
+    });
+    expect(await detectFeed(`${s.baseUrl}/?p=1#frag`, createCrawler())).toMatchObject({
+      feedType: "meeting_guide_json",
+      feedUrl: `${s.baseUrl}/feed.json`,
+    });
+  });
+
   it("records a restricted TSML REST feed and stops probing", async () => {
     const s = await site({
       "/wp-json/tsml/meetings": {
@@ -138,6 +149,22 @@ describe("detectFeed", () => {
     expect(s.requests.map((r) => r.path)).not.toContain("/feed.json?key=abc");
   });
 
+  it("never stores a keyed Meetings Feed link's URL, even in the restricted result", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body: '<link rel="alternate" type="application/json" title="Meetings Feed" href="/feed.json?key=abc">',
+      },
+    });
+    const result = await detectFeed(s.baseUrl, createCrawler());
+    expect(result).toEqual({
+      feedType: "restricted",
+      feedUrl: null,
+      notes: "TSML feed restricted; contact the intergroup",
+    });
+    expect(JSON.stringify(result)).not.toContain("key=");
+  });
+
   it("resolves a relative data-src against the homepage's URL after a redirect", async () => {
     const s = await site({
       "/": { status: 301, headers: { Location: "/home/" } },
@@ -174,6 +201,33 @@ describe("detectFeed", () => {
       feedUrl: `${s.baseUrl}/feed.json`,
     });
     expect(s.requests.map((r) => r.path)).not.toContain("/private.json?key=abc");
+  });
+
+  it("never stores a keyed data-src source's URL, even in the restricted result", async () => {
+    const s = await site({
+      "/": {
+        status: 200,
+        body: '<div id="tsml-ui" data-src="/wp-admin/admin-ajax.php?action=meetings&key=abc"></div>',
+      },
+    });
+    const result = await detectFeed(s.baseUrl, createCrawler());
+    expect(result).toEqual({
+      feedType: "restricted",
+      feedUrl: null,
+      notes: "TSML feed restricted; contact the intergroup",
+    });
+    expect(JSON.stringify(result)).not.toContain("key=");
+  });
+
+  it("treats an unparseable keyed data-src source as restricted too", async () => {
+    const s = await site({
+      "/": { status: 200, body: '<div id="tsml-ui" data-src="https://[x?key=abc"></div>' },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toEqual({
+      feedType: "restricted",
+      feedUrl: null,
+      notes: "TSML feed restricted; contact the intergroup",
+    });
   });
 
   it("finds nothing without throwing when a link href and data-src are malformed", async () => {

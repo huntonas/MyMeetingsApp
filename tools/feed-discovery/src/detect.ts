@@ -82,11 +82,20 @@ function resolveUrl(value: string, base: string): string | null {
   }
 }
 
+// The given website's own URL as a base for every probe: its origin and path (e.g.
+// `https://area.org/district5`), normalized with a trailing slash — never just its origin, and never
+// carrying a query string or fragment, which would otherwise corrupt the homepage GET.
+function siteBase(website: string): string {
+  const url = new URL(website);
+  const path = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+  return `${url.origin}${path}`;
+}
+
 // Detects a site's meeting feed in the spec §4 order, stopping at the first definite answer. Every
 // probe is built from the given website's own URL, normalized with a trailing slash, including any
-// path it carries (e.g. `https://area.org/district5`) — never from just its origin.
+// path it carries — never from just its origin.
 export async function detectFeed(website: string, crawler: Crawler): Promise<Detection> {
-  const base = website.endsWith("/") ? website : `${website}/`;
+  const base = siteBase(website);
   // Every probe's result, so that if nothing definite turns up, the final answer can tell "every probe
   // was blocked by robots.txt" apart from "the site was reachable but had no feed".
   const probeResults: CrawlResult[] = [];
@@ -123,9 +132,12 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
   if (homeResult.kind === "response") {
     const root = parse(homeResult.body);
     const homeUrl = homeResult.url;
-    // Set from the first keyed source seen in step 3 or step 4. If no open feed turns up in either
-    // step, that's reported as restricted instead of silently falling through to later steps.
-    let keyedFeedUrl: string | null = null;
+    // Set (from the raw, unresolved value) when step 3 or step 4 sees a source carrying a sharing key.
+    // If no open feed turns up in either step, that's reported as restricted instead of silently
+    // falling through to later steps. The key itself is never recorded anywhere, including in the
+    // restricted result's feedUrl — a private key must never end up in the registry that gets
+    // committed to git.
+    let sawKeyedSource = false;
 
     // Step 3: a Meetings Feed <link>, matched tolerantly: rel carries the "alternate" token, and type
     // and title match case-insensitively.
@@ -140,7 +152,7 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
     const feedHref = feedLink?.getAttribute("href");
     if (feedHref !== undefined) {
       if (hasSharingKey(feedHref)) {
-        keyedFeedUrl = resolveUrl(feedHref, homeUrl);
+        sawKeyedSource = true;
       } else {
         const feedUrl = resolveUrl(feedHref, homeUrl);
         if (feedUrl !== null) {
@@ -162,7 +174,7 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
         // Never request a source that carries a sharing key, and never try to guess one. Keep looking
         // at the other sources instead of stopping here.
         if (hasSharingKey(source)) {
-          keyedFeedUrl ??= resolveUrl(source, homeUrl);
+          sawKeyedSource = true;
           continue;
         }
         const sourceUrl = resolveUrl(source, homeUrl);
@@ -176,8 +188,8 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
       }
     }
 
-    if (keyedFeedUrl !== null) {
-      return { feedType: "restricted", feedUrl: keyedFeedUrl, notes: TSML_RESTRICTED_NOTE };
+    if (sawKeyedSource) {
+      return { feedType: "restricted", feedUrl: null, notes: TSML_RESTRICTED_NOTE };
     }
 
     // Step 5: a restricted TSML install with no open feed found above.

@@ -1,7 +1,9 @@
 import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { Client } from "pg";
 import { z } from "zod";
 
-import { db, pool } from "@/db/client";
+import { db } from "@/db/client";
+import { directDatabaseUrl } from "@/db/connection-url";
 import { feedMeetings, feeds } from "@/db/schema";
 import { fetchFeed } from "@/server/feeds/fetch-feed";
 import { FeedFormatError, normalizeFeed } from "@/server/feeds/normalize";
@@ -100,9 +102,12 @@ async function dueFeeds(): Promise<Feed[]> {
 }
 
 // Spec §3: stalest feeds first, stop starting new ones when the budget is spent, one failure never stops the rest.
+// The advisory lock is session-level, so it needs a direct connection: pool's DATABASE_URL is Neon's
+// PgBouncer (transaction mode) pooler in production, where lock and unlock can land on different backends.
 export async function runSync(budgetMs: number): Promise<SyncSummary> {
   const deadline = Date.now() + budgetMs;
-  const lockClient = await pool.connect();
+  const lockClient = new Client({ connectionString: directDatabaseUrl() });
+  await lockClient.connect();
   try {
     const { rows } = await lockClient.query<{ locked: boolean }>(
       "select pg_try_advisory_lock($1) as locked",
@@ -134,6 +139,7 @@ export async function runSync(budgetMs: number): Promise<SyncSummary> {
       await lockClient.query("select pg_advisory_unlock($1)", [LOCK_KEY]);
     }
   } finally {
-    lockClient.release();
+    // Ending the session also frees the lock if the unlock above failed.
+    await lockClient.end();
   }
 }

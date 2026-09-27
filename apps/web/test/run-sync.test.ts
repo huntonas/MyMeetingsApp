@@ -118,6 +118,34 @@ describe("runSync", () => {
     expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(40);
   });
 
+  it("applies a feed that shrinks to exactly half", async () => {
+    let body = meetingJson(40);
+    const exactlyHalf = await feedServing("exactly-half", () => ({ status: 200, body }));
+    await runSync(60_000);
+    body = meetingJson(20);
+    await db
+      .update(feeds)
+      .set({ lastSuccessAt: new Date(0), lastAttemptAt: new Date(0) })
+      .where(eq(feeds.id, exactlyHalf.id));
+    expect(await runSync(60_000)).toMatchObject({ synced: 1, failed: 0 });
+    expect(await feed(exactlyHalf.id)).toMatchObject({ meetingCount: 20, lastError: null });
+    expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(20);
+  });
+
+  it("applies a feed whose previous count is below the shrink-guard minimum", async () => {
+    let body = meetingJson(10);
+    const small = await feedServing("small", () => ({ status: 200, body }));
+    await runSync(60_000);
+    body = meetingJson(2);
+    await db
+      .update(feeds)
+      .set({ lastSuccessAt: new Date(0), lastAttemptAt: new Date(0) })
+      .where(eq(feeds.id, small.id));
+    expect(await runSync(60_000)).toMatchObject({ synced: 1, failed: 0 });
+    expect(await feed(small.id)).toMatchObject({ meetingCount: 2, lastError: null });
+    expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(2);
+  });
+
   it("records a feed that isn't a meeting array", async () => {
     const odd = await feedServing("odd", () => ({ status: 200, body: '{"meetings":[]}' }));
     await runSync(60_000);

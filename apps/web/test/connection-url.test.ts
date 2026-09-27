@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { withVerifiedTls } from "@/db/connection-url";
+import { directDatabaseUrl, withVerifiedTls } from "@/db/connection-url";
 
 describe("withVerifiedTls", () => {
   it.each(["require", "prefer", "verify-ca"])("upgrades sslmode=%s to verify-full", (mode) => {
@@ -25,5 +25,23 @@ describe("withVerifiedTls", () => {
     expect(withVerifiedTls("postgresql://u:p%40ss@host/db?sslmode=require")).toBe(
       "postgresql://u:p%40ss@host/db?sslmode=verify-full",
     );
+  });
+});
+
+describe("directDatabaseUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("prefers DATABASE_URL_UNPOOLED when both are set", () => {
+    vi.stubEnv("DATABASE_URL_UNPOOLED", "postgres://u:p@direct-host/db");
+    vi.stubEnv("DATABASE_URL", "postgres://u:p@pooled-host/db");
+    expect(directDatabaseUrl()).toBe("postgres://u:p@direct-host/db");
+  });
+
+  it("falls back to DATABASE_URL when only that is set", () => {
+    vi.stubEnv("DATABASE_URL_UNPOOLED", undefined);
+    vi.stubEnv("DATABASE_URL", "postgres://u:p@pooled-host/db");
+    expect(directDatabaseUrl()).toBe("postgres://u:p@pooled-host/db");
   });
 });

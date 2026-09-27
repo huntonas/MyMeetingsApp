@@ -11,6 +11,8 @@ export type CrawlResult =
 
 type Robots = ReturnType<typeof robotsParser>;
 
+export type Crawler = ReturnType<typeof createCrawler>;
+
 // Spec §4 politeness: robots.txt for every hop, one request per second per host, an honest
 // User-Agent, a timeout, and no retries.
 export function createCrawler() {

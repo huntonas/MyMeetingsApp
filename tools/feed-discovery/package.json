@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@mymeetingapp/feed-kit": "workspace:*",
+    "node-html-parser": "^6.1.13",
     "robots-parser": "^3.0.1"
   },
   "devDependencies": {

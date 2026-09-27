@@ -12,6 +12,25 @@ export type FeedFetchResult =
   | { kind: "not_modified" }
   | { kind: "error"; message: string };
 
+// Counts bytes as they arrive, so an oversized body (whatever its declared length) is never fully buffered.
+async function readCapped(response: Response): Promise<string | null> {
+  if (response.body === null) return "";
+  const reader: ReadableStreamDefaultReader<Uint8Array> = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > MAX_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export async function fetchFeed(
   url: string,
   cache: { etag: string | null; lastModified: string | null },
@@ -40,8 +59,8 @@ export async function fetchFeed(
   if (Number(response.headers.get("content-length") ?? 0) > MAX_BYTES)
     return { kind: "error", message: "too large" };
 
-  const text = await response.text();
-  if (text.length > MAX_BYTES) return { kind: "error", message: "too large" };
+  const text = await readCapped(response);
+  if (text === null) return { kind: "error", message: "too large" };
   try {
     return {
       kind: "ok",

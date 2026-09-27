@@ -1,16 +1,35 @@
-import { createServer, type IncomingHttpHeaders } from "node:http";
+import { once } from "node:events";
+import { createServer, type IncomingHttpHeaders, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
 interface RecordedRequest {
   path: string;
   headers: IncomingHttpHeaders;
   at: number;
+  // Response body bytes the server managed to write before the client stopped reading or disconnected.
+  sentBytes: number;
 }
 
 interface Reply {
   status: number;
   body?: string;
   headers?: Record<string, string>;
+  // Streams `chunk` `count` times instead of sending `body`, pausing whenever the client stops reading.
+  stream?: { chunk: string; count: number };
+}
+
+async function streamChunks(
+  res: ServerResponse,
+  record: RecordedRequest,
+  { chunk, count }: { chunk: string; count: number },
+) {
+  const closed = once(res, "close");
+  for (let i = 0; i < count && !res.destroyed; i++) {
+    const flushed = res.write(chunk);
+    record.sentBytes += Buffer.byteLength(chunk);
+    if (!flushed) await Promise.race([once(res, "drain"), closed]);
+  }
+  res.end();
 }
 
 export async function startServer(
@@ -19,10 +38,16 @@ export async function startServer(
   const requests: RecordedRequest[] = [];
   const server = createServer((req, res) => {
     const path = req.url ?? "/";
-    requests.push({ path, headers: req.headers, at: Date.now() });
-    void Promise.resolve(handler(path, req.headers)).then((reply) => {
+    const record = { path, headers: req.headers, at: Date.now(), sentBytes: 0 };
+    requests.push(record);
+    void Promise.resolve(handler(path, req.headers)).then(async (reply) => {
       res.writeHead(reply.status, reply.headers);
-      res.end(reply.body);
+      if (reply.stream === undefined) {
+        record.sentBytes = Buffer.byteLength(reply.body ?? "");
+        res.end(reply.body);
+      } else {
+        await streamChunks(res, record, reply.stream);
+      }
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

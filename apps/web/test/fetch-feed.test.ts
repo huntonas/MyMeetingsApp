@@ -74,6 +74,32 @@ describe("fetchFeed", () => {
     });
   });
 
+  it("rejects a declared Content-Length over 50 MB without reading the body", async () => {
+    const declared = 60 * 1024 * 1024;
+    const chunk = "x".repeat(65_536);
+    const server = await serve(() => ({
+      status: 200,
+      headers: { "Content-Length": String(declared) },
+      stream: { chunk, count: declared / 65_536 },
+    }));
+    expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
+      kind: "error",
+      message: "too large",
+    });
+    expect(server.requests[0]?.sentBytes).toBeLessThan(20 * 1024 * 1024);
+  });
+
+  it("stops reading a streamed body once it passes 50 MB, counting bytes rather than characters", async () => {
+    // 3 bytes per character: about 131 MB on the wire but only 44 million characters.
+    const chunk = "€".repeat(21_845);
+    const server = await serve(() => ({ status: 200, stream: { chunk, count: 2000 } }));
+    expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
+      kind: "error",
+      message: "too large",
+    });
+    expect(server.requests[0]?.sentBytes).toBeLessThan(100 * 1024 * 1024);
+  });
+
   it("reports a host that refuses connections", async () => {
     const server = await serve(() => ({ status: 200 }));
     await server.close();

@@ -295,6 +295,9 @@ importers:
       robots-parser:
         specifier: ^3.0.1
         version: 3.0.1
+      yaml:
+        specifier: ^2.8.1
+        version: 2.9.1
     devDependencies:
       '@mymeetingapp/test-server':
         specifier: workspace:*

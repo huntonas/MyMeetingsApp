@@ -4,7 +4,8 @@ import { db } from "@/db/client";
 import { feedMeetings, meetings } from "@/db/schema";
 import { primarySourceJoin, summaryColumns } from "@/server/meetings/summary";
 
-// The normalizer only marks a meeting online or hybrid when it has a conference URL or phone.
+// The normalizer only marks a meeting online or hybrid when it has a conference URL or phone. Listings that
+// share a conference URL are merged into one meeting when feeds are applied, so each appears once (spec §7).
 export async function onlineMeetings(day: number) {
   return db
     .select(summaryColumns)

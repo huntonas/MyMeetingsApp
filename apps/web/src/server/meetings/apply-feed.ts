@@ -9,8 +9,9 @@ import { recomputeMeetings } from "@/server/meetings/recompute";
 const MATCH_DISTANCE_METERS = 50;
 
 // Spec §3 matching: same day and start time, plus the same normalized address, coordinates within 50 m,
-// or (online only) the same conference URL. A meeting that this feed lists under another slug in the same
-// snapshot is excluded, so two rooms at one address and time stay separate.
+// or the same conference URL when both rows are online or hybrid (spec §7 dedupes online meetings by URL).
+// A meeting that this feed lists under another slug in the same snapshot is excluded, so two rooms at one
+// address and time stay separate, unless both listings share a conference URL, which makes them one meeting.
 async function findMatchingMeeting(
   tx: Executor,
   feedId: number,
@@ -28,7 +29,8 @@ async function findMatchingMeeting(
         exists (
           select 1 from feed_meetings fm where fm.meeting_id = meetings.id and (
             (${row.addressKey}::text is not null and fm.address_key = ${row.addressKey})
-            or (${row.attendance} = 'online' and fm.attendance = 'online' and fm.conference_url = ${row.conferenceUrl})
+            or (${row.attendance} in ('online', 'hybrid') and fm.attendance in ('online', 'hybrid')
+              and fm.conference_url = ${row.conferenceUrl})
           )
         )
         ${point === null ? sql`` : sql`or ST_DWithin(${meetingLocation}, ${point}, ${MATCH_DISTANCE_METERS})`}
@@ -38,6 +40,7 @@ async function findMatchingMeeting(
         where same_feed.meeting_id = meetings.id and same_feed.feed_id = ${feedId}
           and same_feed.day = ${row.day}
           and same_feed.source_slug = any(${sqlArray(snapshotSlugs, "text")})
+          and not coalesce(same_feed.conference_url = ${row.conferenceUrl}, false)
       )
     order by meetings.archived_at nulls first, meetings.created_at
     limit 1

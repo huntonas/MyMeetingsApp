@@ -23,6 +23,15 @@ async function meetingIdOf(feedId: number, sourceSlug: string) {
   return row?.meetingId;
 }
 
+const online = {
+  attendance: "online",
+  formattedAddress: null,
+  addressKey: null,
+  latitude: null,
+  longitude: null,
+  conferenceUrl: "https://zoom.us/j/1",
+} as const;
+
 describe("applyFeedSnapshot", () => {
   it("creates one canonical meeting per row", async () => {
     const feedId = await seedFeed("a");
@@ -73,16 +82,35 @@ describe("applyFeedSnapshot", () => {
   it("joins online-only meetings by conference URL", async () => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
-    const online = {
-      attendance: "online",
-      formattedAddress: null,
-      addressKey: null,
-      latitude: null,
-      longitude: null,
-      conferenceUrl: "https://zoom.us/j/1",
-    } as const;
     await applyFeedSnapshot(a, [feedMeeting({ ...online })]);
     await applyFeedSnapshot(b, [feedMeeting({ ...online, sourceSlug: "b" })]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("merges one conference URL listed under two slugs in one feed at the same day and time", async () => {
+    const feedId = await seedFeed("a");
+    await applyFeedSnapshot(feedId, [
+      feedMeeting({ ...online, sourceSlug: "listing-a" }),
+      feedMeeting({ ...online, sourceSlug: "listing-b" }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(1);
+    expect(await meetingIdOf(feedId, "listing-b")).toBe(await meetingIdOf(feedId, "listing-a"));
+  });
+
+  it("merges a meeting one feed calls online and another calls hybrid, by conference URL", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ ...online })]);
+    await applyFeedSnapshot(b, [
+      feedMeeting({
+        sourceSlug: "b",
+        attendance: "hybrid",
+        addressKey: "somewhere else entirely",
+        latitude: 40,
+        longitude: -80,
+        conferenceUrl: "https://zoom.us/j/1",
+      }),
+    ]);
     expect(await activeMeetings()).toHaveLength(1);
   });
 

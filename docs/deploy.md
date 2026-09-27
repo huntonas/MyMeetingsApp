@@ -15,7 +15,11 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 
 Needs the dashboard (no CLI or API for these):
 
-1. **Preview branching:** in Vercel → Storage → `mymeetingapp-db` → Settings, turn on a database branch per Preview deployment. Until this is on, Preview uses the production database, so **do it before the first preview deploys**.
+1. **Preview branching** (done 2026-09-26): this is only offered when a project is connected. On an existing connection, **Connect Project** fails with "already connected to the target store", so the fix is to disconnect (`vercel ir disconnect mymeetingapp-db mymeetingapp --yes`, which leaves the live deployments running) and then reconnect in Storage → `mymeetingapp-db` → Connect Project, with these settings:
+   - **Environments:** all.
+   - **Create Database Branch For Deployment:** Preview on, Production off.
+   - **Custom Environment Variable Prefix:** empty.
+   - **Sensitive:** off, because sensitive values can't be read back by `vercel env run`. Revisit before launch.
 2. **`seed` branch:** in the Neon console (open it from the Storage page), create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables. Set `seed` as the parent for preview branches if the integration allows it.
    - If it doesn't, previews branch from `main`. That is acceptable only until Phase 3 adds device data, and a CI step that creates preview branches from `seed` through the Neon API is required before Phase 3 ships.
 

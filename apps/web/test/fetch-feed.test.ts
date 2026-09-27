@@ -74,30 +74,17 @@ describe("fetchFeed", () => {
     });
   });
 
-  it("rejects a declared Content-Length over 50 MB without reading the body", async () => {
-    const declared = 60 * 1024 * 1024;
-    const chunk = "x".repeat(65_536);
+  it("maps a declared Content-Length over 50 MB to a 'too large' error", async () => {
+    // No real body is sent: readBodyCapped's byte-counting behaviour is covered by feed-kit's own tests.
+    // This just proves fetchFeed maps its null result to the right error.
     const server = await serve(() => ({
       status: 200,
-      headers: { "Content-Length": String(declared) },
-      stream: { chunk, count: declared / 65_536 },
+      headers: { "Content-Length": String(60 * 1024 * 1024) },
     }));
     expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
       kind: "error",
       message: "too large",
     });
-    expect(server.requests[0]?.sentBytes).toBeLessThan(20 * 1024 * 1024);
-  });
-
-  it("stops reading a streamed body once it passes 50 MB, counting bytes rather than characters", async () => {
-    // 3 bytes per character: about 131 MB on the wire but only 44 million characters.
-    const chunk = "€".repeat(21_845);
-    const server = await serve(() => ({ status: 200, stream: { chunk, count: 2000 } }));
-    expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
-      kind: "error",
-      message: "too large",
-    });
-    expect(server.requests[0]?.sentBytes).toBeLessThan(100 * 1024 * 1024);
   });
 
   it("reports a host that refuses connections", async () => {

@@ -1,4 +1,4 @@
-import { MeetingDetailResponse, type MeetingSummary } from "@mymeetingapp/shared";
+import { MeetingDetailResponse } from "@mymeetingapp/shared";
 import { z } from "zod";
 
 import { parseInput } from "@/lib/api/request";
@@ -13,6 +13,5 @@ export const GET = withErrors(async (_req: Request, context: { params: Promise<{
   const { id } = parseInput(Params, await context.params);
   const meeting = await getMeeting(id);
   if (meeting === undefined) throw new ApiError("meeting_not_found");
-  // Drizzle widens `types` and `attendance` to string; `jsonResponse`'s parse enforces the real contract.
-  return jsonResponse(MeetingDetailResponse, { meeting: meeting as MeetingSummary }, "meetingDetail");
+  return jsonResponse(MeetingDetailResponse, { meeting }, "meetingDetail");
 });

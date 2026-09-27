@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addressKey } from "@/server/feeds/address";
+import { addressKey } from "../src/index";
 
 describe("addressKey", () => {
   it.each([

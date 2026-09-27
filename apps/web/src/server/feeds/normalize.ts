@@ -1,6 +1,5 @@
+import { addressKey } from "@mymeetingapp/feed-kit";
 import { MEETING_TYPE_CODES, type MeetingSummary } from "@mymeetingapp/shared";
-
-import { addressKey } from "@/server/feeds/address";
 
 export interface FeedMeeting {
   sourceSlug: string;

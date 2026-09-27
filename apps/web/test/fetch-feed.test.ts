@@ -1,7 +1,7 @@
+import { createHostThrottle } from "@mymeetingapp/feed-kit";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { fetchFeed } from "@/server/feeds/fetch-feed";
-import { createHostThrottle } from "@/server/feeds/throttle";
 
 import { startServer } from "@mymeetingapp/test-server";
 
@@ -108,16 +108,5 @@ describe("fetchFeed", () => {
       kind: "error",
       message: "could not connect",
     });
-  });
-
-  it("waits a second between requests to the same host, but not across hosts", async () => {
-    const server = await serve(() => ({ status: 200, body: "[]" }));
-    const throttle = createHostThrottle();
-    await fetchFeed(`${server.baseUrl}/a`, noCache, throttle);
-    await fetchFeed(`http://localhost:${String(server.port)}/b`, noCache, throttle);
-    await fetchFeed(`${server.baseUrl}/c`, noCache, throttle);
-    const [first, otherHost, sameHost] = server.requests.map((request) => request.at);
-    expect((otherHost ?? 0) - (first ?? 0)).toBeLessThan(500);
-    expect((sameHost ?? 0) - (first ?? 0)).toBeGreaterThanOrEqual(990);
   });
 });

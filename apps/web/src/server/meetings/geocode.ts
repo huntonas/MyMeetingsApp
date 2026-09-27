@@ -1,11 +1,11 @@
 import { and, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { USER_AGENT, type HostThrottle } from "@mymeetingapp/feed-kit";
+
 import { db } from "@/db/client";
 import { addressGeocodes, feedMeetings } from "@/db/schema";
 import { readEnv } from "@/env";
-import { USER_AGENT } from "@/server/feeds/fetch-feed";
-import type { HostThrottle } from "@/server/feeds/throttle";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
 const DEFAULT_GEOCODER_URL = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress";

@@ -1,35 +1,11 @@
-import { BRAND } from "@mymeetingapp/shared";
-
-import type { HostThrottle } from "@/server/feeds/throttle";
+import { readBodyCapped, USER_AGENT, type HostThrottle } from "@mymeetingapp/feed-kit";
 
 const TIMEOUT_MS = 30_000;
-const MAX_BYTES = 50 * 1024 * 1024;
-// Shared with the geocoder's User-Agent header (@/server/meetings/geocode).
-export const USER_AGENT = `${BRAND.appName}/1.0 (+https://${BRAND.domain}; ${BRAND.contactEmail})`;
 
 export type FeedFetchResult =
   | { kind: "ok"; body: unknown; etag: string | null; lastModified: string | null }
   | { kind: "not_modified" }
   | { kind: "error"; message: string };
-
-// Counts bytes as they arrive, so an oversized body (whatever its declared length) is never fully buffered.
-async function readCapped(response: Response): Promise<string | null> {
-  if (response.body === null) return "";
-  const reader: ReadableStreamDefaultReader<Uint8Array> = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let bytes = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    if (bytes > MAX_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
 
 export async function fetchFeed(
   url: string,
@@ -56,10 +32,8 @@ export async function fetchFeed(
     return { kind: "error", message: `restricted (HTTP ${String(response.status)})` };
   }
   if (!response.ok) return { kind: "error", message: `HTTP ${String(response.status)}` };
-  if (Number(response.headers.get("content-length") ?? 0) > MAX_BYTES)
-    return { kind: "error", message: "too large" };
 
-  const text = await readCapped(response);
+  const text = await readBodyCapped(response);
   if (text === null) return { kind: "error", message: "too large" };
   try {
     return {

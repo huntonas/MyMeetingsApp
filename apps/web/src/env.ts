@@ -9,7 +9,9 @@ type EnvName =
   | "LATEST_VERSION_IOS"
   | "LATEST_VERSION_ANDROID"
   | "FEATURE_TAGGING"
-  | "FEATURE_SUGGESTIONS";
+  | "FEATURE_SUGGESTIONS"
+  | "CENSUS_GEOCODER_URL"
+  | "CRON_SECRET";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

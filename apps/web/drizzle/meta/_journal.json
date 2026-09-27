@@ -8,6 +8,27 @@
       "when": 1790464440548,
       "tag": "0000_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790533443511,
+      "tag": "0001_enable-postgis",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790533451235,
+      "tag": "0002_meeting-data",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790533462444,
+      "tag": "0003_meeting-location",
+      "breakpoints": true
     }
   ]
 }

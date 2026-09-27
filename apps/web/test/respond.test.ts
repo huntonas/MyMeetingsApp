@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 
 import { db, pool } from "@/db/client";
 import { tags } from "@/db/schema";
-import { jsonResponse, withErrors } from "@/lib/api/respond";
+import { ApiError, jsonResponse, withErrors } from "@/lib/api/respond";
 
 import { resetDb } from "./db";
 
@@ -128,5 +128,21 @@ describe("withErrors", () => {
     const logged = log.mock.calls.map((args) => format(...args)).join("\n");
     expect(logged).toContain("22P02"); // invalid_text_representation
     expect(logged).not.toContain("device-hash-abc");
+  });
+
+  it("sends an ApiError's code and status without logging anything", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const handler = withErrors((_req: Request): Response => {
+      throw new ApiError("meeting_not_found");
+    });
+    const res = await handler(new Request("http://test/api"));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      error: {
+        code: "meeting_not_found",
+        message: "We couldn't find that meeting. It may have been removed from the meeting list.",
+      },
+    });
+    expect(log).not.toHaveBeenCalled();
   });
 });

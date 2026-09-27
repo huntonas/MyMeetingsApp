@@ -1,9 +1,10 @@
 import { MeetingSearchResponse } from "@mymeetingapp/shared";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { format } from "node:util";
 
 import { POST } from "@/app/api/v1/meetings/search/route";
-import { pool } from "@/db/client";
+import { db, pool } from "@/db/client";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 
 import { resetDb } from "./db";
@@ -66,6 +67,36 @@ describe("POST /api/v1/meetings/search", () => {
       await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
     );
     expect(meetings).toEqual([]);
+  });
+
+  it("leaves out an online meeting even when it has coordinates", async () => {
+    await applyFeedSnapshot(await seedFeed("a"), [
+      // A temporarily closed venue: its address and pin remain, but the meeting is on Zoom.
+      feedMeeting({ attendance: "online", conferenceUrl: "https://zoom.us/j/5" }),
+    ]);
+    const { meetings } = MeetingSearchResponse.parse(
+      await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
+    );
+    expect(meetings).toEqual([]);
+  });
+
+  it("returns at most 1000 meetings", async () => {
+    const feedId = await seedFeed("a");
+    await db.execute(sql`
+      insert into meetings (day, time, latitude, longitude)
+      select 1, '12:00', 36.16 + n / 100000.0, -86.78 from generate_series(1, 1001) as n
+    `);
+    await db.execute(sql`
+      insert into feed_meetings (feed_id, meeting_id, source_slug, day, time, name, types, attendance, seen_at)
+      select ${feedId}, id, id::text, 1, '12:00', 'Meeting', '{}', 'in_person', now() from meetings
+    `);
+    await db.execute(sql`
+      update meetings m set primary_feed_meeting_id = fm.id from feed_meetings fm where fm.meeting_id = m.id
+    `);
+    const { meetings } = MeetingSearchResponse.parse(
+      await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
+    );
+    expect(meetings).toHaveLength(1000);
   });
 
   it.each([

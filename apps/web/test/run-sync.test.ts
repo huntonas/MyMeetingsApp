@@ -128,6 +128,19 @@ describe("runSync", () => {
     expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(40);
   });
 
+  it("applies the shrink guard from a previous count of exactly 20", async () => {
+    let body = meetingJson(20);
+    const twenty = await feedServing("twenty", () => ({ status: 200, body }));
+    await runSync(60_000);
+    body = meetingJson(9);
+    await db
+      .update(feeds)
+      .set({ lastSuccessAt: new Date(0), lastAttemptAt: new Date(0) })
+      .where(eq(feeds.id, twenty.id));
+    expect(await runSync(60_000)).toMatchObject({ failed: 1 });
+    expect((await feed(twenty.id))?.lastError).toBe("meeting count dropped from 20 to 9; not applied");
+  });
+
   it("applies a feed that shrinks to exactly half", async () => {
     let body = meetingJson(40);
     const exactlyHalf = await feedServing("exactly-half", () => ({ status: 200, body }));

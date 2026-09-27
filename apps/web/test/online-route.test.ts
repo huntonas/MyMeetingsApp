@@ -60,6 +60,13 @@ describe("GET /api/v1/meetings/online", () => {
     ]);
   });
 
+  it("leaves out archived meetings", async () => {
+    const feedId = await seedFeed("a");
+    await applyFeedSnapshot(feedId, [feedMeeting({ ...online, conferenceUrl: "https://zoom.us/j/1" })]);
+    await applyFeedSnapshot(feedId, []);
+    expect(OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
+  });
+
   it.each(["", "?day=7", "?day=monday"])("rejects %j", async (query) => {
     const res = await get(query);
     expect(res.status).toBe(400);

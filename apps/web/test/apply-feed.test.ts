@@ -4,9 +4,10 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db, pool } from "@/db/client";
 import { feedMeetings, meetings } from "@/db/schema";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
+import { recomputeMeetings } from "@/server/meetings/recompute";
 
 import { resetDb } from "./db";
-import { feedMeeting, seedFeed } from "./feed-fixtures";
+import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
 
 beforeEach(resetDb);
 afterAll(() => pool.end());
@@ -112,6 +113,19 @@ describe("applyFeedSnapshot", () => {
       }),
     ]);
     expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("joins an active meeting rather than an older archived one at the same place and time", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const archived = await insertMeetingWithSources([
+      { feedId: a, row: feedMeeting({ sourceSlug: "gone" }), archived: true },
+    ]);
+    const active = await insertMeetingWithSources([{ feedId: b, row: feedMeeting({ sourceSlug: "live" }) }]);
+    await recomputeMeetings([archived, active]);
+    const c = await seedFeed("c");
+    await applyFeedSnapshot(c, [feedMeeting({ sourceSlug: "new" })]);
+    expect(await meetingIdOf(c, "new")).toBe(active);
   });
 
   it("keeps a renamed meeting (new slug) on the same canonical meeting", async () => {

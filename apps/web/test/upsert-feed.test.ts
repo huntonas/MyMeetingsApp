@@ -41,6 +41,27 @@ describe("upsertFeed", () => {
     expect(await feedRow("sd")).toMatchObject({ name: "AA San Diego", priority: 5, optedOut: true });
   });
 
+  it("keeps a feed's validators, schedule and count when neither its URL nor its priority changes", async () => {
+    const id = await upsertFeed(input);
+    const synced = {
+      etag: '"v1"',
+      lastModified: "Sat, 26 Sep 2026 10:00:00 GMT",
+      lastSuccessAt: new Date("2026-09-26T10:00:00Z"),
+      lastAttemptAt: new Date("2026-09-26T10:00:00Z"),
+      meetingCount: 40,
+    };
+    await db.update(feeds).set(synced).where(eq(feeds.id, id));
+    await upsertFeed({ ...input, name: "AA San Diego" });
+    expect(await feedRow("sd")).toMatchObject(synced);
+  });
+
+  it("keeps the shrink guard's count when only the priority changes", async () => {
+    const id = await upsertFeed(input);
+    await db.update(feeds).set({ etag: '"v1"', meetingCount: 40 }).where(eq(feeds.id, id));
+    await upsertFeed({ ...input, priority: 3 });
+    expect(await feedRow("sd")).toMatchObject({ etag: null, meetingCount: 40 });
+  });
+
   it.each([{ state: "ca" }, { url: "ftp://x.org/feed" }, { slug: "Has Spaces" }, { priority: 0 }])(
     "rejects %j",
     async (change) => {

@@ -74,7 +74,12 @@ async function syncFeed(feed: Feed, throttle: HostThrottle): Promise<Outcome> {
   return "synced";
 }
 
+// Clearing the validators and count means a feed that opts back in is fetched in full, even if it would answer 304.
 async function archiveOptedOutFeeds(): Promise<void> {
+  await db
+    .update(feeds)
+    .set({ etag: null, lastModified: null, meetingCount: null })
+    .where(eq(feeds.optedOut, true));
   const archived = await db
     .update(feedMeetings)
     .set({ archivedAt: new Date() })

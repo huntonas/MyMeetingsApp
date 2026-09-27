@@ -1,3 +1,4 @@
+import type { IncomingHttpHeaders } from "node:http";
 import { format } from "node:util";
 
 import { eq, isNull, sql } from "drizzle-orm";
@@ -45,6 +46,15 @@ async function feedServing(slug: string, reply: Parameters<typeof startServer>[0
     url: `${server.baseUrl}/${slug}`,
   });
   return { id, server };
+}
+
+async function primaryFeedIds() {
+  const rows = await db
+    .select({ feedId: feedMeetings.feedId })
+    .from(meetings)
+    .innerJoin(feedMeetings, eq(feedMeetings.id, meetings.primaryFeedMeetingId))
+    .where(isNull(meetings.archivedAt));
+  return rows.map((row) => row.feedId);
 }
 
 async function feed(id: number) {
@@ -203,6 +213,67 @@ describe("runSync", () => {
     await expect(runSync(60_000)).rejects.toThrow("not queryable");
     expect(await feed(dropped.id)).toMatchObject({ meetingCount: 2, lastError: null });
     expect(log.mock.calls.map((args) => format(...args)).join("\n")).toContain("[sync] lock session error");
+  });
+
+  it("brings an opted-out feed's meetings back when it opts in again, even if the feed would answer 304", async () => {
+    const returning = await feedServing("returning", (_path, headers) =>
+      headers["if-none-match"] === undefined
+        ? { status: 200, body: meetingJson(2), headers: { ETag: '"v1"' } }
+        : { status: 304 },
+    );
+    await runSync(60_000);
+    await db.update(feeds).set({ optedOut: true }).where(eq(feeds.id, returning.id));
+    await runSync(60_000);
+    await db
+      .update(feeds)
+      .set({ optedOut: false, lastSuccessAt: new Date(0), lastAttemptAt: new Date(0) })
+      .where(eq(feeds.id, returning.id));
+    expect(await runSync(60_000)).toMatchObject({ synced: 1, unchanged: 0 });
+    expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(2);
+  });
+
+  it("fetches a feed whose URL changed right away, without the old URL's validators", async () => {
+    const moving = await feedServing("moving", () => ({
+      status: 200,
+      body: meetingJson(2),
+      headers: { ETag: '"v1"', "Last-Modified": "Sat, 26 Sep 2026 10:00:00 GMT" },
+    }));
+    await runSync(60_000);
+    const moved = await startServer(() => ({ status: 200, body: meetingJson(3) }));
+    servers.push(moved);
+    await upsertFeed({
+      slug: "moving",
+      name: "moving",
+      entityType: "intergroup",
+      state: "TN",
+      url: `${moved.baseUrl}/new`,
+    });
+    expect(await runSync(60_000)).toMatchObject({ synced: 1 });
+    expect(moved.requests).toHaveLength(1);
+    expect(moved.requests[0]?.headers["if-none-match"]).toBeUndefined();
+    expect(moved.requests[0]?.headers["if-modified-since"]).toBeUndefined();
+    expect(await feed(moving.id)).toMatchObject({ meetingCount: 3 });
+  });
+
+  it("re-picks each meeting's primary source on the next sync after a priority change", async () => {
+    const conditional = (_path: string, headers: IncomingHttpHeaders) =>
+      headers["if-none-match"] === undefined
+        ? { status: 200, body: meetingJson(1), headers: { ETag: '"v1"' } }
+        : { status: 304 };
+    const first = await feedServing("first", conditional);
+    const second = await feedServing("second", conditional);
+    await runSync(60_000);
+    expect(await primaryFeedIds()).toEqual([first.id]);
+    await upsertFeed({
+      slug: "second",
+      name: "second",
+      entityType: "intergroup",
+      state: "TN",
+      url: `${second.server.baseUrl}/second`,
+      priority: 5,
+    });
+    await runSync(60_000);
+    expect(await primaryFeedIds()).toEqual([second.id]);
   });
 
   it("lets only one run happen at a time", async () => {

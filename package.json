@@ -1,0 +1,31 @@
+{
+  "name": "mymeetingapp",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0+sha512.3ef68f951cb111ac204b4a5a16f0b2ddf0da56a96e0413e81d855d9f0b55ef926714709028e1cd00c405c2c5fb7b9e8ec4dc46777c805d0373c2f2ff00fd20ec",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm knip && pnpm check:migrations && pnpm test",
+    "check:migrations": "pnpm --filter web db:generate && git diff --exit-code -- apps/web/drizzle && git status --porcelain -- apps/web/drizzle | (! grep .)",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --max-warnings=0 .",
+    "typecheck": "turbo run typecheck",
+    "knip": "knip",
+    "knip:production": "knip --production --strict --include-entry-exports",
+    "test": "turbo run test",
+    "build": "turbo run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.0",
+    "eslint": "^10.11.0",
+    "knip": "^6.38.0",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: imresamu/postgis:17-3.5
+        env:
+          POSTGRES_USER: mma
+          POSTGRES_PASSWORD: mma
+          POSTGRES_DB: mma_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U mma -d mma_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # pnpm comes from corepack in the next step, so setup-node can't cache its store.
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm knip:production
+      - name: Build without a database
+        run: pnpm --filter web build
+        env:
+          DATABASE_URL: ""
+          NEXT_TELEMETRY_DISABLED: "1"

@@ -89,10 +89,10 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 ```yaml
 - id: some-county-intergroup
   name: "Some County Intergroup"
-  entity_type: intergroup        # area | district | intergroup | central_office
+  entity_type: intergroup # area | district | intergroup | central_office
   state: TN
   website: "https://example.org"
-  feed_type: tsml                # tsml | meeting_guide_json | google_sheet | bmlt | none_found | restricted
+  feed_type: tsml # tsml | meeting_guide_json | google_sheet | bmlt | none_found | restricted
   feed_url: "https://example.org/wp-admin/admin-ajax.php?action=meetings"
   verified: true
   meeting_count: 612
@@ -114,12 +114,12 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Fixed vocabulary, grouped by category.** Stored in the database so it can grow. Tags can be retired (hidden, counts kept) but never hard-deleted.
 
-| Category | Starter tags |
-| --- | --- |
-| Format | By the book, Laid back, Speaker-heavy, Lots of sharing, Step study, Literature focused |
-| Sharing | Crosstalk, No crosstalk, Round robin, Raise your hand |
-| Crowd | Newcomer heavy, Old-timers, Young crowd, Older crowd, Mixed ages |
-| Feel | Welcoming, Quiet, Lively, Lots of humor, Serious tone |
+| Category  | Starter tags                                                                           |
+| --------- | -------------------------------------------------------------------------------------- |
+| Format    | By the book, Laid back, Speaker-heavy, Lots of sharing, Step study, Literature focused |
+| Sharing   | Crosstalk, No crosstalk, Round robin, Raise your hand                                  |
+| Crowd     | Newcomer heavy, Old-timers, Young crowd, Older crowd, Mixed ages                       |
+| Feel      | Welcoming, Quiet, Lively, Lots of humor, Serious tone                                  |
 | Practical | Starts on time, Runs long, Coffee, Fellowship after, Easy parking, Accessible entrance |
 
 **Data model:** one row per device per meeting in `tag_submissions`:
@@ -171,22 +171,22 @@ Versioned from day one; old app versions stay installed for months. All input is
 
 Mobile headers on write requests: `X-Device-Id`, `X-Platform` (`ios` | `android`), `X-App-Version`, `X-Attestation`.
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/v1/config` | Minimum supported app version per platform, latest version, feature switches (tagging, suggestions). Cacheable (5 min). |
-| GET | `/api/v1/vocabulary` | Active tags (slug, label, category). Cacheable. |
-| POST | `/api/v1/meetings/search` | Body: `{ lat, lng, radiusKm }` with lat/lng rounded to 2 decimals (validated). Returns in-person and hybrid meetings within the radius (max 1000), with distance from the rounded point, types, and tag counts. Filtering by day/time/type/tag happens on the phone. |
-| GET | `/api/v1/meetings/online` | All online meetings nationwide, deduplicated by conference URL, with tag counts. Cacheable (15 min). |
-| GET | `/api/v1/meetings/:id` | One meeting with tag counts (for favorites and detail refresh). Cacheable (5 min). |
-| POST | `/api/v1/tags` | New submission: `{ meetingId, tags: string[], nearMeeting?: boolean }`. Returns updated counts. |
-| PUT | `/api/v1/tags/:meetingId` | Edit this device's tags on a meeting, any time: `{ tags: string[] }`. Returns updated counts. |
-| DELETE | `/api/v1/tags/:meetingId` | Delete this device's tags on a meeting. Returns updated counts. |
-| POST | `/api/v1/tags/delete-mine` | Delete all tags, suggestions, rate-limit rows, audit rows and attestation data for this device (server computes `submitter_id` for every meeting). |
-| POST | `/api/v1/suggestions` | `{ text }` |
-| POST | `/api/v1/attest/challenge` | Single-use attestation challenge. |
-| POST | `/api/v1/attest/register` | Register an App Attest key (iOS). |
-| GET | `/api/cron/sync-feeds` | Batch feed sync, `CRON_SECRET` protected. Every 15 minutes. |
-| GET | `/api/cron/maintenance` | Nightly: recompute tag counts, purge 7-day audit log, expired challenges, old rate-limit rows, and suggestion device links. `CRON_SECRET` protected. |
+| Method | Path                       | Purpose                                                                                                                                                                                                                                                              |
+| ------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/config`           | Minimum supported app version per platform, latest version, feature switches (tagging, suggestions). Cacheable (5 min).                                                                                                                                              |
+| GET    | `/api/v1/vocabulary`       | Active tags (slug, label, category). Cacheable.                                                                                                                                                                                                                      |
+| POST   | `/api/v1/meetings/search`  | Body: `{ lat, lng, radiusKm }` with lat/lng rounded to 2 decimals (validated). Returns in-person and hybrid meetings within the radius (max 1000), with distance from the rounded point, types, and tag counts. Filtering by day/time/type/tag happens on the phone. |
+| GET    | `/api/v1/meetings/online`  | All online meetings nationwide, deduplicated by conference URL, with tag counts. Cacheable (15 min).                                                                                                                                                                 |
+| GET    | `/api/v1/meetings/:id`     | One meeting with tag counts (for favorites and detail refresh). Cacheable (5 min).                                                                                                                                                                                   |
+| POST   | `/api/v1/tags`             | New submission: `{ meetingId, tags: string[], nearMeeting?: boolean }`. Returns updated counts.                                                                                                                                                                      |
+| PUT    | `/api/v1/tags/:meetingId`  | Edit this device's tags on a meeting, any time: `{ tags: string[] }`. Returns updated counts.                                                                                                                                                                        |
+| DELETE | `/api/v1/tags/:meetingId`  | Delete this device's tags on a meeting. Returns updated counts.                                                                                                                                                                                                      |
+| POST   | `/api/v1/tags/delete-mine` | Delete all tags, suggestions, rate-limit rows, audit rows and attestation data for this device (server computes `submitter_id` for every meeting).                                                                                                                   |
+| POST   | `/api/v1/suggestions`      | `{ text }`                                                                                                                                                                                                                                                           |
+| POST   | `/api/v1/attest/challenge` | Single-use attestation challenge.                                                                                                                                                                                                                                    |
+| POST   | `/api/v1/attest/register`  | Register an App Attest key (iOS).                                                                                                                                                                                                                                    |
+| GET    | `/api/cron/sync-feeds`     | Batch feed sync, `CRON_SECRET` protected. Every 15 minutes.                                                                                                                                                                                                          |
+| GET    | `/api/cron/maintenance`    | Nightly: recompute tag counts, purge 7-day audit log, expired challenges, old rate-limit rows, and suggestion device links. `CRON_SECRET` protected.                                                                                                                 |
 
 **Search caching:** the meeting list for a `(lat, lng, radiusKm)` key may be cached server-side (Runtime Cache, 15 min, invalidated on sync). Tag counts are always joined fresh from `tag_counts`. Coordinates are never in URLs, so they never appear in request logs or CDN cache keys.
 
@@ -221,7 +221,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 
 **Later phases (design data models now, build later):** liked flag, private meeting notes, meeting log (e.g. 90 in 90), journaling (original prompts), call list with one-tap calling, local meeting reminders, home-screen widget for the sobriety counter, first-meeting guide, and encrypted backup to the user's own iCloud or Google account.
 
-**Do not bundle AA literature text** (Big Book, *Daily Reflections*); it's copyrighted by AA World Services. Link to official sources.
+**Do not bundle AA literature text** (Big Book, _Daily Reflections_); it's copyrighted by AA World Services. Link to official sources.
 
 ## 9. Website (Next.js)
 
@@ -276,19 +276,19 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 ## 13. Data inventory (source of truth for the privacy policy)
 
-| Stored on server | Contents | Linked to | Retention |
-| --- | --- | --- | --- |
-| `devices` | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else | until delete-mine; inactive 13 months → deleted |
-| `tag_submissions` | per-meeting submitter ID, tags, nearMeeting, dates | one meeting only | until edited/deleted; counts only use 180 days |
-| `tag_audit` | device hash, meeting, action, time | device + meeting | 7 days |
-| `rate_limits` | device hash, bucket, count | device only | 2 days |
-| `suggestions` | text, AI decision; device hash until reviewed | device (temporary) | text kept; device link ≤ 30 days |
-| Search request | rounded lat/lng (~1 km) | nothing | not stored; used for one query |
-| Vercel request logs | IP, path, time | nothing we control | Vercel plan retention |
+| Stored on server    | Contents                                                                   | Linked to          | Retention                                       |
+| ------------------- | -------------------------------------------------------------------------- | ------------------ | ----------------------------------------------- |
+| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else       | until delete-mine; inactive 13 months → deleted |
+| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                         | one meeting only   | until edited/deleted; counts only use 180 days  |
+| `tag_audit`         | device hash, meeting, action, time                                         | device + meeting   | 7 days                                          |
+| `rate_limits`       | device hash, bucket, count                                                 | device only        | 2 days                                          |
+| `suggestions`       | text, AI decision; device hash until reviewed                              | device (temporary) | text kept; device link ≤ 30 days                |
+| Search request      | rounded lat/lng (~1 km)                                                    | nothing            | not stored; used for one query                  |
+| Vercel request logs | IP, path, time                                                             | nothing we control | Vercel plan retention                           |
 
-| Stays on the phone | |
-| --- | --- |
-| exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features | |
+| Stays on the phone                                                                                                                                                                        |     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features |     |
 
 ## 14. Acceptance criteria for MVP
 

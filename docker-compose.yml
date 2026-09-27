@@ -1,0 +1,14 @@
+services:
+  db:
+    image: imresamu/postgis:17-3.5
+    environment:
+      POSTGRES_USER: mma
+      POSTGRES_PASSWORD: mma
+      POSTGRES_DB: mma_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./scripts/db-init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

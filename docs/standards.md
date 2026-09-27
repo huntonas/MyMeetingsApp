@@ -6,7 +6,7 @@ These rules apply to every change in this repository. Where a rule can be checke
 
 A change is done when all of these pass:
 
-- `pnpm check` runs formatting, lint, typecheck, knip (dead code), the migration drift check (`check:migrations`: the committed migrations must match `src/db/schema`), and tests, in that order.
+- `pnpm check` runs formatting, lint, typecheck, knip (dead code), the migration drift check (`check:migrations`: `drizzle-kit generate` must find nothing new, so the migrations in `apps/web/drizzle` match `src/db/schema`), and tests, in that order.
 - `pnpm knip:production` reports no exports used only by tests. This must pass at the end of every phase, and CI runs it.
 - `DATABASE_URL= pnpm --filter web build` succeeds. Nothing may query the database at build time.
 

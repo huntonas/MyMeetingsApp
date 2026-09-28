@@ -11,7 +11,12 @@ type EnvName =
   | "FEATURE_TAGGING"
   | "FEATURE_SUGGESTIONS"
   | "CENSUS_GEOCODER_URL"
-  | "CRON_SECRET";
+  | "CRON_SECRET"
+  | "VERCEL_ENV"
+  | "NEON_API_URL"
+  | "NEON_API_KEY"
+  | "NEON_PROJECT_ID"
+  | "NEON_PREVIEW_BRANCH_ID";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

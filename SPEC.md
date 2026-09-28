@@ -282,7 +282,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 - **Database access:** Drizzle ORM with `pg` against Neon's pooled connection string (the `-pooler` host), using `attachDatabasePool` from `@vercel/functions`. The direct (unpooled) string is used only for migrations. PostGIS `geography(Point)` with a GiST index for radius search.
 - **Setup:** connect Neon through the Vercel integration so `DATABASE_URL` is set per environment.
-- **Preview deployments:** each preview gets its own Neon branch, branched from a `seed` branch that contains feeds, meetings, and vocabulary but no device-derived tables. Never branch previews from production. If the integration can't choose the parent branch, a CI step creates the preview branch through the Neon API.
+- **Preview deployments:** all previews share one Neon branch, `preview`, whose parent is a `seed` branch containing feeds, meetings, and vocabulary but no device-derived tables. Each preview build restores `preview` from `seed` through the Neon API before migrating. Never branch previews from production. (The integration can't choose a parent branch, and per-deployment branches broke when migrations were regenerated.)
 - **Migrations:** drizzle-kit in CI against the direct connection string, never on app startup.
 - **Cold starts:** Neon can scale to zero. Cacheable endpoints use `s-maxage`, and search results use Runtime Cache, which hides most of this.
 - **Cron:** defined in `vercel.ts`: `sync-feeds` every 15 minutes, `maintenance` nightly. Cron only runs on production deployments. Routes must be idempotent.

@@ -4,6 +4,9 @@ import type { AddressInfo } from "node:net";
 
 interface RecordedRequest {
   path: string;
+  method: string;
+  // The request body as text, complete by the time the handler runs.
+  body: string;
   headers: IncomingHttpHeaders;
   at: number;
   // Response body bytes the server managed to write before the client stopped reading or disconnected.
@@ -38,16 +41,30 @@ export async function startServer(
   const requests: RecordedRequest[] = [];
   const server = createServer((req, res) => {
     const path = req.url ?? "/";
-    const record = { path, headers: req.headers, at: Date.now(), sentBytes: 0 };
+    const record: RecordedRequest = {
+      path,
+      method: req.method ?? "GET",
+      body: "",
+      headers: req.headers,
+      at: Date.now(),
+      sentBytes: 0,
+    };
     requests.push(record);
-    void Promise.resolve(handler(path, req.headers)).then(async (reply) => {
-      res.writeHead(reply.status, reply.headers);
-      if (reply.stream === undefined) {
-        record.sentBytes = Buffer.byteLength(reply.body ?? "");
-        res.end(reply.body);
-      } else {
-        await streamChunks(res, record, reply.stream);
-      }
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => {
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      record.body = Buffer.concat(chunks).toString("utf8");
+      void Promise.resolve(handler(path, req.headers)).then(async (reply) => {
+        res.writeHead(reply.status, reply.headers);
+        if (reply.stream === undefined) {
+          record.sentBytes = Buffer.byteLength(reply.body ?? "");
+          res.end(reply.body);
+        } else {
+          await streamChunks(res, record, reply.stream);
+        }
+      });
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

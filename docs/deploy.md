@@ -1,6 +1,6 @@
 # Deploying mymeetingapp (web + API)
 
-Vercel (team `huntonas-projects`; Pro needed from Phase 2) hosts `apps/web`, and Neon provides Postgres. Builds run `pnpm run db:migrate && pnpm run build` (see `apps/web/vercel.ts`), so each deployment migrates its own database branch before building.
+Vercel (team `huntonas-projects`; Pro needed from Phase 2) hosts `apps/web`, and Neon provides Postgres. Builds run `pnpm run db:reset-preview && pnpm run db:migrate && pnpm run build` (see `apps/web/vercel.ts`), so each deployment migrates its own database branch before building; preview builds first restore the shared `preview` branch from `seed` (see "Preview databases" below).
 
 ## One-time setup
 
@@ -13,16 +13,7 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
   - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
 
-Needs the dashboard (no CLI or API for these):
-
-1. **Preview branching** (done 2026-09-26): this is only offered when a project is connected. On an existing connection, **Connect Project** fails with "already connected to the target store", so the fix is to disconnect (`vercel ir disconnect mymeetingapp-db mymeetingapp --yes`, which leaves the live deployments running) and then reconnect in Storage → `mymeetingapp-db` → Connect Project, with these settings:
-   - **Environments:** all.
-   - **Create Database Branch For Deployment:** Preview on, Production off.
-   - **Custom Environment Variable Prefix:** empty.
-   - **Sensitive:** off, because sensitive values can't be read back by `vercel env run`. Revisit before launch.
-2. **`seed` branch:** in the Neon console (open it from the Storage page), create a branch named `seed` from `main`. It holds reference data only (vocabulary now; feeds and meetings from Phase 2), never device-derived tables. Set `seed` as the parent for preview branches if the integration allows it.
-   - Confirmed 2026-09-26: the integration has no parent setting, so previews branch from `main` (e.g. `preview/phase-1-foundation`, created by Vercel). Make sure `seed` has no expiration date in Neon.
-   - Because previews branch from `main`, that is acceptable only until Phase 3 adds device data, and a CI step that creates preview branches from `seed` through the Neon API is required before Phase 3 ships.
+Needs the dashboard (no CLI or API for these): see "Preview databases" below.
 
 Done on 2026-09-26: `seed` and `main` are migrated and hold the 26 starter tags.
 
@@ -35,13 +26,27 @@ Done on 2026-09-26: `seed` and `main` are migrated and hold the 26 starter tags.
 
 **Plan:** the team is on Hobby. Phase 2's 15-minute feed-sync cron needs **Vercel Pro**, so upgrade before Phase 2 deploys. Do not skip this step; the cron will not run on Hobby.
 
+## Preview databases
+
+Previews share one Neon branch, `preview`, whose parent is `seed`. `seed` was created from `main` on YYYY-MM-DD (write the real date Task 1's owner steps ran) while `main` held reference data only (vocabulary, feeds, meetings), before any device table existed. Every preview build runs `pnpm run db:reset-preview` first. It restores `preview` from `seed` through the Neon API (`POST /projects/{project}/branches/{preview}/restore` with `source_branch_id` = seed), waits for Neon to finish, and then migrates. Production and local builds skip the reset. The script refuses any branch whose parent isn't named `seed`.
+
+- **Production device data never reaches `seed` or `preview`.** `seed` is never branched from `main` again, never restored from `main`, and never gets device tables except through a preview's own migrations. Refresh `seed`'s reference data only with `DATABASE_URL="<seed pooled URL>" pnpm --filter web db:seed` (and `db:seed-feeds`), never by copying from `main`.
+- **Tags on a preview live until the next preview build,** because every build resets `preview`. Two preview builds at once reset each other.
+- **The Neon integration's per-deployment preview branching is off,** and the integration sets no Preview variables. Preview uses `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (the `preview` branch's pooled and direct URLs), and sensitive `NEON_API_KEY` (project-scoped), `NEON_PROJECT_ID` and `NEON_PREVIEW_BRANCH_ID`.
+- **Setting it up again:**
+  1. Create `seed` from `main`, but only while `main` has no device tables; otherwise create an empty branch, migrate it and seed it.
+  2. Create `preview` from `seed`, neither with an expiration.
+  3. Turn off per-deployment preview branching and untick Preview in the integration's settings.
+  4. Add the five Preview variables with `vercel env add <NAME> preview` (`--sensitive` for the three `NEON_*`).
+- **Checking it:** the preview build log shows `Restored the preview database branch from seed` before the migration output, and Neon shows `preview`'s latest restore time.
+
 ## Checking a deployment
 
 Preview deployments are protected, so use `vercel curl` (or a deployment protection bypass):
 
 - `/api/v1/vocabulary` returns 200 with every starter tag, including `old-timers`, and `cache-control: public, s-maxage=3600, stale-while-revalidate=86400`.
 - `/api/v1/config` returns 200 with the configured versions and switches.
-- In the Neon console, the preview's branch has the `tags` table and its parent is `seed`.
+- In the Neon console, `preview`'s parent is `seed` and its last restore is the build's time.
 
 ## Phase 2: meeting sync
 
@@ -113,6 +118,6 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 ## Rules
 
-- Previews never use the production branch's data.
+- Previews never use the production branch's data: they restore from `seed`, which holds no device data (see Preview databases).
 - Secrets live only in Vercel environment variables. Never commit `.env*` files; only `.env.example` is tracked.
 - Every migration must work with both the previous and the new code (add first, remove later), because it runs before the new code goes live.

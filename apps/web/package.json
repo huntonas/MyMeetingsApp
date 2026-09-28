@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:add-feed": "tsx scripts/add-feed.ts",
-    "db:seed-feeds": "tsx scripts/seed-feeds.ts"
+    "db:seed-feeds": "tsx scripts/seed-feeds.ts",
+    "db:reset-preview": "tsx scripts/reset-preview-db.ts"
   },
   "dependencies": {
     "@mymeetingapp/feed-kit": "workspace:*",

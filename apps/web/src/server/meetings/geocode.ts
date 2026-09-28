@@ -1,7 +1,7 @@
 import { and, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { USER_AGENT, type HostThrottle } from "@mymeetingapp/feed-kit";
+import { politeFetch, type HostThrottle } from "@mymeetingapp/feed-kit";
 
 import { db } from "@/db/client";
 import { addressGeocodes, feedMeetings } from "@/db/schema";
@@ -33,13 +33,9 @@ async function geocode(
   url.searchParams.set("address", address);
   url.searchParams.set("benchmark", "Public_AR_Current");
   url.searchParams.set("format", "json");
-  await throttle.wait(url.host);
+  const response = await politeFetch(url, throttle, { timeoutMs: TIMEOUT_MS });
+  if (!(response instanceof Response) || !response.ok) return "error";
   try {
-    const response = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!response.ok) return "error";
     return parseCensusResponse(await response.json());
   } catch {
     return "error";

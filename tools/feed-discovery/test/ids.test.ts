@@ -12,4 +12,9 @@ describe("entityId", () => {
   it("skips qualifiers with no text, e.g. a footer area's name alone", () => {
     expect(entityId("Area 070 - Vermont")).toBe("area-070-vermont");
   });
+
+  it("stands in a stable hash for a name with no Latin letters or digits, so the id is never empty", () => {
+    expect(entityId("統一")).toBe("entity-0060b349");
+    expect(entityId("???", "VT")).toBe("entity-a03b221c-vt");
+  });
 });

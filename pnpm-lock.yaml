@@ -220,9 +220,6 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
-      yaml:
-        specifier: ^2.8.1
-        version: 2.9.1
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -257,6 +254,9 @@ importers:
       '@mymeetingapp/shared':
         specifier: workspace:*
         version: link:../shared
+      yaml:
+        specifier: ^2.8.1
+        version: 2.9.1
       zod:
         specifier: ^4.6.5
         version: 4.6.5

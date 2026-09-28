@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { RegistryEntry } from "@mymeetingapp/feed-kit";
-import { parse } from "yaml";
+import { parseRegistry } from "@mymeetingapp/feed-kit";
 
 import { loadLocalEnvFile } from "@/env";
 
@@ -17,9 +16,8 @@ const { seedFeedsFromRegistry } = await import("@/db/seed-feeds");
 const { pool } = await import("@/db/client");
 
 try {
-  const raw = await readFile(path, "utf-8");
-  const parsed: unknown = parse(raw);
-  const entries = (Array.isArray(parsed) ? parsed : []).map((entry) => RegistryEntry.parse(entry));
+  // A missing file is an error here (unlike in discovery): seeding nothing by mistake must be loud.
+  const entries = parseRegistry(await readFile(path, "utf-8"));
   const { upserted, optedOut, skipped } = await seedFeedsFromRegistry(entries);
   console.log(`Seeded ${String(upserted)} feeds (${String(optedOut)} opted out, ${String(skipped)} skipped)`);
 } finally {

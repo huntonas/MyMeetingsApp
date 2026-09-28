@@ -1,3 +1,4 @@
+import { parse } from "yaml";
 import { z } from "zod";
 
 const FEED_TYPES = [
@@ -29,3 +30,24 @@ export const RegistryEntry = z.object({
   opted_out: z.boolean().optional(),
 });
 export type RegistryEntry = z.infer<typeof RegistryEntry>;
+
+function entryLabel(entry: unknown, index: number): string {
+  return typeof entry === "object" && entry !== null && "id" in entry && typeof entry.id === "string"
+    ? `"${entry.id}"`
+    : `entry ${String(index)}`;
+}
+
+// The one reader for registry.yaml's contents, shared by the discovery tool and the seed script. A
+// document that isn't a list, or any invalid entry, throws, naming the entry by id (or by position when
+// it has no id), so a hand-edit mistake can't silently drop or seed the wrong feeds.
+export function parseRegistry(raw: string): RegistryEntry[] {
+  const parsed: unknown = parse(raw);
+  if (!Array.isArray(parsed)) throw new Error("registry must be a YAML list");
+  return parsed.map((entry: unknown, index) => {
+    const result = RegistryEntry.safeParse(entry);
+    if (!result.success) {
+      throw new Error(`Invalid registry entry ${entryLabel(entry, index)}: ${result.error.message}`);
+    }
+    return result.data;
+  });
+}

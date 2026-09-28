@@ -1,11 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 
-import { RegistryEntry } from "@mymeetingapp/feed-kit";
-import { parse, stringify } from "yaml";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { parseRegistry, RegistryEntry } from "@mymeetingapp/feed-kit";
+import { stringify } from "yaml";
 
 function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && "code" in error;
@@ -21,17 +17,7 @@ export async function readRegistry(path: string): Promise<RegistryEntry[]> {
     if (isErrnoException(error) && error.code === "ENOENT") return [];
     throw error;
   }
-
-  const parsed: unknown = parse(raw);
-  const list = Array.isArray(parsed) ? parsed : [];
-  return list.map((entry) => {
-    const result = RegistryEntry.safeParse(entry);
-    if (!result.success) {
-      const id = isRecord(entry) && typeof entry.id === "string" ? entry.id : "unknown";
-      throw new Error(`Invalid registry entry "${id}": ${result.error.message}`);
-    }
-    return result.data;
-  });
+  return parseRegistry(raw);
 }
 
 // The spec's key order, one line per entity. `opted_out` is written last and only when true.
@@ -58,8 +44,11 @@ function sortKey(entry: RegistryEntry): string {
 }
 
 // Writes tools/feed-discovery/registry.yaml (spec §4), sorted by state then id so diffs stay small
-// and reviewable from month to month.
+// and reviewable from month to month. Every entry is validated first, so a run that produced a bad
+// entry fails before writing anything rather than committing a registry the next run can't read.
 export async function writeRegistry(path: string, entries: RegistryEntry[]): Promise<void> {
-  const sorted = [...entries].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const sorted = entries
+    .map((entry) => RegistryEntry.parse(entry))
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   await writeFile(path, stringify(sorted.map(orderedKeys)), "utf-8");
 }

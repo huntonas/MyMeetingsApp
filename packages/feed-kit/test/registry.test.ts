@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RegistryEntry } from "../src/index";
+import { parseRegistry, RegistryEntry } from "../src/index";
 
 const entry = {
   id: "some-county-intergroup-tn",
@@ -49,5 +49,39 @@ describe("RegistryEntry", () => {
         states_covered: [],
       }),
     ).toMatchObject({ website: null, feed_url: null });
+  });
+});
+
+describe("parseRegistry", () => {
+  const yamlEntry = `- id: some-county-intergroup-tn
+  name: Some County Intergroup
+  entity_type: intergroup
+  state: TN
+  website: https://example.org
+  feed_type: tsml
+  feed_url: https://example.org/wp-json/tsml/meetings
+  verified: true
+  meeting_count: 612
+  states_covered: [TN]
+  checked_at: "2026-09-25"
+  notes: ""
+`;
+
+  it("reads a YAML list of entries", () => {
+    expect(parseRegistry(yamlEntry)).toEqual([entry]);
+  });
+
+  it.each(["", "id: not-a-list\n", "just text\n"])("throws when the document isn't a list: %j", (raw) => {
+    expect(() => parseRegistry(raw)).toThrow("registry must be a YAML list");
+  });
+
+  it("throws naming the id of an invalid entry", () => {
+    expect(() => parseRegistry(yamlEntry.replace("meeting_count: 612", "meeting_count: -1"))).toThrow(
+      /some-county-intergroup-tn/,
+    );
+  });
+
+  it("throws naming the index of an invalid entry that has no id", () => {
+    expect(() => parseRegistry(`${yamlEntry}- name: No Id\n`)).toThrow(/entry 1/);
   });
 });

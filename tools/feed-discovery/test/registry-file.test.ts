@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -63,7 +63,13 @@ describe("writeRegistry / readRegistry", () => {
 
   it("throws, naming the entry's id, when an entry in the file is invalid", async () => {
     const path = join(dir, "registry.yaml");
-    await writeRegistry(path, [{ ...entryA, id: "bad-entry", meeting_count: -1 }]);
+    await writeFile(path, "- id: bad-entry\n  meeting_count: -1\n", "utf-8");
     await expect(readRegistry(path)).rejects.toThrow(/bad-entry/);
+  });
+
+  it("refuses to write a registry holding an invalid entry, leaving no file behind", async () => {
+    const path = join(dir, "registry.yaml");
+    await expect(writeRegistry(path, [entryA, { ...entryB, id: "" }])).rejects.toThrow();
+    await expect(access(path)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

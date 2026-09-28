@@ -88,6 +88,31 @@ describe("applyFeedSnapshot", () => {
     expect(await activeMeetings()).toHaveLength(1);
   });
 
+  it.each([
+    ["https://us02web.zoom.us/j/740716108", "https://zoom.us/j/740716108"],
+    ["https://zoom.us/j/139383779", "https://zoom.us/j/139383779%20"],
+    ["https://us02web.zoom.us/j/2014115493?pwd=Y0sy#success", "https://us02web.zoom.us/j/2014115493"],
+    ["https://us04web.zoom.us/j/83492157355", "https://zoom.us/j/83492157355"],
+    ["https://us06web.zoom.us/my/Serenity.Now", "https://zoom.us/my/serenity.now"],
+    ["https://meet.google.com/abc-defg-hij?authuser=0", " HTTPS://Meet.Google.com/abc-defg-hij/ "],
+  ])("joins online meetings whose conference URLs %s and %s name the same room", async (first, second) => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ ...online, conferenceUrl: first })]);
+    await applyFeedSnapshot(b, [feedMeeting({ ...online, sourceSlug: "b", conferenceUrl: second })]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("keeps online meetings with different Zoom ids at the same time apart", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ ...online, conferenceUrl: "https://zoom.us/j/740716108" })]);
+    await applyFeedSnapshot(b, [
+      feedMeeting({ ...online, sourceSlug: "b", conferenceUrl: "https://us02web.zoom.us/j/740716109" }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(2);
+  });
+
   it("merges one conference URL listed under two slugs in one feed at the same day and time", async () => {
     const feedId = await seedFeed("a");
     await applyFeedSnapshot(feedId, [
@@ -96,6 +121,19 @@ describe("applyFeedSnapshot", () => {
     ]);
     expect(await activeMeetings()).toHaveLength(1);
     expect(await meetingIdOf(feedId, "listing-b")).toBe(await meetingIdOf(feedId, "listing-a"));
+  });
+
+  it("merges two slugs in one feed whose Zoom URLs differ only in host", async () => {
+    const feedId = await seedFeed("a");
+    await applyFeedSnapshot(feedId, [
+      feedMeeting({
+        ...online,
+        sourceSlug: "listing-a",
+        conferenceUrl: "https://us02web.zoom.us/j/740716108",
+      }),
+      feedMeeting({ ...online, sourceSlug: "listing-b", conferenceUrl: "https://zoom.us/j/740716108" }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(1);
   });
 
   it("merges a meeting one feed calls online and another calls hybrid, by conference URL", async () => {

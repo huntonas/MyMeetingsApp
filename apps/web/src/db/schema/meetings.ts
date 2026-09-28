@@ -1,5 +1,5 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
-import { sql } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
@@ -39,6 +39,18 @@ export const meetings = pgTable(
   (table) => [index("meetings_day_time_idx").on(table.day, table.time)],
 );
 
+// Spec §3: the one comparable form of a conference URL, used for the stored conference_key column and for
+// rows not yet stored. Zoom links become "zoom:<meeting id or personal link>", ignoring the regional
+// subdomain, query, fragment and stray spaces; other URLs are lowercased without query, fragment or
+// trailing slash.
+export function conferenceKey(url: SQL): SQL {
+  return sql`coalesce(
+    'zoom:' || (regexp_match(regexp_replace(lower(${url}), '%20|[[:space:]]', '', 'g'),
+      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],
+    rtrim(regexp_replace(lower(btrim(${url})), '[?#].*$', ''), '/')
+  )`;
+}
+
 // One source's listing of a meeting on one day, holding only allowlisted fields (spec §3).
 export const feedMeetings = pgTable(
   "feed_meetings",
@@ -67,6 +79,7 @@ export const feedMeetings = pgTable(
     notes: text("notes"),
     groupName: text("group_name"),
     conferenceUrl: text("conference_url"),
+    conferenceKey: text("conference_key").generatedAlwaysAs(conferenceKey(sql.raw(`"conference_url"`))),
     conferenceUrlNotes: text("conference_url_notes"),
     conferencePhone: text("conference_phone"),
     conferencePhoneNotes: text("conference_phone_notes"),
@@ -78,7 +91,7 @@ export const feedMeetings = pgTable(
     unique("feed_meetings_feed_slug_day_unique").on(table.feedId, table.sourceSlug, table.day),
     index("feed_meetings_meeting_idx").on(table.meetingId),
     index("feed_meetings_address_key_idx").on(table.addressKey),
-    index("feed_meetings_conference_url_idx").on(table.conferenceUrl),
+    index("feed_meetings_conference_key_idx").on(table.conferenceKey),
     check("feed_meetings_day_check", sql`${table.day} between 0 and 6`),
     check(
       "feed_meetings_attendance_check",

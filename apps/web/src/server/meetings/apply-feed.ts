@@ -1,42 +1,35 @@
 import { and, eq, isNull, lt, sql } from "drizzle-orm";
 
 import { db, type Executor } from "@/db/client";
-import { conferenceKey, feedMeetings, meetingLocation, meetings } from "@/db/schema";
+import { conferenceKey, feedMeetings, meetings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import type { FeedMeeting } from "@/server/feeds/normalize";
+import { type MatchSide, meetingSide, sidesMatch } from "@/server/meetings/match";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
-const MATCH_DISTANCE_METERS = 50;
-
-// Spec §3 matching: same day and start time, plus the same normalized address, coordinates within 50 m,
-// or the same conference key when both rows are online or hybrid (spec §7 dedupes online meetings by URL; the
-// key makes regional Zoom hosts and stray query strings compare equal). A meeting that this feed lists under
-// another slug in the same snapshot is excluded, so two rooms at one address and time stay separate, unless
-// both listings share a conference key, which makes them one meeting.
+// Spec §3 matching (see sidesMatch). A meeting that this feed lists under another slug in the same snapshot
+// is excluded, so two rooms at one address and time stay separate, unless both listings share a conference
+// key, which makes them one meeting.
 async function findMatchingMeeting(
   tx: Executor,
   feedId: number,
   row: FeedMeeting,
   snapshotSlugs: readonly string[],
 ) {
-  const point =
-    row.latitude !== null && row.longitude !== null
-      ? sql`ST_SetSRID(ST_MakePoint(${row.longitude}, ${row.latitude}), 4326)::geography`
-      : null;
   const rowConferenceKey = conferenceKey(sql`${row.conferenceUrl}::text`);
+  const rowSide: MatchSide = {
+    day: sql`${row.day}::smallint`,
+    time: sql`${row.time}::text`,
+    location:
+      row.latitude !== null && row.longitude !== null
+        ? sql`ST_SetSRID(ST_MakePoint(${row.longitude}, ${row.latitude}), 4326)::geography`
+        : sql`null::geography`,
+    listings: sql`(select ${row.addressKey}::text as address_key, ${row.attendance}::text as attendance,
+      ${rowConferenceKey} as conference_key, ${row.name}::text as name)`,
+  };
   const result = await tx.execute<{ id: string }>(sql`
     select meetings.id from meetings
-    where meetings.day = ${row.day} and meetings.time = ${row.time}
-      and (
-        exists (
-          select 1 from feed_meetings fm where fm.meeting_id = meetings.id and (
-            (${row.addressKey}::text is not null and fm.address_key = ${row.addressKey})
-            or (${row.attendance} in ('online', 'hybrid') and fm.attendance in ('online', 'hybrid')
-              and fm.conference_key = ${rowConferenceKey})
-          )
-        )
-        ${point === null ? sql`` : sql`or ST_DWithin(${meetingLocation}, ${point}, ${MATCH_DISTANCE_METERS})`}
-      )
+    where ${sidesMatch(meetingSide("meetings"), rowSide)}
       and not exists (
         select 1 from feed_meetings same_feed
         where same_feed.meeting_id = meetings.id and same_feed.feed_id = ${feedId}

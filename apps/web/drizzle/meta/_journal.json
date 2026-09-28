@@ -36,6 +36,13 @@
       "when": 1790621804844,
       "tag": "0004_conference-key",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790621993242,
+      "tag": "0005_enable-pg-trgm",
+      "breakpoints": true
     }
   ]
 }

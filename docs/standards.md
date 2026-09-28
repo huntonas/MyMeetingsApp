@@ -10,6 +10,8 @@ A change is done when all of these pass:
 - `pnpm knip:production` reports no exports used only by tests. This must pass at the end of every phase, and CI runs it.
 - `DATABASE_URL= pnpm --filter web build` succeeds. Nothing may query the database at build time.
 
+`tools/*` and `packages/test-server` set `includeEntryExports: false` in knip.json, because a tool's `main.ts` exports `run()` for its end-to-end test and test-server is test-only.
+
 Every commit on a branch passes `pnpm check`.
 
 ## Test-driven development

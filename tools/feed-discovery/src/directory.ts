@@ -1,6 +1,8 @@
 import type { RegistryEntry } from "@mymeetingapp/feed-kit";
 import { parse, type HTMLElement } from "node-html-parser";
 
+import { entityId } from "./ids";
+
 export interface DirectoryEntity {
   id: string;
   name: string;
@@ -15,22 +17,6 @@ const TYPE_RULES: { pattern: RegExp; type: RegistryEntry["entity_type"] }[] = [
   { pattern: /central (office|service)|oficina central|service office/i, type: "central_office" },
   { pattern: /\bdistri(ct|to)\b/i, type: "district" },
 ];
-
-// Slugs the name and every qualifier, joining them in order. Offices pass a city and a state so
-// same-named offices in different cities stay distinct; footer areas pass no qualifiers at all, since
-// area names are unique nationwide and the same area repeats verbatim across every state page it's
-// related to. A qualifier with no text (e.g. an office with a blank address) is skipped.
-export function entityId(name: string, ...qualifiers: string[]): string {
-  const slug = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-  return [name, ...qualifiers]
-    .map(slug)
-    .filter((segment) => segment !== "")
-    .join("-");
-}
 
 function website(href: string | undefined): string | null {
   if (href === undefined || !/^https?:\/\//i.test(href.trim())) return null;

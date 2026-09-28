@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { entityId, parseDirectoryPage } from "../src/directory";
+import { parseDirectoryPage } from "../src/directory";
 
 const page = `
 <div class="area-loc-item"><h3>AA Vermont District 11</h3><address> Chittenden County , Vermont </address>
@@ -11,18 +11,6 @@ const page = `
 <div class="area-loc-item"><h3>Northern Vermont Answering Service</h3><address> Barre , Vermont </address>
 <p><a href="https://nvtaa.org" rel="nofollow">https://nvtaa.org</a></p></div>
 <div class="related-areas"><h4>Area 070 - Vermont</h4><div class="field--name-field-url"><a href="http://www.aavt.org">http://www.aavt.org</a></div></div>`;
-
-describe("entityId", () => {
-  it("slugs the name and any qualifiers, joining them in order", () => {
-    expect(entityId("AA Vermont District 11", "Chittenden County", "VT")).toBe(
-      "aa-vermont-district-11-chittenden-county-vt",
-    );
-  });
-
-  it("skips qualifiers with no text, e.g. a footer area's name alone", () => {
-    expect(entityId("Area 070 - Vermont")).toBe("area-070-vermont");
-  });
-});
 
 describe("parseDirectoryPage", () => {
   it("parses entities, infers their type from the name, and adds the area footer", () => {

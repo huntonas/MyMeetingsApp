@@ -292,6 +292,37 @@ describe("applyFeedSnapshot", () => {
     },
   );
 
+  it.each([
+    ["Acceptance", ["C", "D", "LGBTQ", "X"], ["C", "G", "LGBTQ", "L"]],
+    ["Young People of Greenville", ["O", "Y", "X"], ["B", "D", "LGBTQ", "Y"]],
+  ] as const)(
+    "joins %j listings whose non-gender audience types differ",
+    async (name, firstTypes, secondTypes) => {
+      const a = await seedFeed("a");
+      const b = await seedFeed("b");
+      await applyFeedSnapshot(a, [feedMeeting({ name, types: [...firstTypes] })]);
+      await applyFeedSnapshot(b, [feedMeeting({ sourceSlug: "b", name, types: [...secondTypes] })]);
+      expect(await activeMeetings()).toHaveLength(1);
+    },
+  );
+
+  it("joins a listing for both men and women to an untyped one at the same address", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ name: "Men's and Women's Big Book", types: [] })]);
+    await applyFeedSnapshot(b, [feedMeeting({ sourceSlug: "b", name: "Big Book", types: [] })]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("joins one Zoom meeting listed with different senior and young people types", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const zoom = { ...online, name: "COME ONE, COME ALL", conferenceUrl: "https://zoom.us/j/7777" };
+    await applyFeedSnapshot(a, [feedMeeting({ ...zoom, types: ["D", "SEN", "SP", "Y"] })]);
+    await applyFeedSnapshot(b, [feedMeeting({ ...zoom, sourceSlug: "b", types: ["D", "O", "SP", "Y"] })]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
   it("treats a men's name and the M type as the same audience", async () => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
@@ -351,6 +382,27 @@ describe("applyFeedSnapshot", () => {
     await applyFeedSnapshot(a, [feedMeeting({ ...online, conferenceUrl: first })]);
     await applyFeedSnapshot(b, [feedMeeting({ ...online, sourceSlug: "b", conferenceUrl: second })]);
     expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it.each([
+    "https://zoom.us/join",
+    "https://us02web.zoom.us/",
+    "https://zoom.us",
+    "https://meet.google.com/",
+  ])("gives the placeholder conference URL %s no conference key", async (conferenceUrl) => {
+    await applyFeedSnapshot(await seedFeed("a"), [feedMeeting({ ...online, conferenceUrl })]);
+    expect(await db.select({ key: feedMeetings.conferenceKey }).from(feedMeetings)).toEqual([{ key: null }]);
+  });
+
+  it("keeps unrelated online meetings that share a placeholder Zoom URL apart", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const placeholder = { ...online, conferenceUrl: "https://zoom.us/join" };
+    await applyFeedSnapshot(a, [feedMeeting({ ...placeholder, name: "Sapphire Street Zoom" })]);
+    await applyFeedSnapshot(b, [
+      feedMeeting({ ...placeholder, sourceSlug: "b", name: "The Stick It", types: ["W"] }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(2);
   });
 
   it("keeps online meetings with different Zoom ids at the same time apart", async () => {
@@ -489,6 +541,12 @@ describe("applyFeedSnapshot merging stored duplicates", () => {
     return id;
   }
 
+  async function storedMeetingWith(sources: { feedId: number; row: FeedMeeting }[]) {
+    const id = await insertMeetingWithSources(sources);
+    await recomputeMeetings([id]);
+    return id;
+  }
+
   async function sourcesOf(meetingId: string) {
     const rows = await db
       .select({ sourceSlug: feedMeetings.sourceSlug })
@@ -578,6 +636,87 @@ describe("applyFeedSnapshot merging stored duplicates", () => {
     ]);
     expect(await sourcesOf(third)).toEqual(["b", "room-a"]);
     expect(await sourcesOf(roomB)).toEqual(["room-b"]);
+  });
+
+  it("splits a stored men's and women's meeting at one address into two on the next sync", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const lansing = listing(
+      "Little Red Book Study",
+      "2909 W Genesee St, Lansing, MI 48917, USA",
+      42.7432,
+      -84.5917,
+    );
+    const men = feedMeeting({ ...lansing, sourceSlug: "little-red-book", types: ["M"] });
+    const women = feedMeeting({ ...lansing, sourceSlug: "aa-meeting", name: "AA Meeting", types: ["W"] });
+    const mixed = await storedMeetingWith([
+      { feedId: a, row: men },
+      { feedId: b, row: women },
+    ]);
+    await applyFeedSnapshot(a, [men]);
+    expect(await typesByMeeting()).toEqual([["M"], ["W"]]);
+    expect(await meetingIdOf(a, "little-red-book")).toBe(mixed);
+  });
+
+  it("splits a stored meeting of unrelated listings that share a placeholder Zoom URL", async () => {
+    const [a, b, c] = [await seedFeed("a"), await seedFeed("b"), await seedFeed("c")];
+    const junk = (sourceSlug: string, name: string) =>
+      feedMeeting({ ...online, sourceSlug, name, conferenceUrl: "https://zoom.us/join" });
+    await storedMeetingWith([
+      { feedId: a, row: junk("a", "11th Step #2 Online") },
+      { feedId: b, row: junk("b", "We Agnostics") },
+      { feedId: c, row: junk("c", "Women's PTA") },
+    ]);
+    await applyFeedSnapshot(a, [junk("a", "11th Step #2 Online")]);
+    expect(await activeMeetings()).toHaveLength(3);
+  });
+
+  it("keeps a stored meeting whose three feeds share one Zoom meeting", async () => {
+    const [a, b, c] = [await seedFeed("a"), await seedFeed("b"), await seedFeed("c")];
+    const zoom = (sourceSlug: string) =>
+      feedMeeting({ ...online, sourceSlug, conferenceUrl: "https://zoom.us/j/555" });
+    await storedMeetingWith([
+      { feedId: a, row: zoom("a") },
+      { feedId: b, row: zoom("b") },
+      { feedId: c, row: zoom("c") },
+    ]);
+    await applyFeedSnapshot(a, [zoom("a")]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("keeps a stored chain whose ends match only through the middle listing", async () => {
+    const [a, b, c] = [await seedFeed("a"), await seedFeed("b"), await seedFeed("c")];
+    const at = (sourceSlug: string, meters: number) =>
+      feedMeeting({
+        sourceSlug,
+        ...listing(
+          "Heritage",
+          `${String(meters)} Gregorie Ferry Rd, Mt Pleasant, SC 29466, USA`,
+          northOf(32.8468, meters),
+          -79.8231,
+        ),
+      });
+    await storedMeetingWith([
+      { feedId: a, row: at("a", 0) },
+      { feedId: b, row: at("b", 100) },
+      { feedId: c, row: at("c", 200) },
+    ]);
+    await applyFeedSnapshot(c, [at("c", 200)]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("merges a listing split off a stored meeting into the meeting it matches", async () => {
+    const [x, y, z] = [await seedFeed("x"), await seedFeed("y"), await seedFeed("z")];
+    const oak = listing("Serenity Seekers", "5 Oak St, Nashville, TN 37203, USA", 36.2, -86.7);
+    const existing = await storedMeeting(z, feedMeeting({ ...oak, sourceSlug: "z" }), "2026-01-01T00:00:00Z");
+    const stray = feedMeeting({ ...oak, sourceSlug: "y" });
+    const junk = await storedMeetingWith([
+      { feedId: x, row: feedMeeting({ sourceSlug: "x" }) },
+      { feedId: y, row: stray },
+    ]);
+    await applyFeedSnapshot(y, [stray]);
+    expect(await sourcesOf(existing)).toEqual(["y", "z"]);
+    expect(await sourcesOf(junk)).toEqual(["x"]);
   });
 
   it("merges two slugs in one feed that share a conference key", async () => {

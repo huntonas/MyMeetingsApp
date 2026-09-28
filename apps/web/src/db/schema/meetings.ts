@@ -43,16 +43,19 @@ export const meetings = pgTable(
 // rows not yet stored. Zoom links become "zoom:<meeting id or personal link>", ignoring the regional
 // subdomain, query, fragment and stray spaces. Other URLs keep their query, which can name the meeting (Webex
 // MTID), and only lose surrounding whitespace, the fragment and a trailing slash, with the scheme and host
-// lowercased.
+// lowercased. Placeholders that name no meeting (a Zoom link without an id, such as zoom.us/join, or any bare
+// host with no path or query, such as meet.google.com/) get no key, since unrelated meetings share them.
 export function conferenceKey(url: SQL): SQL {
+  const zoomUrl = sql`regexp_replace(lower(${url}), '%20|[[:space:]]', '', 'g')`;
   const trimmed = sql`regexp_replace(${url}, '^[[:space:]]+|[[:space:]]+$', '', 'g')`;
-  return sql`coalesce(
-    'zoom:' || (regexp_match(regexp_replace(lower(${url}), '%20|[[:space:]]', '', 'g'),
-      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],
-    rtrim(regexp_replace(
-      lower(substring(${trimmed} from '^[^/?#]*//[^/?#]*')) || substring(${trimmed} from '^[^/?#]*//[^/?#]*(.*)$'),
-      '#.*$', ''), '/')
-  )`;
+  const host = sql`lower(substring(${trimmed} from '^[^/?#]*//[^/?#]*'))`;
+  const rest = sql`regexp_replace(substring(${trimmed} from '^[^/?#]*//[^/?#]*(.*)$'), '#.*$', '')`;
+  return sql`case
+    when ${zoomUrl} ~ '^https?://(?:[a-z0-9-]+[.])*zoom[.]us(?:[/?#]|$)' then 'zoom:' || (regexp_match(${zoomUrl},
+      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1]
+    when ${rest} ~ '^/*$' then null
+    else rtrim(${host} || ${rest}, '/')
+  end`;
 }
 
 // One source's listing of a meeting on one day, holding only allowlisted fields (spec §3).

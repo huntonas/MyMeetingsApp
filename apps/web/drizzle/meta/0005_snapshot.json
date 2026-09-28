@@ -1,5 +1,5 @@
 {
-  "id": "81603d96-9172-49f4-a60d-e5214bcd4f1d",
+  "id": "6be2a81d-f0ba-409e-84b1-6436931da91e",
   "prevId": "b1b27110-9e1e-4d2b-b1fb-7acac0f51347",
   "version": "7",
   "dialect": "postgresql",
@@ -312,7 +312,7 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "coalesce(\n    'zoom:' || (regexp_match(regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g'),\n      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],\n    rtrim(regexp_replace(\n      lower(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*')) || substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*(.*)$'),\n      '#.*$', ''), '/')\n  )",
+            "as": "case\n    when regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g') ~ '^https?://(?:[a-z0-9-]+[.])*zoom[.]us(?:[/?#]|$)' then 'zoom:' || (regexp_match(regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g'),\n      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1]\n    when regexp_replace(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*(.*)$'), '#.*$', '') ~ '^/*$' then null\n    else rtrim(lower(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*')) || regexp_replace(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*(.*)$'), '#.*$', ''), '/')\n  end",
             "type": "stored"
           }
         },

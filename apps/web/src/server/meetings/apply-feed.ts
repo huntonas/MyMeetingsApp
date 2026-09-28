@@ -13,6 +13,7 @@ import {
 } from "@/server/meetings/match";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
+import { splitUnmatchedListings } from "@/server/meetings/split";
 
 // Spec §3 matching: sidesMatch on the candidates matchCandidates finds, less meetings that this feed lists
 // under another slug now (sameFeedConflict "active": unlike the merge pass, which counts every listing ever
@@ -43,8 +44,9 @@ async function findMatchingMeeting(tx: Executor, feedId: number, row: FeedMeetin
 }
 
 // Spec §3: applies one feed's snapshot in one transaction — archiving rows the feed no longer lists,
-// matching or creating a canonical meeting for each row, upserting the rows, recomputing every meeting the feed
-// touches, and merging any of those meetings that now match another stored meeting.
+// matching or creating a canonical meeting for each row, upserting the rows, recomputing every meeting the
+// feed touches, splitting off listings that match nothing else on their meeting, and merging any of those
+// meetings that now match another stored meeting.
 export async function applyFeedSnapshot(feedId: number, rows: FeedMeeting[]): Promise<void> {
   await db.transaction(async (tx) => {
     const seenAt = new Date();
@@ -96,6 +98,7 @@ export async function applyFeedSnapshot(feedId: number, rows: FeedMeeting[]): Pr
 
     const touched = [...new Set(meetingByKey.values())];
     await recomputeMeetings(touched, tx);
-    await mergeDuplicateMeetings(touched, tx);
+    const detached = await splitUnmatchedListings(touched, tx);
+    await mergeDuplicateMeetings([...touched, ...detached], tx);
   });
 }

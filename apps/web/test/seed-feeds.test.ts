@@ -142,4 +142,46 @@ describe("seedFeedsFromRegistry", () => {
     expect(await feedRow("tn-intergroup-a")).toMatchObject({ url: sharedUrl, priority: 10 });
     expect(await feedRow("tn-intergroup-b")).toBeUndefined();
   });
+
+  it("opts out a shared feed_url when any entry sharing it is opted out", async () => {
+    const sharedUrl = "https://sharedsite.example.org/meetings.json";
+    const intergroup: RegistryEntry = { ...verifiedTsml, id: "shared-intergroup", feed_url: sharedUrl };
+    const area: RegistryEntry = {
+      ...verifiedTsml,
+      id: "shared-area",
+      entity_type: "area",
+      feed_url: sharedUrl,
+      opted_out: true,
+    };
+
+    expect(await seedFeedsFromRegistry([intergroup, area])).toEqual({ upserted: 1, optedOut: 1, skipped: 1 });
+    expect(await feedRow("shared-intergroup")).toMatchObject({ url: sharedUrl, optedOut: true });
+  });
+
+  it("moves a feed_url's existing row to a new winning id instead of violating feeds_url_unique", async () => {
+    await seedFeedsFromRegistry([verifiedTsml]);
+    const [before] = await db.select().from(feeds);
+
+    const renamed: RegistryEntry = { ...verifiedTsml, id: "tn-intergroup-renamed" };
+    expect(await seedFeedsFromRegistry([renamed])).toEqual({ upserted: 1, optedOut: 0, skipped: 0 });
+
+    const rows = await db
+      .select()
+      .from(feeds)
+      .where(eq(feeds.url, verifiedTsml.feed_url ?? ""));
+    expect(rows).toEqual([expect.objectContaining({ id: before?.id, slug: "tn-intergroup-renamed" })]);
+  });
+
+  it("seeds everything or nothing: a bad entry rolls back the ones before it", async () => {
+    // A blank name passes the registry schema but not FeedInput, so the second upsert throws.
+    const blankName: RegistryEntry = {
+      ...verifiedTsml,
+      id: "blank-name",
+      name: " ",
+      feed_url: "https://blank.example.org/wp-json/tsml/meetings",
+    };
+
+    await expect(seedFeedsFromRegistry([verifiedTsml, blankName])).rejects.toThrow();
+    expect(await db.select().from(feeds)).toEqual([]);
+  });
 });

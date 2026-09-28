@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { db } from "@/db/client";
+import { db, type Executor } from "@/db/client";
 import { ENTITY_TYPES, type EntityType, feeds } from "@/db/schema";
 
 // Spec §3: intergroup and district feeds outrank area feeds, which often re-publish them.
@@ -21,6 +21,9 @@ export const FeedInput = z.object({
   state: z.string().regex(/^[A-Z]{2}$/),
   url: z.url({ protocol: /^https?$/ }),
   priority: z.number().int().min(1).optional(),
+  // Sets an opt-out as part of the same insert or update. An upsert can add an opt-out but never clear
+  // one: that stays a deliberate, separate change.
+  optedOut: z.boolean().optional(),
 });
 
 export type FeedInput = z.input<typeof FeedInput>;
@@ -30,10 +33,10 @@ const URL_OR_PRIORITY_CHANGED = sql`(${URL_CHANGED} or feeds.priority <> exclude
 
 // A new URL or priority must take effect on the next sync even if the feed would answer 304, so the
 // validators are dropped and the feed made due. A new URL also resets the shrink guard's baseline.
-export async function upsertFeed(input: FeedInput): Promise<number> {
+export async function upsertFeed(input: FeedInput, executor: Executor = db): Promise<number> {
   const feed = FeedInput.parse(input);
   const values = { ...feed, priority: feed.priority ?? DEFAULT_PRIORITY[feed.entityType] };
-  const [row] = await db
+  const [row] = await executor
     .insert(feeds)
     .values(values)
     .onConflictDoUpdate({
@@ -44,6 +47,7 @@ export async function upsertFeed(input: FeedInput): Promise<number> {
         state: sql`excluded.state`,
         url: sql`excluded.url`,
         priority: sql`excluded.priority`,
+        optedOut: sql`feeds.opted_out or excluded.opted_out`,
         etag: sql`case when ${URL_OR_PRIORITY_CHANGED} then null else feeds.etag end`,
         lastModified: sql`case when ${URL_OR_PRIORITY_CHANGED} then null else feeds.last_modified end`,
         lastSuccessAt: sql`case when ${URL_OR_PRIORITY_CHANGED} then null else feeds.last_success_at end`,

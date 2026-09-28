@@ -41,6 +41,18 @@ describe("upsertFeed", () => {
     expect(await feedRow("sd")).toMatchObject({ name: "AA San Diego", priority: 5, optedOut: true });
   });
 
+  it("writes an opt-out in the same statement as the insert or update, and never clears one", async () => {
+    await upsertFeed({ ...input, optedOut: true });
+    expect(await feedRow("sd")).toMatchObject({ optedOut: true });
+
+    await upsertFeed({ ...input, optedOut: false });
+    expect(await feedRow("sd")).toMatchObject({ optedOut: true });
+
+    await upsertFeed({ ...input, slug: "other", url: "https://other.example.org/feed" });
+    await upsertFeed({ ...input, slug: "other", url: "https://other.example.org/feed", optedOut: true });
+    expect(await feedRow("other")).toMatchObject({ optedOut: true });
+  });
+
   it("keeps a feed's validators, schedule and count when neither its URL nor its priority changes", async () => {
     const id = await upsertFeed(input);
     const synced = {

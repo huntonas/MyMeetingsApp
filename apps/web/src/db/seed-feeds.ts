@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { RegistryEntry } from "@mymeetingapp/feed-kit";
 
 import { db } from "@/db/client";
@@ -38,9 +38,10 @@ export interface SeedFeedsResult {
   skipped: number;
 }
 
-// Loads the discovery registry's verified feeds into the feeds table (spec §4). Not every registry
-// entry becomes a feed: unverified, un-fed, restricted or bmlt/none_found entries are skipped, and a
-// feed_url shared by two entries seeds only the lower-priority one.
+// Loads the discovery registry's verified feeds into the feeds table (spec §4), all in one transaction
+// so a failure part-way leaves the table as it was. Not every registry entry becomes a feed: unverified,
+// un-fed, restricted or bmlt/none_found entries are skipped, and a feed_url shared by several entries
+// seeds only the lower-priority one, opted out if any of them is.
 export async function seedFeedsFromRegistry(entries: RegistryEntry[]): Promise<SeedFeedsResult> {
   const seedable = entries.filter(isSeedable);
 
@@ -53,24 +54,35 @@ export async function seedFeedsFromRegistry(entries: RegistryEntry[]): Promise<S
   let optedOut = 0;
   let skipped = entries.length - seedable.length;
 
-  for (const group of byUrl.values()) {
-    skipped += group.length - 1;
-    const winner = pickWinner(group);
+  await db.transaction(async (tx) => {
+    for (const group of byUrl.values()) {
+      skipped += group.length - 1;
+      const winner = pickWinner(group);
+      const groupOptedOut = group.some((entry) => entry.opted_out === true);
 
-    await upsertFeed({
-      slug: winner.id,
-      name: winner.name,
-      entityType: winner.entity_type,
-      state: winner.state,
-      url: winner.feed_url,
-    });
-    upserted += 1;
+      // The winner can differ from the entity that owned this URL on a previous seed (a renamed entity,
+      // or a new tie-break winner). feeds.url is unique, so the existing row takes the winner's slug and
+      // keeps its sync history, rather than a second row being inserted for the same URL.
+      await tx
+        .update(feeds)
+        .set({ slug: winner.id })
+        .where(and(eq(feeds.url, winner.feed_url), ne(feeds.slug, winner.id)));
 
-    if (winner.opted_out === true) {
-      await db.update(feeds).set({ optedOut: true }).where(eq(feeds.slug, winner.id));
-      optedOut += 1;
+      await upsertFeed(
+        {
+          slug: winner.id,
+          name: winner.name,
+          entityType: winner.entity_type,
+          state: winner.state,
+          url: winner.feed_url,
+          optedOut: groupOptedOut,
+        },
+        tx,
+      );
+      upserted += 1;
+      if (groupOptedOut) optedOut += 1;
     }
-  }
+  });
 
   return { upserted, optedOut, skipped };
 }

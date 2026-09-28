@@ -5,7 +5,9 @@ import { db } from "@/db/client";
 import { ENTITY_TYPES, type EntityType, feeds } from "@/db/schema";
 
 // Spec §3: intergroup and district feeds outrank area feeds, which often re-publish them.
-const DEFAULT_PRIORITY: Record<EntityType, number> = {
+// Exported so callers that must rank entities before upserting (e.g. seed-feeds.ts, when two
+// registry entries share a feed_url) use the same defaults rather than duplicating them.
+export const DEFAULT_PRIORITY: Record<EntityType, number> = {
   intergroup: 10,
   district: 10,
   central_office: 10,

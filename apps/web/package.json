@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
-    "db:add-feed": "tsx scripts/add-feed.ts"
+    "db:add-feed": "tsx scripts/add-feed.ts",
+    "db:seed-feeds": "tsx scripts/seed-feeds.ts"
   },
   "dependencies": {
     "@mymeetingapp/feed-kit": "workspace:*",
@@ -24,6 +25,7 @@
     "pg": "^8.23.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "yaml": "^2.8.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

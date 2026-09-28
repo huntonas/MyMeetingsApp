@@ -29,6 +29,27 @@
       "when": 1790533462444,
       "tag": "0003_meeting-location",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790625513829,
+      "tag": "0004_lock-timeout",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790629210560,
+      "tag": "0005_conference-key",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790629211135,
+      "tag": "0006_enable-pg-trgm",
+      "breakpoints": true
     }
   ]
 }

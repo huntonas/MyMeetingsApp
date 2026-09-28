@@ -5,11 +5,12 @@ import { sqlArray } from "@/db/sql";
 import { matchCandidates, meetingSide, sameFeedConflict, sidesMatch } from "@/server/meetings/match";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
-// Spec §3: stored meetings that match by the same rules as a new row (matchCandidates, then sidesMatch less
-// sameFeedConflict, exactly as findMatchingMeeting in apply-feed.ts) merge into the oldest, so duplicates made
-// before a rule existed merge as their feeds next sync. Each round merges at most one meeting into each
-// survivor and re-checks the survivor next round, so a feed's two rooms can't both join a third meeting at
-// once. Every round is one set-based query.
+// Spec §3: stored meetings that match by the same rules as a new row (matchCandidates, then sidesMatch, as
+// findMatchingMeeting in apply-feed.ts) merge into the oldest, so duplicates made before a rule existed merge
+// as their feeds next sync. The same-feed rule counts every listing ever seen (sameFeedConflict
+// "ever-listed"), not only active ones as new-row matching does, so a room a feed drops for one snapshot
+// can't merge away. Each round merges at most one meeting into each survivor and re-checks the survivor next
+// round, so a feed's two rooms can't both join a third meeting at once. Every round is one set-based query.
 export async function mergeDuplicateMeetings(meetingIds: string[], executor: Executor): Promise<void> {
   let touched = meetingIds;
   while (touched.length > 0) {
@@ -20,7 +21,7 @@ export async function mergeDuplicateMeetings(meetingIds: string[], executor: Exe
         join meetings other on other.id = candidate.candidate_id and other.id <> t.id and other.archived_at is null
         where t.id = any(${sqlArray(touched, "uuid")}) and t.archived_at is null
           and ${sidesMatch(meetingSide("t"), meetingSide("other"))}
-          and not ${sameFeedConflict(meetingSide("t"), meetingSide("other"))}
+          and not ${sameFeedConflict(meetingSide("t"), meetingSide("other"), "ever-listed")}
       ),
       pair as (
         select newer.id loser, newer.created_at loser_created_at, older.id survivor,

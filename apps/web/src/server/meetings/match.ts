@@ -150,14 +150,17 @@ export function matchCandidates(side: MatchSide): SQL {
 }
 
 // One feed listing the two sides under different slugs means two rooms at one address and time, so they
-// never join, unless those listings share a conference key, which makes them one meeting. Only active
-// listings count: applyFeedSnapshot sets this feed's archived_at from the snapshot before matching, so new
-// rows and the merge pass see the same state.
-export function sameFeedConflict(a: MatchSide, b: MatchSide): SQL {
+// never join, unless those listings share a conference key, which makes them one meeting.
+// - "active" (new-row matching) counts only listings the feed lists now. applyFeedSnapshot sets this feed's
+//   archived_at from the snapshot before matching, so a slug the feed renamed doesn't hold on to its meeting.
+// - "ever-listed" (merge pass) also counts archived listings. A feed that drops one room from one snapshot
+//   still has two rooms, so the room it dropped mustn't merge into the other and stay there when it returns.
+export function sameFeedConflict(a: MatchSide, b: MatchSide, listings: "active" | "ever-listed"): SQL {
+  const active =
+    listings === "active" ? sql`and a_listing.archived_at is null and b_listing.archived_at is null` : sql``;
   return sql`exists (
     select 1 from ${a.listings} a_listing, ${b.listings} b_listing
-    where a_listing.feed_id = b_listing.feed_id and a_listing.source_slug <> b_listing.source_slug
-      and a_listing.archived_at is null and b_listing.archived_at is null
+    where a_listing.feed_id = b_listing.feed_id and a_listing.source_slug <> b_listing.source_slug ${active}
       and not coalesce(a_listing.conference_key = b_listing.conference_key, false)
   )`;
 }

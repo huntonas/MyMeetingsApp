@@ -15,8 +15,9 @@ import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
 // Spec §3 matching: sidesMatch on the candidates matchCandidates finds, less meetings that this feed lists
-// under another slug (sameFeedConflict, the same rule the merge pass uses). Archived meetings can match, so a
-// meeting returning to a feed keeps its id, but an active one wins.
+// under another slug now (sameFeedConflict "active": unlike the merge pass, which counts every listing ever
+// seen, a renamed slug keeps its meeting). Archived meetings can match, so a meeting returning to a feed
+// keeps its id, but an active one wins.
 async function findMatchingMeeting(tx: Executor, feedId: number, row: FeedMeeting) {
   const rowSide: MatchSide = {
     day: sql`${row.day}::smallint`,
@@ -34,7 +35,7 @@ async function findMatchingMeeting(tx: Executor, feedId: number, row: FeedMeetin
   const result = await tx.execute<{ id: string }>(sql`
     select meetings.id from (${matchCandidates(rowSide)}) candidate
     join meetings on meetings.id = candidate.candidate_id
-    where ${sidesMatch(meeting, rowSide)} and not ${sameFeedConflict(meeting, rowSide)}
+    where ${sidesMatch(meeting, rowSide)} and not ${sameFeedConflict(meeting, rowSide, "active")}
     order by meetings.archived_at nulls first, meetings.created_at
     limit 1
   `);

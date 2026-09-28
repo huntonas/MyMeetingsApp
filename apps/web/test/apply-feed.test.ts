@@ -506,6 +506,23 @@ describe("applyFeedSnapshot merging stored duplicates", () => {
     ]);
   });
 
+  it("keeps a feed's two rooms apart after it briefly drops one that another feed also lists", async () => {
+    const x = await seedFeed("x");
+    const y = await seedFeed("y");
+    const roomA = feedMeeting({ sourceSlug: "room-a" });
+    const roomB = feedMeeting({ sourceSlug: "room-b" });
+    await storedMeeting(x, roomA, "2026-01-01T00:00:00Z");
+    const meetingB = await insertMeetingWithSources([
+      { feedId: x, row: roomB },
+      { feedId: y, row: feedMeeting({ sourceSlug: "y" }) },
+    ]);
+    await recomputeMeetings([meetingB]);
+    await applyFeedSnapshot(x, [roomA]);
+    await applyFeedSnapshot(x, [roomA, roomB]);
+    expect(await activeMeetings()).toHaveLength(2);
+    expect(await sourcesOf(meetingB)).toEqual(["room-b", "y"]);
+  });
+
   it("merges only one of a feed's two rooms into a third meeting that matches both", async () => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");

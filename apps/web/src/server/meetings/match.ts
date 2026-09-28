@@ -30,8 +30,9 @@ export function meetingSide(alias: string): MatchSide {
 }
 
 // Who a meeting is for, from name words and Meeting Guide type codes, in one vocabulary so "Men's" in a name
-// and the M type are the same audience. Listings that differ in audience never join by place or name, so a
-// men's and a women's meeting at one place and time stay apart. SP is Speaker in Meeting Guide, not Spanish.
+// and the M type are the same audience. Sides that both name an audience and differ never join by place or
+// name, so a men's and a women's meeting at one place and time stay apart. SP is Speaker in Meeting Guide,
+// not Spanish.
 const AUDIENCE_TERMS: Record<string, readonly string[]> = {
   men: [
     "men",
@@ -100,34 +101,52 @@ function wordsContained(shorter: SQL, longer: SQL): SQL {
     and length(array_to_string(${shorter}, '')) >= ${MIN_CONTAINED_NAME_LENGTH})`;
 }
 
+// Each listing's audience, one row per listing of the side.
+function listingAudiences(side: MatchSide): SQL {
+  return sql`(select ${audience(nameWords(sql`listing.name`), sql`listing.types`)} audience
+    from ${side.listings} listing)`;
+}
+
+// The one audience a side's listings name, or null when none names one. Listings that name no audience
+// don't count, so an untyped listing never makes a side mixed or blocks a match.
+function sideAudience(side: MatchSide): SQL {
+  return sql`(select audience from ${listingAudiences(side)} named where cardinality(audience) > 0
+    order by audience limit 1)`;
+}
+
+// A stored meeting whose listings already name different audiences (a men's and a women's listing merged
+// by an older rule) never matches, so it can't absorb more listings or merge further.
+function mixedAudience(side: MatchSide): SQL {
+  return sql`((select count(distinct audience) from ${listingAudiences(side)} named
+    where cardinality(audience) > 0) > 1)`;
+}
+
 // Spec §3 matching, shared by a new row joining a meeting and two stored meetings merging, so both follow
 // the same rules: the same day and start time, plus the same conference key when both are online or hybrid,
-// or, for listings of the same audience, coordinates within 50 m, the same normalized address, or
-// coordinates within 150 m and names that clearly match (every word of one is in the other, or they are
-// trigram-similar). Callers first narrow the meetings to check with matchCandidates.
+// or, unless both sides name an audience and they differ, coordinates within 50 m, the same normalized
+// address, or coordinates within 150 m and names that clearly match (every word of one is in the other, or
+// they are trigram-similar). A side whose own listings name different audiences never matches. Callers first
+// narrow the meetings to check with matchCandidates.
 export function sidesMatch(a: MatchSide, b: MatchSide): SQL {
-  return sql`(${a.day} = ${b.day} and ${a.time} = ${b.time} and (
+  return sql`(${a.day} = ${b.day} and ${a.time} = ${b.time}
+    and not ${mixedAudience(a)} and not ${mixedAudience(b)} and (
     exists (
       select 1 from ${a.listings} a_listing, ${b.listings} b_listing
       where a_listing.attendance in ('online', 'hybrid') and b_listing.attendance in ('online', 'hybrid')
         and a_listing.conference_key = b_listing.conference_key
     )
-    or exists (
+    or (coalesce(${sideAudience(a)} = ${sideAudience(b)}, true) and exists (
       select 1 from ${a.listings} a_listing, ${b.listings} b_listing,
         lateral (select ${nameWords(sql`a_listing.name`)} a_words, ${nameWords(sql`b_listing.name`)} b_words) names
-      where (
-          coalesce(ST_DWithin(${a.location}, ${b.location}, ${SAME_PLACE_METERS}), false)
-          or a_listing.address_key = b_listing.address_key
-          or (coalesce(ST_DWithin(${a.location}, ${b.location}, ${SAME_NAME_METERS}), false) and (
-            ${wordsContained(sql`names.a_words`, sql`names.b_words`)}
-            or ${wordsContained(sql`names.b_words`, sql`names.a_words`)}
-            or similarity(array_to_string(names.a_words, ' '), array_to_string(names.b_words, ' '))
-              >= ${MIN_NAME_SIMILARITY}
-          ))
-        )
-        and ${audience(sql`names.a_words`, sql`a_listing.types`)}
-          = ${audience(sql`names.b_words`, sql`b_listing.types`)}
-    )
+      where coalesce(ST_DWithin(${a.location}, ${b.location}, ${SAME_PLACE_METERS}), false)
+        or a_listing.address_key = b_listing.address_key
+        or (coalesce(ST_DWithin(${a.location}, ${b.location}, ${SAME_NAME_METERS}), false) and (
+          ${wordsContained(sql`names.a_words`, sql`names.b_words`)}
+          or ${wordsContained(sql`names.b_words`, sql`names.a_words`)}
+          or similarity(array_to_string(names.a_words, ' '), array_to_string(names.b_words, ' '))
+            >= ${MIN_NAME_SIMILARITY}
+        ))
+    ))
   ))`;
 }
 

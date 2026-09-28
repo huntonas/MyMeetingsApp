@@ -149,7 +149,7 @@ describe("applyFeedSnapshot", () => {
     ["Joy", "Joyful Living", 2],
     ["Hope", "Hopeful Hearts", 2],
     ["Men's Stag", "Women's Stag", 2],
-    ["Women's Serenity", "Serenity", 2],
+    ["Women's Serenity", "Serenity", 1],
     ["Men Stag", "Men's Stag", 1],
     ["Grupo Español", "Grupo Espanol", 1],
   ])("matches %j and %j 100 m apart into %i meeting(s)", async (first, second, expected) => {
@@ -248,6 +248,49 @@ describe("applyFeedSnapshot", () => {
       ["W", "W"],
     ]);
   });
+
+  it.each([
+    ["Nueva Vida", ["S", "O"], "Nueva Vida", ["O"]],
+    ["Big Book", ["M"], "Big Book", []],
+  ] as const)(
+    "joins %j typed %j to %j typed %j at one address, since one side names no audience",
+    async (firstName, firstTypes, secondName, secondTypes) => {
+      const a = await seedFeed("a");
+      const b = await seedFeed("b");
+      await applyFeedSnapshot(a, [feedMeeting({ name: firstName, types: [...firstTypes] })]);
+      await applyFeedSnapshot(b, [
+        feedMeeting({ sourceSlug: "b", name: secondName, types: [...secondTypes] }),
+      ]);
+      expect(await activeMeetings()).toHaveLength(1);
+    },
+  );
+
+  it("keeps a women's listing out of a meeting that a men's and an untyped listing share", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const c = await seedFeed("c");
+    await applyFeedSnapshot(a, [feedMeeting({ sourceSlug: "a", name: "Big Book", types: ["M"] })]);
+    await applyFeedSnapshot(b, [feedMeeting({ sourceSlug: "b", name: "Big Book", types: [] })]);
+    await applyFeedSnapshot(c, [feedMeeting({ sourceSlug: "c", name: "Big Book", types: ["W"] })]);
+    expect(await typesByMeeting()).toEqual([["", "M"], ["W"]]);
+  });
+
+  it.each(["M", "W"] as const)(
+    "never adds a %s listing to a stored meeting whose listings already name different audiences",
+    async (type) => {
+      const a = await seedFeed("a");
+      const b = await seedFeed("b");
+      const c = await seedFeed("c");
+      const mixed = await insertMeetingWithSources([
+        { feedId: a, row: feedMeeting({ sourceSlug: "a", name: "Big Book", types: ["M"] }) },
+        { feedId: b, row: feedMeeting({ sourceSlug: "b", name: "Big Book", types: ["W"] }) },
+      ]);
+      await recomputeMeetings([mixed]);
+      await applyFeedSnapshot(c, [feedMeeting({ sourceSlug: "c", name: "Big Book", types: [type] })]);
+      expect(await meetingIdOf(c, "c")).not.toBe(mixed);
+      expect(await activeMeetings()).toHaveLength(2);
+    },
+  );
 
   it("treats a men's name and the M type as the same audience", async () => {
     const a = await seedFeed("a");

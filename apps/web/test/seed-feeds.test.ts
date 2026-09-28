@@ -125,4 +125,21 @@ describe("seedFeedsFromRegistry", () => {
     expect(await feedRow("shared-intergroup")).toMatchObject({ url: sharedUrl, priority: 10 });
     expect(await feedRow("shared-area")).toBeUndefined();
   });
+
+  it("breaks a same-priority tie for a shared feed_url by id, alphabetically", async () => {
+    const sharedUrl = "https://sharedsite.example.org/meetings.json";
+    const higherId: RegistryEntry = { ...verifiedTsml, id: "tn-intergroup-b", feed_url: sharedUrl };
+    const lowerId: RegistryEntry = { ...verifiedTsml, id: "tn-intergroup-a", feed_url: sharedUrl };
+
+    // Passed with the higher id first, so the result only matches if the tie-break (not array order)
+    // decided the winner.
+    expect(await seedFeedsFromRegistry([higherId, lowerId])).toEqual({
+      upserted: 1,
+      optedOut: 0,
+      skipped: 1,
+    });
+
+    expect(await feedRow("tn-intergroup-a")).toMatchObject({ url: sharedUrl, priority: 10 });
+    expect(await feedRow("tn-intergroup-b")).toBeUndefined();
+  });
 });

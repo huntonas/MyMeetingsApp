@@ -23,8 +23,9 @@ export const SyncSummary = z.object({
 export type SyncSummary = z.infer<typeof SyncSummary>;
 
 const LOCK_KEY = 7_202_609; // arbitrary constant naming the feed-sync advisory lock
-const SUCCESS_INTERVAL = sql`interval '12 hours'`;
-const RETRY_INTERVAL = sql`interval '1 hour'`;
+// Spec §4 good-citizen rules: each feed is fetched at most once a week, and a failing one is retried daily.
+const SUCCESS_INTERVAL = sql`interval '7 days'`;
+const RETRY_INTERVAL = sql`interval '1 day'`;
 const SHRINK_GUARD_MINIMUM = 20;
 
 type Feed = typeof feeds.$inferSelect;

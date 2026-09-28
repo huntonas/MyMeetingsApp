@@ -47,7 +47,7 @@ Source: the open Meeting Guide JSON spec (`github.com/code4recovery/spec`), publ
 
 - **Launch coverage is nationwide (US).** The feed registry is built by the discovery task in section 4.
 - `feeds` table: one row per feed, with a `priority` (lower number wins). Intergroup and district feeds rank above area feeds, since areas often re-publish intergroup data.
-- **Sync:** Vercel Cron hits `/api/cron/sync-feeds` every 15 minutes (Vercel sends `Authorization: Bearer $CRON_SECRET`). Each run syncs the stalest feeds whose last successful sync is over 12 hours old, and stops starting new feeds after ~240 s so it finishes within the function time limit. Idempotent. One failing feed never affects others.
+- **Sync:** Vercel Cron hits `/api/cron/sync-feeds` every 15 minutes (Vercel sends `Authorization: Bearer $CRON_SECRET`). Each run syncs the stalest feeds whose last successful sync is over 7 days old (a feed whose last attempt failed is retried after a day), and stops starting new feeds after ~240 s so it finishes within the function time limit. Idempotent. One failing feed never affects others.
 - **Politeness:** at most 1 request per second per host, conditional requests (`If-None-Match` / `If-Modified-Since`), a per-request timeout, no retry storms.
 - **Two layers of meeting data:**
   - `feed_meetings`: raw rows per source, upserted by `(feed_id, source_slug, day)`. A meeting listed on several days becomes one row per day.
@@ -108,7 +108,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Re-verification:** flag feeds that stop responding, new entities in the directory, and meeting-count drops over 30%.
 
-**Good-citizen rules (instead of seeking permission):** feeds are public data owned by each entity, so no one is contacted for permission. We honor every restriction an entity sets, identify ourselves honestly in the User-Agent, respect robots.txt, sync each feed no more than every 12 hours, and honor any opt-out an entity or group requests promptly. Only Google Sheet feeds pass through a third party's server (`sheets.code4recovery.org`). If Sheet feeds turn out to matter for coverage, read public Sheets directly through Google's Sheets API instead of relying on that service.
+**Good-citizen rules (instead of seeking permission):** feeds are public data owned by each entity, so no one is contacted for permission. We honor every restriction an entity sets, identify ourselves honestly in the User-Agent, respect robots.txt, sync each feed no more than once a week, and honor any opt-out an entity or group requests promptly. Only Google Sheet feeds pass through a third party's server (`sheets.code4recovery.org`). If Sheet feeds turn out to matter for coverage, read public Sheets directly through Google's Sheets API instead of relying on that service.
 
 ## 5. Tagging system
 

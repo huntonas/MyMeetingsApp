@@ -5,6 +5,7 @@ import { conferenceKey, feedMeetings, meetings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import type { FeedMeeting } from "@/server/feeds/normalize";
 import { type MatchSide, meetingSide, sidesMatch } from "@/server/meetings/match";
+import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
 // Spec §3 matching (see sidesMatch). A meeting that this feed lists under another slug in the same snapshot
@@ -44,8 +45,8 @@ async function findMatchingMeeting(
 }
 
 // Spec §3: applies one feed's snapshot in one transaction — matching or creating a canonical meeting for
-// each row, upserting the rows, archiving rows the feed no longer lists, and recomputing every meeting
-// the feed touches.
+// each row, upserting the rows, archiving rows the feed no longer lists, recomputing every meeting the feed
+// touches, and merging any of those meetings that now match another stored meeting.
 export async function applyFeedSnapshot(feedId: number, rows: FeedMeeting[]): Promise<void> {
   await db.transaction(async (tx) => {
     const seenAt = new Date();
@@ -97,6 +98,8 @@ export async function applyFeedSnapshot(feedId: number, rows: FeedMeeting[]): Pr
         ),
       );
 
-    await recomputeMeetings([...new Set([...meetingByKey.values()])], tx);
+    const touched = [...new Set(meetingByKey.values())];
+    await recomputeMeetings(touched, tx);
+    await mergeDuplicateMeetings(touched, tx);
   });
 }

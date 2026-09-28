@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { db, pool } from "@/db/client";
 import { feedMeetings, meetings } from "@/db/schema";
+import type { FeedMeeting } from "@/server/feeds/normalize";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
@@ -324,5 +325,90 @@ describe("applyFeedSnapshot", () => {
     await applyFeedSnapshot(feedId, [feedMeeting(), feedMeeting({ sourceSlug: "gone", day: 3 })]);
     expect(await meetingIdOf(feedId, "gone")).toBe(goneId);
     expect(await activeMeetings()).toHaveLength(2);
+  });
+});
+
+describe("applyFeedSnapshot merging stored duplicates", () => {
+  const heritage = listing(
+    "Heritage",
+    "1177 Gregorie Ferry Rd, Mt Pleasant, SC 29466, USA",
+    32.8468,
+    -79.8231,
+  );
+  const heritageNearby = listing(
+    "Heritage",
+    "1177 Gregorie Ferry Rd, Mount Pleasant, SC 29466, USA",
+    northOf(32.8468, 82),
+    -79.8231,
+  );
+
+  async function storedMeeting(feedId: number, row: FeedMeeting, createdAt?: string) {
+    const id = await insertMeetingWithSources([{ feedId, row }]);
+    if (createdAt !== undefined) {
+      await db
+        .update(meetings)
+        .set({ createdAt: new Date(createdAt) })
+        .where(eq(meetings.id, id));
+    }
+    await recomputeMeetings([id]);
+    return id;
+  }
+
+  async function sourcesOf(meetingId: string) {
+    const rows = await db
+      .select({ sourceSlug: feedMeetings.sourceSlug })
+      .from(feedMeetings)
+      .where(eq(feedMeetings.meetingId, meetingId));
+    return rows.map((row) => row.sourceSlug).sort();
+  }
+
+  it("merges two stored meetings into the older one when one of their feeds next syncs", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const newer = await storedMeeting(a, feedMeeting({ ...heritage, sourceSlug: "heritage-a" }));
+    const older = await storedMeeting(
+      b,
+      feedMeeting({ ...heritageNearby, sourceSlug: "heritage-b" }),
+      "2026-01-01T00:00:00Z",
+    );
+    await applyFeedSnapshot(a, [feedMeeting({ ...heritage, sourceSlug: "heritage-a" })]);
+    expect((await activeMeetings()).map((meeting) => meeting.id)).toEqual([older]);
+    expect(await sourcesOf(older)).toEqual(["heritage-a", "heritage-b"]);
+    expect(await db.select().from(meetings).where(eq(meetings.id, newer))).toEqual([]);
+  });
+
+  it("merges three stored copies of one meeting into the oldest", async () => {
+    const [a, b, c] = [await seedFeed("a"), await seedFeed("b"), await seedFeed("c")];
+    const oldest = await storedMeeting(b, feedMeeting({ sourceSlug: "b" }), "2026-01-01T00:00:00Z");
+    await storedMeeting(a, feedMeeting({ sourceSlug: "a" }), "2026-02-01T00:00:00Z");
+    await storedMeeting(c, feedMeeting({ sourceSlug: "c" }), "2026-03-01T00:00:00Z");
+    await applyFeedSnapshot(c, [feedMeeting({ sourceSlug: "c" })]);
+    expect((await activeMeetings()).map((meeting) => meeting.id)).toEqual([oldest]);
+    expect(await sourcesOf(oldest)).toEqual(["a", "b", "c"]);
+  });
+
+  it("never merges two rooms that one feed lists under two slugs", async () => {
+    const feedId = await seedFeed("a");
+    await storedMeeting(feedId, feedMeeting({ sourceSlug: "room-a" }));
+    await storedMeeting(feedId, feedMeeting({ sourceSlug: "room-b" }));
+    await applyFeedSnapshot(feedId, [
+      feedMeeting({ sourceSlug: "room-a" }),
+      feedMeeting({ sourceSlug: "room-b" }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(2);
+  });
+
+  it("merges two slugs in one feed that share a conference key", async () => {
+    const feedId = await seedFeed("a");
+    const first = {
+      ...online,
+      sourceSlug: "listing-a",
+      conferenceUrl: "https://us02web.zoom.us/j/740716108",
+    };
+    const second = { ...online, sourceSlug: "listing-b", conferenceUrl: "https://zoom.us/j/740716108" };
+    await storedMeeting(feedId, feedMeeting(first));
+    await storedMeeting(feedId, feedMeeting(second));
+    await applyFeedSnapshot(feedId, [feedMeeting(first), feedMeeting(second)]);
+    expect(await activeMeetings()).toHaveLength(1);
   });
 });

@@ -58,3 +58,24 @@ export function sidesMatch(a: MatchSide, b: MatchSide): SQL {
     ))
   ))`;
 }
+
+// Pairs of a meeting in the `touched` relation (an id column) and another active meeting that could match it:
+// the same day and time within 150 m, or sharing an address key or conference key. Each branch can use an
+// index, so sidesMatch then runs on a few pairs rather than on every meeting at the same time.
+export function matchCandidates(touched: string): SQL {
+  const relation = sql.raw(touched);
+  return sql`
+    select t.id touched_id, other.id other_id from ${relation} touched
+    join meetings t on t.id = touched.id
+    join meetings other on other.day = t.day and other.time = t.time and other.id <> t.id
+      and ST_DWithin(other.location, t.location, ${SAME_NAME_METERS})
+    union
+    select mine.meeting_id, theirs.meeting_id from ${relation} touched
+    join feed_meetings mine on mine.meeting_id = touched.id
+    join feed_meetings theirs on theirs.address_key = mine.address_key and theirs.meeting_id <> mine.meeting_id
+    union
+    select mine.meeting_id, theirs.meeting_id from ${relation} touched
+    join feed_meetings mine on mine.meeting_id = touched.id
+    join feed_meetings theirs on theirs.conference_key = mine.conference_key
+      and theirs.meeting_id <> mine.meeting_id`;
+}

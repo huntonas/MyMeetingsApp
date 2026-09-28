@@ -151,6 +151,8 @@ describe("applyFeedSnapshot", () => {
     ["Men's Stag", "Women's Stag", 2],
     ["Women's Serenity", "Serenity", 1],
     ["Men Stag", "Men's Stag", 1],
+    // "Stag" means single-gender, not men: a women's stag is a women's meeting.
+    ["Compton Women's Stag", "Compton Women's", 1],
     ["Grupo Español", "Grupo Espanol", 1],
   ])("matches %j and %j 100 m apart into %i meeting(s)", async (first, second, expected) => {
     const a = await seedFeed("a");

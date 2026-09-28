@@ -41,7 +41,6 @@ const GENDER_TERMS: Record<string, readonly string[]> = {
     "guys",
     "brothers",
     "gentlemen",
-    "stag",
     "hombres",
     "caballeros",
     "varones",

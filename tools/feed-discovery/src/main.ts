@@ -74,9 +74,10 @@ export async function run(options: RunOptions = {}): Promise<RunResult> {
   const entityById = new Map<string, DirectoryEntity>();
   for (const code of states) {
     const result = await crawler.get(`${directoryUrl}?state=${code}`);
-    if (result.kind !== "response") {
-      console.warn(`${code}: directory page unavailable`);
-      continue;
+    // A missing state page would silently drop every entity it lists (and their registry history), so
+    // the whole run fails instead and writes nothing.
+    if (result.kind !== "response" || result.status < 200 || result.status >= 300) {
+      throw new Error(`${code}: directory page unavailable; nothing was written`);
     }
     const pageEntities = parseDirectoryPage(result.body, code);
     console.log(`${code}: ${String(pageEntities.length)} entities`);

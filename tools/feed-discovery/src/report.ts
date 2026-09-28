@@ -18,6 +18,7 @@ interface CountDrop {
 
 export interface Changes {
   stoppedResponding: string[];
+  removedFromDirectory: string[];
   newEntities: string[];
   countDrops: CountDrop[];
 }
@@ -31,7 +32,9 @@ function detectionFeedUrl(detection: Detection): string | null {
 }
 
 // One registry entry (spec §4) per discovered entity. `opted_out: true` survives from `previous` by
-// id, since re-running discovery must never silently re-enable a feed someone opted out of.
+// id, since re-running discovery must never silently re-enable a feed someone opted out of; an
+// opted-out entry the directory no longer lists is carried forward unchanged, so the opt-out isn't lost
+// if the entity reappears later.
 export function buildRegistry(
   found: { entity: DirectoryEntity; detection: Detection; verification: VerifyResult | null }[],
   previous: RegistryEntry[],
@@ -39,7 +42,10 @@ export function buildRegistry(
 ): RegistryEntry[] {
   const previousById = new Map(previous.map((entry) => [entry.id, entry]));
 
-  return found.map(({ entity, detection, verification }) => {
+  const foundIds = new Set(found.map(({ entity }) => entity.id));
+  const carriedOptOuts = previous.filter((entry) => entry.opted_out === true && !foundIds.has(entry.id));
+
+  const entries = found.map(({ entity, detection, verification }) => {
     const rawFeedUrl = detectionFeedUrl(detection);
     // Belt and braces on top of detectFeed's own guarantee that a keyed source is never fetched: a
     // feed_url carrying a sharing key must never reach the registry that gets committed to git.
@@ -62,6 +68,7 @@ export function buildRegistry(
 
     return previousById.get(entity.id)?.opted_out === true ? { ...entry, opted_out: true } : entry;
   });
+  return [...entries, ...carriedOptOuts];
 }
 
 // Pairs of feeds that cover at least one of the same meetings, highest overlap first - a sign the two
@@ -90,14 +97,18 @@ export function computeOverlaps(keysByFeed: Map<string, Set<string>>): Overlap[]
   return overlaps.sort((x, y) => y.shared - x.shared);
 }
 
-// Spec §4 re-verification: feeds that stopped responding, entities new to the directory, and
-// meeting-count drops worth a human's attention.
+// Spec §4 re-verification: feeds that stopped responding, entities that left or joined the directory,
+// and meeting-count drops worth a human's attention.
 export function computeChanges(previous: RegistryEntry[], current: RegistryEntry[]): Changes {
   const previousById = new Map(previous.map((entry) => [entry.id, entry]));
   const currentById = new Map(current.map((entry) => [entry.id, entry]));
 
   const stoppedResponding = previous
-    .filter((entry) => entry.verified && currentById.get(entry.id)?.verified !== true)
+    .filter((entry) => entry.verified && currentById.get(entry.id)?.verified === false)
+    .map((entry) => entry.id);
+
+  const removedFromDirectory = previous
+    .filter((entry) => !currentById.has(entry.id))
     .map((entry) => entry.id);
 
   const newEntities = current.filter((entry) => !previousById.has(entry.id)).map((entry) => entry.id);
@@ -112,7 +123,7 @@ export function computeChanges(previous: RegistryEntry[], current: RegistryEntry
     }
   }
 
-  return { stoppedResponding, newEntities, countDrops };
+  return { stoppedResponding, removedFromDirectory, newEntities, countDrops };
 }
 
 function renderTable(headers: string[], rows: string[][]): string {
@@ -159,6 +170,9 @@ export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], ch
 
   const changeLines = [
     changes.stoppedResponding.length > 0 ? `Stopped responding: ${changes.stoppedResponding.join(", ")}` : "",
+    changes.removedFromDirectory.length > 0
+      ? `Removed from the directory: ${changes.removedFromDirectory.join(", ")}`
+      : "",
     changes.newEntities.length > 0 ? `New entities: ${changes.newEntities.join(", ")}` : "",
     ...changes.countDrops.map(
       (drop) => `${drop.id}: meeting count dropped from ${String(drop.from)} to ${String(drop.to)}`,

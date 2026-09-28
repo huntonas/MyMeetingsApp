@@ -21,6 +21,10 @@ pnpm --filter feed-discovery discover
 Both write `registry.yaml` and `coverage.md` in `tools/feed-discovery/`, overwriting the previous
 run's files. A manual `opted_out: true` on an entry survives a re-run (see below).
 
+If any state's directory page can't be read (an error status, a timeout, or robots.txt blocking it),
+the run stops with an error naming that state and writes neither file, so a flaky aa.org page can never
+silently drop that state's entities from the registry. Re-run it later.
+
 **This sends real requests to every entity's website** — about 700 sites for a full run — so it must
 never run without the owner's go-ahead first. The one exception is `workflow_dispatch` runs the owner
 themselves triggers (see "The monthly workflow" below).
@@ -62,7 +66,7 @@ Two things must be true before it can open that PR:
 ## Reviewing the PR
 
 The PR body is the coverage report's "Changes since the last run" section: feeds that stopped
-responding, entities new to the directory, and meeting-count drops worth a second look. Read that
+responding, entities removed from or new to the directory, and meeting-count drops worth a second look. Read that
 section, then skim the full `coverage.md` diff for anything else worth a second look (a state's
 verified count dropping, a new restricted feed). Merge once it looks right; nothing is seeded
 automatically by merging — that's a separate, manual step (below).
@@ -71,7 +75,8 @@ automatically by merging — that's a separate, manual step (below).
 
 If an entity has asked not to be listed, or its feed shouldn't be used, add `opted_out: true` to its
 entry in `tools/feed-discovery/registry.yaml` and commit the change. Every later `discover` run carries
-that flag forward automatically, so it survives future re-verification without being re-added by hand.
+that flag forward automatically, so it survives future re-verification without being re-added by hand,
+even if the entity disappears from the aa.org directory for a while.
 Seeding (below) sets `feeds.opted_out` for any entry marked this way.
 
 ## Seeding production

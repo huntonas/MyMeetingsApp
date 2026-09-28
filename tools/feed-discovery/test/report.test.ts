@@ -147,6 +147,29 @@ describe("buildRegistry", () => {
 
     expect(entry?.opted_out).toBe(true);
   });
+
+  it("carries forward an opted-out entry the directory no longer lists, but drops other missing entries", () => {
+    const optedOut = registryEntry({ id: "opted-out-office", checked_at: "2026-08-25", opted_out: true });
+    const gone = registryEntry({ id: "gone-office", checked_at: "2026-08-25" });
+
+    expect(buildRegistry([], [optedOut, gone], "2026-09-25")).toEqual([
+      {
+        id: "opted-out-office",
+        name: "Entity",
+        entity_type: "intergroup",
+        state: "TN",
+        website: null,
+        feed_type: "tsml",
+        feed_url: null,
+        verified: true,
+        meeting_count: 100,
+        states_covered: [],
+        checked_at: "2026-08-25",
+        notes: "",
+        opted_out: true,
+      },
+    ]);
+  });
 });
 
 describe("computeOverlaps", () => {
@@ -189,6 +212,7 @@ describe("computeChanges", () => {
   it("flags a feed that stopped responding, a new entity, and a meeting-count drop over 30%", () => {
     const previous = [
       registryEntry({ id: "stopped", verified: true }),
+      registryEntry({ id: "removed", verified: true }),
       registryEntry({ id: "steady", verified: true, meeting_count: 100 }),
       registryEntry({ id: "big-drop", verified: true, meeting_count: 100 }),
       registryEntry({ id: "small-drop", verified: true, meeting_count: 100 }),
@@ -203,6 +227,7 @@ describe("computeChanges", () => {
 
     expect(computeChanges(previous, current)).toEqual({
       stoppedResponding: ["stopped"],
+      removedFromDirectory: ["removed"],
       newEntities: ["new-entity"],
       countDrops: [{ id: "big-drop", from: 100, to: 60 }],
     });
@@ -256,6 +281,7 @@ describe("renderCoverage", () => {
 
     const markdown = renderCoverage(entries, [], {
       stoppedResponding: [],
+      removedFromDirectory: [],
       newEntities: [],
       countDrops: [],
     });
@@ -284,5 +310,17 @@ None.
 ## Changes since the last run
 
 None.`);
+  });
+
+  it("lists entities removed from the directory apart from feeds that stopped responding", () => {
+    const markdown = renderCoverage([registryEntry({})], [], {
+      stoppedResponding: ["stopped"],
+      removedFromDirectory: ["removed"],
+      newEntities: [],
+      countDrops: [],
+    });
+    expect(markdown.split("## Changes since the last run\n\n")[1]).toBe(
+      "- Stopped responding: stopped\n- Removed from the directory: removed",
+    );
   });
 });

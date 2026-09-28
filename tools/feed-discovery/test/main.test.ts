@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { RegistryEntry } from "@mymeetingapp/feed-kit";
 import { startServer } from "@mymeetingapp/test-server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -64,7 +65,7 @@ describe("run", () => {
     expect(result).toEqual({ entities: 2, verified: 1 });
 
     const registryRaw = await readFile(join(dir, "registry.yaml"), "utf-8");
-    const registry = parse(registryRaw) as { name: string; feed_type: string }[];
+    const registry = RegistryEntry.array().parse(parse(registryRaw));
     expect(registry.map((entry) => entry.feed_type).sort()).toEqual(["restricted", "tsml"]);
 
     const coverage = await readFile(join(dir, "coverage.md"), "utf-8");
@@ -72,5 +73,38 @@ describe("run", () => {
       coverage.split("## Restricted feeds (contact the intergroup)")[1]?.split("##")[0] ?? "";
     expect(restrictedSection).toContain("Closed Intergroup");
     expect(restrictedSection).not.toContain("Open Intergroup");
+  });
+
+  it("records an entity with no website as none_found without requesting anything for it", async () => {
+    const directory = await directoryServer(
+      '<div class="area-loc-item"><h3>Vermont Central Office</h3><address> Montpelier , Vermont </address></div>',
+    );
+
+    await run({ states: ["VT"], directoryUrl: directory.baseUrl, outDir: dir });
+
+    const registry = RegistryEntry.array().parse(parse(await readFile(join(dir, "registry.yaml"), "utf-8")));
+    expect(registry).toMatchObject([
+      {
+        id: "vermont-central-office-montpelier-vt",
+        website: null,
+        feed_type: "none_found",
+        notes: "no website listed",
+      },
+    ]);
+    expect(directory.requests.map((r) => r.path)).toEqual(["/robots.txt", "/?state=VT"]);
+  });
+
+  it("fails, naming the state and writing nothing, when a directory page can't be read", async () => {
+    const directory = await startServer((path) =>
+      path.startsWith("/?state=VT")
+        ? { status: 200, body: '<div class="area-loc-item"><h3>Vermont Office</h3></div>' }
+        : { status: path === "/robots.txt" ? 404 : 500, body: "" },
+    );
+    servers.push(directory);
+
+    await expect(run({ states: ["VT", "NH"], directoryUrl: directory.baseUrl, outDir: dir })).rejects.toThrow(
+      /NH/,
+    );
+    expect(await readdir(dir)).toEqual([]);
   });
 });

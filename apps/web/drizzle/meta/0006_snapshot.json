@@ -1,6 +1,6 @@
 {
-  "id": "81603d96-9172-49f4-a60d-e5214bcd4f1d",
-  "prevId": "b1b27110-9e1e-4d2b-b1fb-7acac0f51347",
+  "id": "6e065a75-2ad3-4741-9000-27e28d44bc47",
+  "prevId": "81603d96-9172-49f4-a60d-e5214bcd4f1d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -107,17 +107,17 @@
       "uniqueConstraints": {
         "feeds_slug_unique": {
           "name": "feeds_slug_unique",
-          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ]
+          ],
+          "nullsNotDistinct": false
         },
         "feeds_url_unique": {
           "name": "feeds_url_unique",
-          "nullsNotDistinct": false,
           "columns": [
             "url"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -312,8 +312,8 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "as": "coalesce(\n    'zoom:' || (regexp_match(regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g'),\n      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],\n    rtrim(regexp_replace(\n      lower(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*')) || substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*(.*)$'),\n      '#.*$', ''), '/')\n  )",
-            "type": "stored"
+            "type": "stored",
+            "as": "coalesce(\n    'zoom:' || (regexp_match(regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g'),\n      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],\n    rtrim(regexp_replace(\n      lower(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*')) || substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*(.*)$'),\n      '#.*$', ''), '/')\n  )"
           }
         },
         "conference_url_notes": {
@@ -365,9 +365,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "feed_meetings_address_key_idx": {
           "name": "feed_meetings_address_key_idx",
@@ -380,9 +380,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         },
         "feed_meetings_conference_key_idx": {
           "name": "feed_meetings_conference_key_idx",
@@ -395,49 +395,49 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {
         "feed_meetings_feed_id_feeds_id_fk": {
           "name": "feed_meetings_feed_id_feeds_id_fk",
           "tableFrom": "feed_meetings",
-          "tableTo": "feeds",
           "columnsFrom": [
             "feed_id"
           ],
+          "tableTo": "feeds",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         },
         "feed_meetings_meeting_id_meetings_id_fk": {
           "name": "feed_meetings_meeting_id_meetings_id_fk",
           "tableFrom": "feed_meetings",
-          "tableTo": "meetings",
           "columnsFrom": [
             "meeting_id"
           ],
+          "tableTo": "meetings",
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+          "onUpdate": "no action",
+          "onDelete": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "feed_meetings_feed_slug_day_unique": {
           "name": "feed_meetings_feed_slug_day_unique",
-          "nullsNotDistinct": false,
           "columns": [
             "feed_id",
             "source_slug",
             "day"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -539,9 +539,9 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
+          "with": {},
           "method": "btree",
-          "with": {}
+          "concurrently": false
         }
       },
       "foreignKeys": {},
@@ -606,10 +606,10 @@
       "uniqueConstraints": {
         "tags_slug_unique": {
           "name": "tags_slug_unique",
-          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ]
+          ],
+          "nullsNotDistinct": false
         }
       },
       "policies": {},
@@ -628,10 +628,10 @@
   },
   "enums": {},
   "schemas": {},
+  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

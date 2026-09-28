@@ -33,15 +33,22 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1790624437487,
-      "tag": "0004_conference-key",
+      "when": 1790625513829,
+      "tag": "0004_lock-timeout",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1790624438041,
-      "tag": "0005_enable-pg-trgm",
+      "when": 1790625514414,
+      "tag": "0005_conference-key",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790625514960,
+      "tag": "0006_enable-pg-trgm",
       "breakpoints": true
     }
   ]

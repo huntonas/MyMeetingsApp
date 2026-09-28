@@ -1,4 +1,3 @@
-SET LOCAL lock_timeout = '10s';--> statement-breakpoint
 DROP INDEX "feed_meetings_conference_url_idx";--> statement-breakpoint
 ALTER TABLE "feed_meetings" ADD COLUMN "conference_key" text GENERATED ALWAYS AS (coalesce(
     'zoom:' || (regexp_match(regexp_replace(lower("conference_url"), '%20|[[:space:]]', '', 'g'),

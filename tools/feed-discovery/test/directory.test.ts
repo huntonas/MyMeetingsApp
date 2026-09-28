@@ -183,4 +183,14 @@ describe("parseDirectoryPage", () => {
     expect(found?.entityType).toBe("intergroup");
     expect(found?.notes).toBe("");
   });
+
+  it("collapses runs of whitespace in office and area names", () => {
+    const html = `<div class="area-loc-item"><h3> Area 27  District 6\n Hotline </h3><address> Moses Lake , Washington </address>
+<p><a href="https://example.example">https://example.example</a></p></div>
+<div class="related-areas"><h4>Area 072  -  Western   Washington</h4><div class="field--name-field-url"><a href="https://area72aa.org">https://area72aa.org</a></div></div>`;
+    expect(parseDirectoryPage(html, "WA").map((found) => found.name)).toEqual([
+      "Area 27 District 6 Hotline",
+      "Area 072 - Western Washington",
+    ]);
+  });
 });

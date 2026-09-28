@@ -1,0 +1,61 @@
+name: Feed discovery
+
+on:
+  # The first full run needs the owner's go-ahead (see docs/feed-discovery.md). Enable this schedule
+  # only after that first run has been reviewed and merged.
+  # schedule:
+  #   - cron: "0 9 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # pnpm comes from corepack in the next step, so setup-node can't cache its store.
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter feed-discovery discover
+
+      - name: Check for registry changes
+        id: diff
+        run: |
+          if [ -n "$(git status --porcelain tools/feed-discovery)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open a pull request with the refreshed registry
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          month="$(date +%Y-%m)"
+          branch="registry/${month}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${branch}"
+          git add tools/feed-discovery/registry.yaml tools/feed-discovery/coverage.md
+          git commit -m "Feed registry refresh ${month}"
+          git push origin "${branch}"
+
+          awk '/^## Changes since the last run/{ show = 1 } show' tools/feed-discovery/coverage.md \
+            > "${RUNNER_TEMP}/pr-body.md"
+
+          gh pr create \
+            --base main \
+            --head "${branch}" \
+            --title "Feed registry refresh ${month}" \
+            --body-file "${RUNNER_TEMP}/pr-body.md"

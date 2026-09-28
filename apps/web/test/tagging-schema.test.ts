@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { db, pool } from "@/db/client";
-import { tagSubmissions } from "@/db/schema";
+import { devices, tagSubmissions } from "@/db/schema";
 
 import { resetDb } from "./db";
 import { seedDuplicateCopies } from "./tag-fixtures";
@@ -32,5 +32,11 @@ describe("tagging schema", () => {
       nearMeeting: false,
     });
     await expect(insert).rejects.toMatchObject({ cause: { constraint: "tag_submissions_tag_ids_check" } });
+  });
+
+  it("stores devices only for known platforms", async () => {
+    // @ts-expect-error -- deliberately invalid platform, to exercise the database constraint
+    const insert = db.insert(devices).values({ deviceHash: "a".repeat(64), platform: "web" });
+    await expect(insert).rejects.toMatchObject({ cause: { constraint: "devices_platform_check" } });
   });
 });

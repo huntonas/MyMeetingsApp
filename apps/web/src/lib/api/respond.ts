@@ -19,6 +19,9 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   unauthorized: 401,
   meeting_not_found: 404,
   server_error: 500,
+  upgrade_required: 426,
+  attestation_failed: 401,
+  device_blocked: 403,
 };
 
 // The data is parsed through its contract, so fields the contract doesn't name never leave the server.

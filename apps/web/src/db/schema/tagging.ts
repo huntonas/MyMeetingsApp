@@ -1,8 +1,10 @@
+import { PLATFORMS } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
   boolean,
   check,
+  date,
   index,
   integer,
   pgTable,
@@ -87,5 +89,24 @@ export const tagAudit = pgTable(
     index("tag_audit_meeting_idx").on(table.meetingId, table.at),
     index("tag_audit_device_idx").on(table.deviceHash),
     check("tag_audit_action_check", sql`${table.action} in (${sqlStringList(AUDIT_ACTIONS)})`),
+  ],
+);
+
+// Spec §6: dates are UTC calendar days, so the table never holds a time of day.
+const UTC_TODAY = sql`(now() at time zone 'utc')::date`;
+
+// Spec §6: one row per device, keyed by its hash, with dates only and no meeting references.
+export const devices = pgTable(
+  "devices",
+  {
+    deviceHash: text("device_hash").primaryKey(),
+    platform: text("platform", { enum: PLATFORMS }).notNull(),
+    firstSeenDate: date("first_seen_date").notNull().default(UTC_TODAY),
+    lastSeenDate: date("last_seen_date").notNull().default(UTC_TODAY),
+    blocked: boolean("blocked").notNull().default(false),
+  },
+  (table) => [
+    check("devices_platform_check", sql`${table.platform} in (${sqlStringList(PLATFORMS)})`),
+    check("devices_hash_check", sql`${table.deviceHash} ~ '^[0-9a-f]{64}$'`),
   ],
 );

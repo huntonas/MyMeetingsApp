@@ -1,3 +1,4 @@
+import type { Platform } from "@mymeetingapp/shared";
 import { asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
@@ -7,6 +8,15 @@ import { recomputeMeetings } from "@/server/meetings/recompute";
 import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
 
 let nextSubmitter = 1;
+
+// Realistic raw ids: an iOS Keychain UUID and an ANDROID_ID. DEVICE_A_HASH is deviceHash("ios", DEVICE_A) under
+// the test pepper, computed independently.
+export const DEVICE_A = "6F9619FF-8B86-D011-B42D-00C04FC964FF";
+export const DEVICE_A_HASH = "843ff89c9bc545aa6c2c749daa73a089752171a990aa930ce3aeb18c06ebffc4";
+
+export function deviceHeaders(rawId = DEVICE_A, platform: Platform = "ios"): Record<string, string> {
+  return { "X-Device-Id": rawId, "X-Platform": platform, "X-App-Version": "1.0.0" };
+}
 
 // A tag row written directly, for code that runs on stored rows (merging, counting, maintenance). The submitter id
 // is an arbitrary 64-hex value unless one is given.

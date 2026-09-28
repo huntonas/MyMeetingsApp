@@ -64,6 +64,13 @@
       "when": 1790637244911,
       "tag": "0008_tag-storage",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790638283681,
+      "tag": "0009_devices",
+      "breakpoints": true
     }
   ]
 }

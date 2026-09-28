@@ -42,9 +42,10 @@ function jsonCode(result: CrawlResult): string | null {
   }
 }
 
-// Checks a raw href or data-src value for a sharing key, before any URL resolution. A source that
-// carries one is recorded as restricted and never requested; keys are never guessed.
-function hasSharingKey(rawValue: string): boolean {
+// Checks a raw href, data-src value or feed URL for a sharing key. detectFeed checks before any URL
+// resolution, so a source that carries one is recorded as restricted and never requested (keys are
+// never guessed); buildRegistry checks again so a key can never reach the committed registry.
+export function hasSharingKey(rawValue: string): boolean {
   return rawValue.includes("key=");
 }
 

@@ -1,6 +1,6 @@
 import type { RegistryEntry } from "@mymeetingapp/feed-kit";
 
-import type { Detection } from "./detect";
+import { hasSharingKey, type Detection } from "./detect";
 import type { DirectoryEntity } from "./directory";
 import type { VerifyResult } from "./verify";
 
@@ -43,7 +43,7 @@ export function buildRegistry(
     const rawFeedUrl = detectionFeedUrl(detection);
     // Belt and braces on top of detectFeed's own guarantee that a keyed source is never fetched: a
     // feed_url carrying a sharing key must never reach the registry that gets committed to git.
-    const feedUrl = rawFeedUrl?.includes("key=") === true ? null : rawFeedUrl;
+    const feedUrl = rawFeedUrl !== null && hasSharingKey(rawFeedUrl) ? null : rawFeedUrl;
 
     const entry: RegistryEntry = {
       id: entity.id,

@@ -1,6 +1,4 @@
-import { readBodyCapped, USER_AGENT, type HostThrottle } from "@mymeetingapp/feed-kit";
-
-const TIMEOUT_MS = 30_000;
+import { FEED_TIMEOUT_MS, politeFetch, readBodyCapped, type HostThrottle } from "@mymeetingapp/feed-kit";
 
 export type FeedFetchResult =
   | { kind: "ok"; body: unknown; etag: string | null; lastModified: string | null }
@@ -12,21 +10,12 @@ export async function fetchFeed(
   cache: { etag: string | null; lastModified: string | null },
   throttle: HostThrottle,
 ): Promise<FeedFetchResult> {
-  const target = new URL(url);
-  await throttle.wait(target.host);
-  const headers: Record<string, string> = { "User-Agent": USER_AGENT, Accept: "application/json" };
+  const headers: Record<string, string> = { Accept: "application/json" };
   if (cache.etag !== null) headers["If-None-Match"] = cache.etag;
   if (cache.lastModified !== null) headers["If-Modified-Since"] = cache.lastModified;
 
-  let response: Response;
-  try {
-    response = await fetch(target, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
-  } catch (error) {
-    return {
-      kind: "error",
-      message: error instanceof Error && error.name === "TimeoutError" ? "timed out" : "could not connect",
-    };
-  }
+  const response = await politeFetch(new URL(url), throttle, { headers, timeoutMs: FEED_TIMEOUT_MS });
+  if (!(response instanceof Response)) return response;
   if (response.status === 304) return { kind: "not_modified" };
   if (response.status === 401 || response.status === 403) {
     return { kind: "error", message: `restricted (HTTP ${String(response.status)})` };

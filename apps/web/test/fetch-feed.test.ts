@@ -87,6 +87,21 @@ describe("fetchFeed", () => {
     });
   });
 
+  it("spaces requests to one host a second apart, but doesn't delay a different host", async () => {
+    const first = await serve(() => ({ status: 200, body: "[]" }));
+    const second = await serve(() => ({ status: 200, body: "[]" }));
+    const throttle = createHostThrottle();
+
+    await fetchFeed(`${first.baseUrl}/a`, noCache, throttle);
+    await fetchFeed(`${second.baseUrl}/a`, noCache, throttle);
+    await fetchFeed(`${first.baseUrl}/b`, noCache, throttle);
+
+    const [firstA, firstB] = first.requests;
+    const [secondA] = second.requests;
+    expect((secondA?.at ?? Infinity) - (firstA?.at ?? 0)).toBeLessThan(500);
+    expect((firstB?.at ?? 0) - (firstA?.at ?? Infinity)).toBeGreaterThanOrEqual(990);
+  });
+
   it("reports a host that refuses connections", async () => {
     const server = await serve(() => ({ status: 200 }));
     await server.close();

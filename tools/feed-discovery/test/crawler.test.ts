@@ -89,6 +89,21 @@ describe("createCrawler", () => {
     });
   });
 
+  it("spaces concurrent requests to one host a second apart, counting the robots.txt request", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 404 },
+      "/a": { status: 200, body: "a" },
+      "/b": { status: 200, body: "b" },
+    });
+    const crawler = createCrawler();
+    await Promise.all([crawler.get(`${server.baseUrl}/a`), crawler.get(`${server.baseUrl}/b`)]);
+    const times = server.requests.map((r) => r.at);
+    expect(server.requests.map((r) => r.path).sort()).toEqual(["/a", "/b", "/robots.txt"]);
+    for (let i = 1; i < times.length; i += 1) {
+      expect((times[i] ?? 0) - (times[i - 1] ?? Infinity)).toBeGreaterThanOrEqual(990);
+    }
+  });
+
   it("fetches robots.txt only once per origin", async () => {
     const server = await serve({
       "/robots.txt": { status: 404 },

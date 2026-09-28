@@ -1,7 +1,12 @@
-import { createHostThrottle, readBodyCapped, USER_AGENT } from "@mymeetingapp/feed-kit";
+import {
+  createHostThrottle,
+  FEED_TIMEOUT_MS,
+  politeFetch,
+  readBodyCapped,
+  USER_AGENT,
+} from "@mymeetingapp/feed-kit";
 import robotsParser from "robots-parser";
 
-const TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 5;
 
 export type CrawlResult =
@@ -19,19 +24,8 @@ export function createCrawler() {
   const throttle = createHostThrottle();
   const robotsByOrigin = new Map<string, Promise<Robots>>();
 
-  async function request(url: URL): Promise<Response | { error: string }> {
-    await throttle.wait(url.host);
-    try {
-      return await fetch(url, {
-        headers: { "User-Agent": USER_AGENT },
-        redirect: "manual",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-    } catch (error) {
-      return {
-        error: error instanceof Error && error.name === "TimeoutError" ? "timed out" : "could not connect",
-      };
-    }
+  function request(url: URL) {
+    return politeFetch(url, throttle, { redirect: "manual", timeoutMs: FEED_TIMEOUT_MS });
   }
 
   function robotsFor(url: URL): Promise<Robots> {
@@ -57,7 +51,7 @@ export function createCrawler() {
           return { kind: "blocked_by_robots", url: url.toString() };
         }
         const response = await request(url);
-        if (!(response instanceof Response)) return { kind: "error", message: response.error };
+        if (!(response instanceof Response)) return response;
         const location = response.headers.get("location");
         if (response.status >= 300 && response.status < 400 && location !== null) {
           url = new URL(location, url);

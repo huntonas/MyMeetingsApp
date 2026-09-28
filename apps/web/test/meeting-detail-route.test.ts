@@ -1,14 +1,17 @@
 import { MeetingDetailResponse } from "@mymeetingapp/shared";
-import { isNull } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/api/v1/meetings/[id]/route";
 import { db, pool } from "@/db/client";
-import { feedMeetings, meetings } from "@/db/schema";
+import { feedMeetings, meetingAliases, meetings, tags } from "@/db/schema";
+import { seedVocabulary } from "@/db/seed-vocabulary";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
+import { recountTags } from "@/server/tags/counts";
 
 import { resetDb } from "./db";
 import { feedMeeting, seedFeed } from "./feed-fixtures";
+import { insertSubmission } from "./tag-fixtures";
 
 beforeEach(resetDb);
 afterAll(() => pool.end());
@@ -52,6 +55,8 @@ describe("GET /api/v1/meetings/:id", () => {
       conferencePhone: null,
       conferencePhoneNotes: null,
       sourceUrl: null,
+      tagsDisabled: false,
+      tags: [],
     });
   });
 
@@ -69,5 +74,45 @@ describe("GET /api/v1/meetings/:id", () => {
   it("returns meeting_not_found for an unknown id and invalid_request for a malformed one", async () => {
     expect((await get("0f8fad5b-d9cb-469f-a165-70867728950e")).status).toBe(404);
     expect((await get("not-a-uuid")).status).toBe(400);
+  });
+
+  it("returns tag counts highest first, ties broken by near-meeting submissions, without retired tags", async () => {
+    await seedVocabulary();
+    await applyFeedSnapshot(await seedFeed("a"), [feedMeeting()]);
+    const id = await onlyMeetingId();
+    await insertSubmission(id, ["welcoming", "quiet"], { nearMeeting: true });
+    await insertSubmission(id, ["welcoming", "coffee"]);
+    await insertSubmission(id, ["coffee", "lively", "runs-long"]);
+    await db.update(tags).set({ status: "retired" }).where(eq(tags.slug, "runs-long"));
+    await recountTags([id], db);
+    const { meeting } = MeetingDetailResponse.parse(await (await get(id)).json());
+    expect(meeting.tags).toEqual([
+      { slug: "welcoming", count: 2 },
+      { slug: "coffee", count: 2 },
+      { slug: "quiet", count: 1 },
+      { slug: "lively", count: 1 },
+    ]);
+  });
+
+  it("shows no tags for a meeting whose group opted out", async () => {
+    await seedVocabulary();
+    await applyFeedSnapshot(await seedFeed("a"), [feedMeeting()]);
+    const id = await onlyMeetingId();
+    await insertSubmission(id, ["welcoming"]);
+    await recountTags([id], db);
+    await db.update(meetings).set({ tagsDisabled: true });
+    const { meeting } = MeetingDetailResponse.parse(await (await get(id)).json());
+    expect([meeting.tagsDisabled, meeting.tags]).toEqual([true, []]);
+  });
+
+  it("returns the surviving meeting, under its own id, for an id merged into it", async () => {
+    await applyFeedSnapshot(await seedFeed("a"), [feedMeeting()]);
+    const id = await onlyMeetingId();
+    await db
+      .insert(meetingAliases)
+      .values({ oldMeetingId: "0f8fad5b-d9cb-469f-a165-70867728950e", meetingId: id });
+    const res = await get("0f8fad5b-d9cb-469f-a165-70867728950e");
+    expect(res.status).toBe(200);
+    expect(MeetingDetailResponse.parse(await res.json()).meeting.id).toBe(id);
   });
 });

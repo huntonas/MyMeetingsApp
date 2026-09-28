@@ -2,11 +2,14 @@ import { OnlineMeetingsResponse } from "@mymeetingapp/shared";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/api/v1/meetings/online/route";
-import { pool } from "@/db/client";
+import { db, pool } from "@/db/client";
+import { seedVocabulary } from "@/db/seed-vocabulary";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
+import { recountTags } from "@/server/tags/counts";
 
 import { resetDb } from "./db";
 import { feedMeeting, seedFeed } from "./feed-fixtures";
+import { insertSubmission } from "./tag-fixtures";
 
 beforeEach(resetDb);
 afterAll(() => pool.end());
@@ -65,6 +68,19 @@ describe("GET /api/v1/meetings/online", () => {
     await applyFeedSnapshot(feedId, [feedMeeting({ ...online, conferenceUrl: "https://zoom.us/j/1" })]);
     await applyFeedSnapshot(feedId, []);
     expect(OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
+  });
+
+  it("includes each meeting's tag counts", async () => {
+    await seedVocabulary();
+    await applyFeedSnapshot(await seedFeed("a"), [
+      feedMeeting({ ...online, sourceSlug: "early", time: "07:00", name: "Early" }),
+    ]);
+    const before = OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
+    const id = before[0]?.id ?? "";
+    await insertSubmission(id, ["lively"]);
+    await recountTags([id], db);
+    const [first] = OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
+    expect(first?.tags).toEqual([{ slug: "lively", count: 1 }]);
   });
 
   it.each(["", "?day=7", "?day=monday"])("rejects %j", async (query) => {

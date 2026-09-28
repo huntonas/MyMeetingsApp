@@ -39,20 +39,37 @@ export const meetings = pgTable(
   (table) => [index("meetings_day_time_idx").on(table.day, table.time)],
 );
 
+const ZOOM_HOST = "^https?://(?:[a-z0-9-]+[.])*zoom[.]us";
+// The shapes of Zoom link that name a meeting, as [key prefix, pattern whose first group is the id]. Every
+// other Zoom link (/join, /j/ with no id, the bare host) is a placeholder with no key.
+const ZOOM_MEETING_PATTERNS = [
+  ["zoom:", `${ZOOM_HOST}/(?:j|my|w|s)/([^/?#]+)`],
+  ["zoom:", `${ZOOM_HOST}/j([0-9]+)(?:[/?#]|$)`],
+  ["zoom:", `${ZOOM_HOST}/wc/(?:join/)?([0-9]+)(?:[/?#]|$)`],
+  ["zoom:register:", `${ZOOM_HOST}/meeting/register/([^/?#]+)`],
+  ["zoom:", `${ZOOM_HOST}/meeting/([0-9]+)(?:[/?#]|$)`],
+  ["zoom:", `${ZOOM_HOST}/([0-9]{9,11})(?:[/?#]|$)`],
+  ["zoom:", `${ZOOM_HOST}/[^?#]*[?](?:[^#]*&)?confno=([0-9]+)`],
+] as const;
+
 // Spec §3: the one comparable form of a conference URL, used for the stored conference_key column and for
-// rows not yet stored. Zoom links become "zoom:<meeting id or personal link>", ignoring the regional
-// subdomain, query, fragment and stray spaces. Other URLs keep their query, which can name the meeting (Webex
-// MTID), and only lose surrounding whitespace, the fragment and a trailing slash, with the scheme and host
-// lowercased. Placeholders that name no meeting (a Zoom link without an id, such as zoom.us/join, or any bare
-// host with no path or query, such as meet.google.com/) get no key, since unrelated meetings share them.
+// rows not yet stored. Zoom links that name a meeting become "zoom:<meeting id or personal link>" (or
+// "zoom:register:<token>"), ignoring the regional subdomain, case, query, fragment and stray spaces. Other
+// URLs keep their query, which can name the meeting (Webex MTID), and only lose surrounding whitespace, the
+// fragment and a trailing slash, with the scheme and host lowercased. Placeholders that name no meeting (a
+// Zoom link without an id, such as zoom.us/join, or any bare host with no path or query, such as
+// meet.google.com/) get no key, since unrelated meetings share them.
 export function conferenceKey(url: SQL): SQL {
   const zoomUrl = sql`regexp_replace(lower(${url}), '%20|[[:space:]]', '', 'g')`;
   const trimmed = sql`regexp_replace(${url}, '^[[:space:]]+|[[:space:]]+$', '', 'g')`;
   const host = sql`lower(substring(${trimmed} from '^[^/?#]*//[^/?#]*'))`;
   const rest = sql`regexp_replace(substring(${trimmed} from '^[^/?#]*//[^/?#]*(.*)$'), '#.*$', '')`;
+  const zoomKeys = ZOOM_MEETING_PATTERNS.map(
+    ([prefix, pattern]) =>
+      sql`${sql.raw(`'${prefix}'`)} || (regexp_match(${zoomUrl}, ${sql.raw(`'${pattern}'`)}))[1]`,
+  );
   return sql`case
-    when ${zoomUrl} ~ '^https?://(?:[a-z0-9-]+[.])*zoom[.]us(?:[/?#]|$)' then 'zoom:' || (regexp_match(${zoomUrl},
-      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1]
+    when ${zoomUrl} ~ ${sql.raw(`'${ZOOM_HOST}(?:[/?#]|$)'`)} then coalesce(${sql.join(zoomKeys, sql`, `)})
     when ${rest} ~ '^/*$' then null
     else rtrim(${host} || ${rest}, '/')
   end`;

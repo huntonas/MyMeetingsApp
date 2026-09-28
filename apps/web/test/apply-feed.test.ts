@@ -389,9 +389,38 @@ describe("applyFeedSnapshot", () => {
     "https://us02web.zoom.us/",
     "https://zoom.us",
     "https://meet.google.com/",
+    "https://zoom.us/join/",
+    "https://zoom.us/j/",
+    "https://us02web.zoom.us/join?_ics=abc123",
   ])("gives the placeholder conference URL %s no conference key", async (conferenceUrl) => {
     await applyFeedSnapshot(await seedFeed("a"), [feedMeeting({ ...online, conferenceUrl })]);
     expect(await db.select({ key: feedMeetings.conferenceKey }).from(feedMeetings)).toEqual([{ key: null }]);
+  });
+
+  it.each([
+    ["https://us02web.zoom.us/j8265745930", "zoom:8265745930"],
+    ["https://app.zoom.us/wc/81234567890/join?fromPWA=1&pwd=abc", "zoom:81234567890"],
+    ["https://zoom.us/wc/join/81234567890", "zoom:81234567890"],
+    ["https://zoom.us/812345678", "zoom:812345678"],
+    ["https://zoom.us/meeting/81234567890", "zoom:81234567890"],
+    ["https://us04web.zoom.us/meeting/register/tZAkcO2trD8tHNQ", "zoom:register:tzakco2trd8thnq"],
+    ["https://zoom.us/join?confno=81234567890", "zoom:81234567890"],
+  ])("keys the Zoom URL %s as %s", async (conferenceUrl, key) => {
+    await applyFeedSnapshot(await seedFeed("a"), [feedMeeting({ ...online, conferenceUrl })]);
+    expect(await db.select({ key: feedMeetings.conferenceKey }).from(feedMeetings)).toEqual([{ key }]);
+  });
+
+  it("joins two feeds' listings of one Zoom meeting written without a slash after /j", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const zoom = {
+      ...online,
+      name: "Acceptance is the Answer (online only)",
+      conferenceUrl: "https://us02web.zoom.us/j8265745930",
+    };
+    await applyFeedSnapshot(a, [feedMeeting(zoom)]);
+    await applyFeedSnapshot(b, [feedMeeting({ ...zoom, sourceSlug: "b" })]);
+    expect(await activeMeetings()).toHaveLength(1);
   });
 
   it("keeps unrelated online meetings that share a placeholder Zoom URL apart", async () => {
@@ -453,6 +482,49 @@ describe("applyFeedSnapshot", () => {
       }),
     ]);
     expect(await activeMeetings()).toHaveLength(2);
+  });
+
+  it("keeps one feed's two hybrid venues 3.7 km apart that share a Zoom meeting apart", async () => {
+    const feedId = await seedFeed("south-eastern-pa");
+    const zoom = { attendance: "hybrid", conferenceUrl: "https://zoom.us/j/81234567890" } as const;
+    await applyFeedSnapshot(feedId, [
+      feedMeeting({
+        ...zoom,
+        sourceSlug: "lansdale-luncheon",
+        ...listing("Lansdale Luncheon", "1 E Main St, Lansdale, PA 19446, USA", 40.2415, -75.2838),
+      }),
+      feedMeeting({
+        ...zoom,
+        sourceSlug: "north-wales-midday",
+        ...listing(
+          "North Wales Midday",
+          "1 S Main St, North Wales, PA 19454, USA",
+          northOf(40.2415, 3700),
+          -75.2838,
+        ),
+      }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(2);
+  });
+
+  it("joins two hybrid venues 50 m apart that share a Zoom meeting", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const zoom = { attendance: "hybrid", conferenceUrl: "https://zoom.us/j/81234567890" } as const;
+    await applyFeedSnapshot(a, [
+      feedMeeting({
+        ...zoom,
+        ...listing("Happy Hour", "1307 W 6th St, Corona, CA 92882, USA", 33.88, -117.58),
+      }),
+    ]);
+    await applyFeedSnapshot(b, [
+      feedMeeting({
+        ...zoom,
+        sourceSlug: "b",
+        ...listing("Sunset Serenity", "1311 W 6th St, Corona, CA 92882, USA", northOf(33.88, 50), -117.58),
+      }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(1);
   });
 
   it("merges a meeting one feed calls online and another calls hybrid, by conference URL", async () => {
@@ -669,6 +741,44 @@ describe("applyFeedSnapshot merging stored duplicates", () => {
     ]);
     await applyFeedSnapshot(a, [junk("a", "11th Step #2 Online")]);
     expect(await activeMeetings()).toHaveLength(3);
+  });
+
+  it("keeps a stored meeting whose two feeds share a Zoom link written without a slash after /j", async () => {
+    const [a, b] = [await seedFeed("a"), await seedFeed("b")];
+    const zoom = (sourceSlug: string) =>
+      feedMeeting({
+        ...online,
+        sourceSlug,
+        name: "Acceptance is the Answer (online only)",
+        conferenceUrl: "https://us02web.zoom.us/j8265745930",
+      });
+    const stored = await storedMeetingWith([
+      { feedId: a, row: zoom("a") },
+      { feedId: b, row: zoom("b") },
+    ]);
+    await applyFeedSnapshot(a, [zoom("a")]);
+    expect(await sourcesOf(stored)).toEqual(["a", "b"]);
+  });
+
+  it("splits a stored meeting of two hybrid venues 2.8 km apart that share a Zoom meeting", async () => {
+    const [a, b] = [await seedFeed("a"), await seedFeed("b")];
+    const zoom = { attendance: "hybrid", conferenceUrl: "https://zoom.us/j/81234567890" } as const;
+    const capitan = feedMeeting({
+      ...zoom,
+      sourceSlug: "capitan",
+      ...listing("La Mesa del Capitan", "1 Main St, Washington, DC 20001, USA", 38.9, -77.03),
+    });
+    const fe = feedMeeting({
+      ...zoom,
+      sourceSlug: "fe",
+      ...listing("Fe y Acción", "2 Main St, Washington, DC 20001, USA", northOf(38.9, 2800), -77.03),
+    });
+    await storedMeetingWith([
+      { feedId: a, row: capitan },
+      { feedId: b, row: fe },
+    ]);
+    await applyFeedSnapshot(a, [capitan]);
+    expect(await activeMeetings()).toHaveLength(2);
   });
 
   it("keeps a stored meeting whose three feeds share one Zoom meeting", async () => {

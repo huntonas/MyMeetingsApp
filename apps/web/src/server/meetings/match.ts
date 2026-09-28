@@ -133,8 +133,16 @@ function mixedGenders(side: MatchSide): SQL {
     where cardinality(genders) > 0) > 1)`;
 }
 
+// Two listings share a conference when they have the same conference key, unless both sides have a location
+// and those are more than 150 m apart: hybrid meetings at two venues can share one Zoom link, and merging them
+// would hide a venue. An online-only side has no location, so its key alone decides.
+function sharedConference(a: MatchSide, b: MatchSide, aListing: SQL, bListing: SQL): SQL {
+  return sql`coalesce(${aListing}.conference_key = ${bListing}.conference_key
+    and coalesce(ST_DWithin(${a.location}, ${b.location}, ${SAME_NAME_METERS}), true), false)`;
+}
+
 // Spec §3 matching, shared by a new row joining a meeting and two stored meetings merging, so both follow
-// the same rules: the same day and start time, plus the same conference key when both are online or hybrid,
+// the same rules: the same day and start time, plus a shared conference when both are online or hybrid,
 // or, unless both sides name a gender and they differ, coordinates within 50 m, the same normalized
 // address, or coordinates within 150 m and names that clearly match (every word of one is in the other, or
 // they are trigram-similar). A side whose own listings name different genders never matches. Callers first
@@ -145,7 +153,7 @@ export function sidesMatch(a: MatchSide, b: MatchSide): SQL {
     exists (
       select 1 from ${a.listings} a_listing, ${b.listings} b_listing
       where a_listing.attendance in ('online', 'hybrid') and b_listing.attendance in ('online', 'hybrid')
-        and a_listing.conference_key = b_listing.conference_key
+        and ${sharedConference(a, b, sql`a_listing`, sql`b_listing`)}
     )
     or (coalesce(${sideGenders(a)} = ${sideGenders(b)}, true) and exists (
       select 1 from ${a.listings} a_listing, ${b.listings} b_listing,
@@ -181,7 +189,7 @@ export function matchCandidates(side: MatchSide): SQL {
 }
 
 // One feed listing the two sides under different slugs means two rooms at one address and time, so they
-// never join, unless those listings share a conference key, which makes them one meeting.
+// never join, unless those listings share a conference (sharedConference), which makes them one meeting.
 // - "active" (new-row matching) counts only listings the feed lists now. applyFeedSnapshot sets this feed's
 //   archived_at from the snapshot before matching, so a slug the feed renamed doesn't hold on to its meeting.
 // - "ever-listed" (merge pass) also counts archived listings. A feed that drops one room from one snapshot
@@ -192,6 +200,6 @@ export function sameFeedConflict(a: MatchSide, b: MatchSide, listings: "active" 
   return sql`exists (
     select 1 from ${a.listings} a_listing, ${b.listings} b_listing
     where a_listing.feed_id = b_listing.feed_id and a_listing.source_slug <> b_listing.source_slug ${active}
-      and not coalesce(a_listing.conference_key = b_listing.conference_key, false)
+      and not ${sharedConference(a, b, sql`a_listing`, sql`b_listing`)}
   )`;
 }

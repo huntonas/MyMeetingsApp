@@ -172,6 +172,48 @@ describe("seedFeedsFromRegistry", () => {
     expect(rows).toEqual([expect.objectContaining({ id: before?.id, slug: "tn-intergroup-renamed" })]);
   });
 
+  it("frees a winning id held by a row at another url instead of violating feeds_slug_unique", async () => {
+    const urlX = "https://x.example.org/wp-json/tsml/meetings";
+    const urlY = "https://y.example.org/wp-json/tsml/meetings";
+    const area: RegistryEntry = { ...verifiedTsml, id: "a", entity_type: "area", feed_url: urlX };
+    const intergroup: RegistryEntry = { ...verifiedTsml, id: "b", feed_url: urlY };
+    await seedFeedsFromRegistry([area, intergroup]);
+    const [rowY] = await db.select().from(feeds).where(eq(feeds.url, urlY));
+
+    // Next month the intergroup publishes on X (it wins on priority) and Y is no longer verified.
+    expect(await seedFeedsFromRegistry([area, { ...intergroup, feed_url: urlX }])).toEqual({
+      upserted: 1,
+      optedOut: 0,
+      skipped: 1,
+    });
+
+    expect(await feedRow("b")).toMatchObject({ url: urlX });
+    expect(await db.select().from(feeds).where(eq(feeds.url, urlY))).toEqual([
+      expect.objectContaining({ id: rowY?.id, slug: `b-retired-${String(rowY?.id)}` }),
+    ]);
+  });
+
+  it("swaps two entities' feed urls without violating feeds_slug_unique", async () => {
+    const urlX = "https://x.example.org/wp-json/tsml/meetings";
+    const urlY = "https://y.example.org/wp-json/tsml/meetings";
+    const a: RegistryEntry = { ...verifiedTsml, id: "a", feed_url: urlX };
+    const b: RegistryEntry = { ...verifiedTsml, id: "b", feed_url: urlY };
+    await seedFeedsFromRegistry([a, b]);
+
+    expect(
+      await seedFeedsFromRegistry([
+        { ...a, feed_url: urlY },
+        { ...b, feed_url: urlX },
+      ]),
+    ).toEqual({
+      upserted: 2,
+      optedOut: 0,
+      skipped: 0,
+    });
+    expect(await feedRow("a")).toMatchObject({ url: urlY });
+    expect(await feedRow("b")).toMatchObject({ url: urlX });
+  });
+
   it("seeds everything or nothing: a bad entry rolls back the ones before it", async () => {
     // A blank name passes the registry schema but not FeedInput, so the second upsert throws.
     const blankName: RegistryEntry = {

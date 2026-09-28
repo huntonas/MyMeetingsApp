@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import type { RegistryEntry } from "@mymeetingapp/feed-kit";
 
 import { db } from "@/db/client";
@@ -54,10 +54,21 @@ export async function seedFeedsFromRegistry(entries: RegistryEntry[]): Promise<S
   let optedOut = 0;
   let skipped = entries.length - seedable.length;
 
+  const groups = [...byUrl.values()].map((group) => ({ group, winner: pickWinner(group) }));
+
   await db.transaction(async (tx) => {
-    for (const group of byUrl.values()) {
+    // A winning id can still be held by a row at another url (the entity moved its feed, or two entities
+    // swapped urls). feeds.slug is unique, so every such row gives its slug up first: a row whose url is
+    // still seeded takes its new winner's slug below, and one whose url is gone keeps a retired slug.
+    for (const { winner } of groups) {
+      await tx
+        .update(feeds)
+        .set({ slug: sql`${feeds.slug} || '-retired-' || ${feeds.id}` })
+        .where(and(eq(feeds.slug, winner.id), ne(feeds.url, winner.feed_url)));
+    }
+
+    for (const { group, winner } of groups) {
       skipped += group.length - 1;
-      const winner = pickWinner(group);
       const groupOptedOut = group.some((entry) => entry.opted_out === true);
 
       // The winner can differ from the entity that owned this URL on a previous seed (a renamed entity,

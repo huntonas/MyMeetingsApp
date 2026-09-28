@@ -4,7 +4,11 @@ const MAX_BYTES = 50 * 1024 * 1024;
 // Content-Length up front, then counts bytes as they arrive (whatever the declared length claimed), so a
 // mid-stream lie about size still can't exhaust memory.
 export async function readBodyCapped(response: Response): Promise<string | null> {
-  if (Number(response.headers.get("content-length") ?? 0) > MAX_BYTES) return null;
+  if (Number(response.headers.get("content-length") ?? 0) > MAX_BYTES) {
+    // Release the connection instead of leaving the unread body streaming.
+    await response.body?.cancel();
+    return null;
+  }
   if (response.body === null) return "";
   const reader: ReadableStreamDefaultReader<Uint8Array> = response.body.getReader();
   const chunks: Uint8Array[] = [];

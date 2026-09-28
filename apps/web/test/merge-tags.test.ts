@@ -9,7 +9,7 @@ import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 import { recountTags } from "@/server/tags/counts";
 
-import { resetDb } from "./db";
+import { resetDb, untilWaitingOnLock } from "./db";
 import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
 import { countsOf, insertSubmission, meetingIdOfSlug, seedDuplicateCopies } from "./tag-fixtures";
 
@@ -27,6 +27,13 @@ async function aliases() {
 }
 
 describe("recountTags", () => {
+  it("counts a row that lists a tag twice once", async () => {
+    const { older: meetingId } = await seedDuplicateCopies();
+    await insertSubmission(meetingId, ["quiet", "quiet"], { nearMeeting: true });
+    await recountTags([meetingId], db);
+    expect(await countsOf(meetingId)).toEqual([["quiet", 1, 1]]);
+  });
+
   it("counts non-excluded submissions confirmed in the last 180 days, and how many were near the meeting", async () => {
     const { older: meetingId } = await seedDuplicateCopies();
     await insertSubmission(meetingId, ["laid-back", "welcoming"], { nearMeeting: true });
@@ -127,5 +134,28 @@ describe("tags across a split", () => {
     expect(await countsOf(meetingId)).toEqual([["welcoming", 1, 0]]);
     expect(await countsOf(splitOff)).toEqual([]);
     expect(await aliases()).toEqual([]);
+  });
+});
+
+describe("mergeDuplicateMeetings racing a tag write", () => {
+  it("waits for a write holding a meeting it merges, then carries the row that write added", async () => {
+    const { older, newer } = await seedDuplicateCopies();
+    // Stands in for POST /tags, which holds its meeting row (findTaggableMeeting) until it commits.
+    const write = await pool.connect();
+    await write.query("begin");
+    await write.query("select 1 from meetings where id = $1 for share", [newer]);
+    let settled = false;
+    const merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled = true));
+    await untilWaitingOnLock(() => settled);
+    await write.query(
+      `insert into tag_submissions (meeting_id, submitter_id, scope_meeting_id, tag_ids, near_meeting)
+       select $1, repeat('a', 64), $1, array[id], false from tags where slug = 'quiet'`,
+      [newer],
+    );
+    await write.query("commit");
+    write.release();
+    await merge;
+    const rows = await db.select().from(tagSubmissions);
+    expect(rows.map((row) => row.meetingId)).toEqual([older]);
   });
 });

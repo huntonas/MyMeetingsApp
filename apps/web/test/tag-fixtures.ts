@@ -3,6 +3,8 @@ import { asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { feedMeetings, meetings, tagCounts, tagSubmissions, tags } from "@/db/schema";
+import type { FeedMeeting } from "@/server/feeds/normalize";
+import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
 import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
@@ -13,6 +15,7 @@ let nextSubmitter = 1;
 // the test pepper, computed independently.
 export const DEVICE_A = "6F9619FF-8B86-D011-B42D-00C04FC964FF";
 export const DEVICE_A_HASH = "843ff89c9bc545aa6c2c749daa73a089752171a990aa930ce3aeb18c06ebffc4";
+export const DEVICE_B = "3f2a9c8e1b7d4065";
 
 export function deviceHeaders(rawId = DEVICE_A, platform: Platform = "ios"): Record<string, string> {
   return { "X-Device-Id": rawId, "X-Platform": platform, "X-App-Version": "1.0.0" };
@@ -90,4 +93,31 @@ export async function meetingIdOfSlug(sourceSlug: string): Promise<string> {
     .where(eq(feedMeetings.sourceSlug, sourceSlug));
   if (row === undefined) throw new Error(`no listing ${sourceSlug}`);
   return row.meetingId;
+}
+
+// A UTC meeting whose latest start was `hoursAgo` hours ago: open for tagging under 36, closed after.
+export async function seedMeetingStarted(
+  hoursAgo: number,
+  overrides: Partial<FeedMeeting> = {},
+): Promise<string> {
+  const start = new Date(Date.now() - hoursAgo * 3_600_000);
+  const row = feedMeeting({
+    timezone: "UTC",
+    day: start.getUTCDay(),
+    time: start.toISOString().slice(11, 16),
+    ...overrides,
+  });
+  await applyFeedSnapshot(await seedFeed(`feed-${row.sourceSlug}`), [row]);
+  return meetingIdOfSlug(row.sourceSlug);
+}
+
+// A place far from every other seeded meeting, so meetings at the same time never match each other.
+export function elsewhere(n: number): Partial<FeedMeeting> {
+  return {
+    sourceSlug: `meeting-${String(n)}`,
+    formattedAddress: `${String(n)} Elm St, Nashville, TN 37203, USA`,
+    addressKey: `${String(n)} elm st nashville tn 37203`,
+    latitude: 30 + n * 0.1,
+    longitude: -90,
+  };
 }

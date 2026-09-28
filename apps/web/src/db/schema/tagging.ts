@@ -110,3 +110,21 @@ export const devices = pgTable(
     check("devices_hash_check", sql`${table.deviceHash} ~ '^[0-9a-f]{64}$'`),
   ],
 );
+
+const RATE_LIMIT_BUCKETS = ["tag_submission"] as const;
+export type RateLimitBucket = (typeof RATE_LIMIT_BUCKETS)[number];
+
+// Spec §5: per device per UTC day, with no meeting id. Kept two days.
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    deviceHash: text("device_hash").notNull(),
+    bucket: text("bucket", { enum: RATE_LIMIT_BUCKETS }).notNull(),
+    windowStart: date("window_start").notNull(),
+    count: integer("count").notNull(),
+  },
+  (table) => [
+    primaryKey({ name: "rate_limits_pkey", columns: [table.deviceHash, table.bucket, table.windowStart] }),
+    check("rate_limits_bucket_check", sql`${table.bucket} in (${sqlStringList(RATE_LIMIT_BUCKETS)})`),
+  ],
+);

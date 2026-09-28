@@ -19,6 +19,12 @@ export async function carryTagsOnMerge(
   const losers = pairs.map((pair) => pair.loser);
   const survivors = pairs.map((pair) => pair.survivor);
   const merged = sql`unnest(${sqlArray(losers, "uuid")}, ${sqlArray(survivors, "uuid")}) as merged(loser, survivor)`;
+  // Waits for tag writes holding any of these meetings (findTaggableMeeting) and keeps new ones out until the
+  // merge commits, so no submission lands on a loser after its rows have moved. In id order, so two merges can't
+  // deadlock.
+  await executor.execute(sql`
+    select 1 from meetings where id = any(${sqlArray([...losers, ...survivors], "uuid")}) order by id for update
+  `);
   await executor.execute(sql`
     update meeting_aliases a set meeting_id = merged.survivor from ${merged} where a.meeting_id = merged.loser
   `);

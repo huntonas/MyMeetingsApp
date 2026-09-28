@@ -22,6 +22,12 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   upgrade_required: 426,
   attestation_failed: 401,
   device_blocked: 403,
+  too_many_tags: 400,
+  unknown_tag: 400,
+  tags_disabled: 403,
+  window_closed: 403,
+  already_tagged: 409,
+  rate_limited: 429,
 };
 
 // The data is parsed through its contract, so fields the contract doesn't name never leave the server.

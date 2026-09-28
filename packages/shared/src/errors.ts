@@ -9,6 +9,12 @@ const ERROR_CODES = [
   "upgrade_required",
   "attestation_failed",
   "device_blocked",
+  "tags_disabled",
+  "too_many_tags",
+  "unknown_tag",
+  "already_tagged",
+  "window_closed",
+  "rate_limited",
 ] as const;
 
 export const ErrorCode = z.enum(ERROR_CODES);
@@ -23,6 +29,12 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   attestation_failed:
     "We couldn't confirm this request came from the app. Please update the app and try again.",
   device_blocked: "Tagging isn't available from this device.",
+  tags_disabled: "Tagging isn't available for this right now.",
+  too_many_tags: "Choose up to 6 tags.",
+  unknown_tag: "One of those tags isn't available anymore. Refresh the list and try again.",
+  already_tagged: "You've already tagged this meeting in the last 7 days. You can edit your tags instead.",
+  window_closed: "New tags can be added from the start of the meeting until 36 hours after.",
+  rate_limited: "You've reached today's limit. Please try again tomorrow.",
 };
 
 export const ApiErrorBody = z.object({

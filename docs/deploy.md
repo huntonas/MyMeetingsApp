@@ -45,7 +45,7 @@ Preview deployments are protected, so use `vercel curl` (or a deployment protect
 
 ## Phase 2: meeting sync
 
-Phase 2 adds a cron job that syncs meetings from feeds every 15 minutes. This requires **Vercel Pro** (Hobby plan allows only daily crons). Upgrade the team before deploying Phase 2.
+Phase 2 adds a cron job that runs every 15 minutes and syncs the feeds that are due: each feed is fetched at most once a week, and a failing one is retried after a day. This requires **Vercel Pro** (Hobby plan allows only daily crons). Upgrade the team before deploying Phase 2.
 
 ### Setting CRON_SECRET
 

@@ -78,7 +78,7 @@ describe("runSync", () => {
     expect(await db.select().from(meetings).where(isNull(meetings.archivedAt))).toHaveLength(3);
   });
 
-  it("records a restricted feed and doesn't retry it within the hour", async () => {
+  it("records a restricted feed and doesn't retry it on the next run", async () => {
     const restricted = await feedServing("restricted", () => ({ status: 403 }));
     await runSync(60_000);
     expect((await feed(restricted.id))?.lastError).toBe("restricted (HTTP 403)");
@@ -86,17 +86,27 @@ describe("runSync", () => {
     expect(restricted.server.requests).toHaveLength(1);
   });
 
-  it("doesn't sync a feed that succeeded within 12 hours", async () => {
+  it("doesn't sync a feed that succeeded within the last week", async () => {
     const recent = await feedServing("recent", () => ({ status: 200, body: meetingJson(1) }));
     await db
       .update(feeds)
       .set({
-        lastSuccessAt: new Date(Date.now() - 11 * 3600_000),
-        lastAttemptAt: new Date(Date.now() - 11 * 3600_000),
+        lastSuccessAt: new Date(Date.now() - 6 * 24 * 3600_000),
+        lastAttemptAt: new Date(Date.now() - 6 * 24 * 3600_000),
       })
       .where(eq(feeds.id, recent.id));
     expect(await runSync(60_000)).toMatchObject({ synced: 0 });
     expect(recent.server.requests).toHaveLength(0);
+  });
+
+  it("retries a failed feed no sooner than a day later", async () => {
+    const failing = await feedServing("failing", () => ({ status: 500 }));
+    await db
+      .update(feeds)
+      .set({ lastAttemptAt: new Date(Date.now() - 23 * 3600_000) })
+      .where(eq(feeds.id, failing.id));
+    expect(await runSync(60_000)).toMatchObject({ failed: 0 });
+    expect(failing.server.requests).toHaveLength(0);
   });
 
   it("treats an unchanged feed as a success and keeps its meetings", async () => {

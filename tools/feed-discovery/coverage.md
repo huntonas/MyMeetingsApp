@@ -58,241 +58,241 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 
 ## Verified feeds (open to us)
 
-| State | Site                                         | Feed               | Meetings | States                     | Cities | Listed by                                                                  |
-| ----- | -------------------------------------------- | ------------------ | -------- | -------------------------- | ------ | -------------------------------------------------------------------------- |
-| AK    | http://www.area02alaska.org                  | tsml               | 159      | AK                         | 24     | Area 002 - Alaska                                                          |
-| AL    | http://www.aaauburn.org                      | tsml               | 55       | AL                         | 8      | Area 1 District 9 24 Hour Phone Line                                       |
-| AL    | http://www.aahuntsvilleal.com                | tsml               | 187      | AL                         | 7      | Huntsville Intergroup                                                      |
-| AL    | http://www.birminghamaa.org                  | meeting_guide_json | 273      | AL                         | 34     | Birmingham Intergroup                                                      |
-| AL    | http://www.gulfcoastaa.org                   | tsml               | 52       | AL                         | 8      | Baldwin County Answering Service                                           |
-| AL    | http://www.shoalsaa.org                      | tsml               | 113      | AL, MS                     | 9      | District 01                                                                |
-| AL    | http://www.the12traditions.com               | tsml               | 44       | AL                         | 4      | North Central Dist 2 Intergroup                                            |
-| AL    | https://coosavalleyaa.org                    | tsml               | 95       | AL                         | 15     | District 04                                                                |
-| AL    | https://mobileaa.org                         | tsml               | 108      | AL                         | 11     | District 12                                                                |
-| AR    | http://www.aafsig.org                        | tsml               | 79       | AR, OK                     | 15     | Ft. Smith Area Intergroup/Central Office                                   |
-| AR    | http://www.aawcar.org                        | tsml               | 78       | AR                         | 11     | Intergroup Council of West-Central                                         |
-| AR    | http://www.arkansascentraloffice.org         | tsml               | 936      | AR, OK, TX                 | 113    | Arkansas Central Office                                                    |
-| AZ    | http://aapinalcounty.org                     | tsml               | 71       | AZ                         | 7      | Alcoholics Anonymous - District 12-121                                     |
-| AZ    | http://www.aamesaaz.org                      | tsml               | 642      | AZ                         | 21     | East Valley Intergroup Inc                                                 |
-| AZ    | http://www.aaphoenix.org                     | tsml               | 1902     | AZ                         | 45     | Salt River Intergroup,Inc.                                                 |
-| AZ    | http://www.aatucson.org                      | tsml               | 523      | AZ                         | 14     | Tucson Area Intergroup Inc.                                                |
-| AZ    | http://www.centralmountain.org               | tsml               | 87       | AZ                         | 6      | Central Mountain Intergroup                                                |
-| AZ    | http://www.flagstaffaa.org                   | tsml               | 118      | AZ                         | 6      | Flagstaff Intergroup Central Office                                        |
-| AZ    | http://www.prescottaa.org                    | tsml               | 154      | AZ                         | 9      | Prescott Area Intergroup Association                                       |
-| AZ    | https://aayuma.com                           | tsml               | 99       | AZ                         | 4      | Yuma Intergroup                                                            |
-| CA    | http://lakecountycaaa.com                    | tsml               | 67       | CA                         | 10     | Lake County Intergroup                                                     |
-| CA    | http://www.aa-tulareco.org                   | tsml               | 194      | CA                         | 16     | Tulare County Central Office                                               |
-| CA    | http://www.aa52centraloffice.org             | meeting_guide_json | 171      | CA                         | 8      | 52nd District Alcoholics Anonymous Central Office                          |
-| CA    | http://www.aabutte-glenn.org                 | tsml               | 157      | CA                         | 12     | North Valley Central Office                                                |
-| CA    | http://www.aadavis.org                       | tsml               | 156      | CA                         | 8      | 24 Hour Answering Service                                                  |
-| CA    | http://www.aamonterey.org                    | tsml               | 151      | CA                         | 9      | Monterey Bay Area Intergroup                                               |
-| CA    | http://www.aanorcal.org                      | tsml               | 182      | CA                         | 25     | Northern California Intergroup                                             |
-| CA    | http://www.aasandiego.org                    | tsml               | 1282     | CA                         | 26     | San Diego Central Office                                                   |
-| CA    | http://www.aascv.org                         | tsml               | 153      | CA                         | 4      | SCV Central Office Of A.A.                                                 |
-| CA    | http://www.aasolanosouth.org                 | tsml               | 105      | CA                         | 4      | So. Solano County Central Office                                           |
-| CA    | http://www.aaukiah.org                       | tsml               | 58       | CA                         | 6      | Mendocino Inland Intergroup                                                |
-| CA    | http://www.aaventuracounty.org               | tsml               | 524      | CA                         | 17     | Ventura County Central Service Office                                      |
-| CA    | http://www.eastbayaa.org                     | tsml               | 890      | CA                         | 16     | Eastbay Intergroup Central Office                                          |
-| CA    | http://www.hacoaa.org                        | tsml               | 678      | CA                         | 25     | Harbor Area Central Office                                                 |
-| CA    | http://www.ncsandiegoaa.org                  | tsml               | 802      | CA                         | 23     | North County (San Diego) Central Office                                    |
-| CA    | http://www.oc-aa.org                         | tsml               | 1920     | CA                         | 41     | Orange County Central Office                                               |
-| CA    | http://www.sloaa.org                         | tsml               | 363      | CA                         | 17     | Central Coast Central Office Intergroup                                    |
-| CA    | http://www.southbayaa.org                    | meeting_guide_json | 415      | CA                         | 19     | All South Bay Central Office                                               |
-| CA    | http://www.temeculacentraloffice.org         | tsml               | 228      | CA                         | 12     | Temecula Valley Central Office                                             |
-| CA    | http://www.victorvalleyaa.org                | tsml               | 166      | CA                         | 10     | Victor Valley Intergroup Central Office Inc.                               |
-| CA    | https://aainlandempire.org                   | tsml               | 1030     | CA                         | 43     | Inland Empire Central Office Of Alcoholics Anonymous                       |
-| CA    | https://cnia30.org                           | tsml               | 66       | CA                         | 17     | Alcoholics Anonymous - District 30                                         |
-| CO    | http://www.daccaa.org                        | tsml               | 1124     | CO                         | 33     | Denver Area Central Office                                                 |
-| CO    | https://bouldercountyaa.com                  | tsml               | 256      | CO                         | 15     | AA Boulder County Central Office                                           |
-| CT    | http://www.ct-aa.org                         | tsml               | 1905     | CT, NY, RI, TX             | 185    | Area 011 - Connecticut                                                     |
-| DC    | http://www.aa-dc.org                         | tsml               | 1039     | DC, MD                     | 46     | Washington Area Intergroup Association                                     |
-| FL    | http://osceolacountyintergroup.org           | tsml               | 78       | FL                         | 4      | Osceola County Intergroup                                                  |
-| FL    | http://www.aaflagler.org                     | tsml               | 59       | FL                         | 3      | Flagler County Intergroup                                                  |
-| FL    | http://www.aafloridakeys.org                 | tsml               | 94       | FL                         | 3      | Key West Intergroup                                                        |
-| FL    | http://www.aagainesville.org                 | tsml               | 172      | FL                         | 21     | North Central Florida Intergroup                                           |
-| FL    | http://www.aahernando.org                    | tsml               | 94       | FL                         | 5      | Hernando County Intergroup                                                 |
-| FL    | http://www.aainpalmbeach.org                 | tsml               | 337      | FL                         | 6      | So. Palm Beach County Intergroup Inc.                                      |
-| FL    | http://www.aanaples.org                      | tsml               | 329      | FL                         | 6      | Naples Area Intergroup                                                     |
-| FL    | http://www.aaocalamarion.org                 | tsml               | 169      | FL                         | 9      | Intergroup 17                                                              |
-| FL    | http://www.aapinellas.org                    | tsml               | 707      | FL                         | 17     | Pinellas County Intergroup Inc                                             |
-| FL    | http://www.aastlucieintergroup.com           | tsml               | 154      | FL                         | 4      | St. Lucie County Intergroup Association                                    |
-| FL    | http://www.heartlandintergroup.org           | tsml               | 208      | FL                         | 18     | Heartland Intergroup A.A. Inc                                              |
-| FL    | http://www.leecountyaa.org                   | tsml               | 364      | FL                         | 16     | Lee County Area Intergroup                                                 |
-| FL    | http://www.martincountyaa.org                | tsml               | 147      | FL                         | 5      | Intergroup Of Martin County                                                |
-| FL    | http://www.miamiaa.org                       | tsml               | 7        | FL                         | 1      | Central Miami Intergroup                                                   |
-| FL    | http://www.ncintergroup.com                  | tsml               | 29       | FL                         | 2      | Nature Coast Intergroup                                                    |
-| FL    | http://www.neflaa.org                        | tsml               | 719      | FL, GA                     | 27     | Northeast Florida Intergroup                                               |
-| FL    | https://aanorthport.org                      | tsml               | 295      | FL                         | 10     | Intergroup Service Comm Of The 5th Dist Inc.                               |
-| FL    | https://www.aapasco.org                      | tsml               | 169      | FL                         | 4      | West Pasco Tarpon Springs Intergroup                                       |
-| FL    | https://www.staugustineaa.org                | tsml               | 80       | FL                         | 2      | St. Augustine District 6                                                   |
-| GA    | http://www.atlantaaa.org                     | tsml               | 1430     | GA                         | 65     | Central Office                                                             |
-| GA    | http://www.savannahaa.com                    | tsml               | 164      | GA                         | 14     | Savannah Intergroup Association Inc.                                       |
-| HI    | http://www.aamaui.org                        | tsml               | 148      | HI                         | 10     | Maui Central Office                                                        |
-| HI    | http://www.easthawaiiaa.org                  | tsml               | 68       | HI                         | 10     | East Hawaii Intergroup                                                     |
-| HI    | http://www.oahucentraloffice.com             | tsml               | 268      | HI                         | 15     | Oahu Intergroup Of Hawaii                                                  |
-| HI    | http://www.westhawaiiaa.org                  | tsml               | 103      | HI                         | 7      | West Hawaii Central Office                                                 |
-| IA    | http://iadistrict13aa.org                    | tsml               | 83       | IA                         | 11     | District 13                                                                |
-| IA    | http://www.aa-cedarrapids.org                | tsml               | 108      | IA                         | 14     | Answer Plus Answering Service                                              |
-| IA    | http://www.aa-iowa.org                       | tsml               | 1322     | IA, IL, NE, SD, WI         | 261    | Area 024 - Iowa                                                            |
-| IA    | http://www.aaquadcities.org                  | tsml               | 216      | IA, IL                     | 22     | IIIowa Intergroup                                                          |
-| IA    | http://www.amesaa.org                        | tsml               | 81       | IA                         | 10     | Ames Intergroup                                                            |
-| IA    | https://aaiowacity.org                       | tsml               | 84       | IA                         | 11     | Dist. 13 Intergroup                                                        |
-| IL    | http://aaci11.org                            | tsml               | 48       | IL                         | 10     | AA Central Illinois District 11                                            |
-| IL    | http://area21district10aa.org                | tsml               | 83       | IL                         | 8      | District 10                                                                |
-| IL    | http://district7aa.com                       | tsml               | 16       | IL                         | 6      | District 07                                                                |
-| IL    | http://www.aad20.org                         | tsml               | 29       | IL                         | 9      | S.I.A. 21 District 20                                                      |
-| IL    | http://www.aaspringfield.org                 | tsml               | 128      | IL                         | 7      | A.A. District 19 Hotline                                                   |
-| IL    | http://www.district10nia.org                 | tsml               | 168      | IL, WI                     | 15     | Antioch/Gumee/RoundLake/Libertyville Area                                  |
-| IL    | http://www.rockfordaa.org                    | meeting_guide_json | 217      | IL                         | 8      | Rockford Area Intergroup                                                   |
-| IL    | http://www.southernillinoisaa.org            | tsml               | 44       | IL                         | 17     | Carbondale Helpline, Mt. Vernon Helpline                                   |
-| IL    | https://aa-nia-dist42.com                    | tsml               | 82       | IL                         | 7      | Dist. 42 Answering Service                                                 |
-| IL    | https://aa-nia-dist43.org                    | tsml               | 100      | IL                         | 5      | Dist. 43 Answering Service                                                 |
-| IL    | https://www.aad5.org                         | tsml               | 27       | IL                         | 2      | Illinois District 5: Quincy/Pleasant Hill/Pittsfield/Mt. Sterling          |
-| IL    | https://www.dupage41aa.org                   | tsml               | 114      | IL                         | 5      | Dist. 41 Answering Service                                                 |
-| IN    | http://www.aaftwayne.org                     | meeting_guide_json | 199      | IN, OH                     | 32     | Fort Wayne Area Intergroup                                                 |
-| IN    | http://www.area22indiana.org                 | tsml               | 923      | IN, MI, OH                 | 123    | Area 022 - Northern Indiana                                                |
-| IN    | http://www.area23aa.org                      | tsml               | 112      | IN                         | 22     | Area 023 - Southern Indiana                                                |
-| IN    | http://www.indyaa.org                        | tsml               | 464      | IN                         | 28     | Indianapolis Intergroup Inc.                                               |
-| IN    | https://southwesternindianaaa.org            | tsml               | 135      | IN                         | 18     | Southwestern Indiana Central Office                                        |
-| KS    | http://www.aa-ksdist23.org                   | tsml               | 72       | KS                         | 4      | Alcoholics Anonymous Kansas District 23                                    |
-| KS    | http://www.aatopeka.org                      | tsml               | 98       | KS                         | 8      | Topeka Area Answering Service                                              |
-| KS    | https://ks-aa.org                            | tsml               | 1435     | KS                         | 147    | Area 025 - Kansas                                                          |
-| KY    | http://www.area26.net                        | tsml               | 1356     | IL, IN, KY, TN             | 158    | Area 026 - Kentucky                                                        |
-| KY    | http://www.bluegrassintergroup.org           | tsml               | 417      | KY                         | 49     | Bluegrass Intergroup                                                       |
-| KY    | http://www.wkintergroup.org                  | tsml               | 134      | IL, KY, TN                 | 25     | Western Kentucky Intergroup                                                |
-| KY    | https://bowlinggreenaa.org                   | tsml               | 67       | KY                         | 4      | Bowling Green Central Office                                               |
-| KY    | https://loukyaa.org                          | tsml               | 536      | IN, KY                     | 36     | Greater Louisville Intergroup of AA                                        |
-| LA    | http://aa-swla.org                           | tsml               | 56       | LA                         | 10     | District 8 Hotline                                                         |
-| LA    | http://www.aa-acadiana.org                   | tsml               | 175      | LA                         | 19     | Acadiana Area Central Office                                               |
-| LA    | http://www.aabatonrouge.org                  | tsml               | 357      | LA, MS                     | 31     | Greater Baton Rouge AA Central Office                                      |
-| LA    | https://ladistrict4.org                      | tsml               | 110      | LA                         | 14     | Northeast Louisiana District 4                                             |
-| MA    | http://www.capecodaa.net                     | tsml               | 367      | MA                         | 32     | Cape Cod Intergroup                                                        |
-| MD    | http://www.baltimoreaa.org                   | tsml               | 739      | MD, PA                     | 64     | Baltimore Intergroup Council of AA                                         |
-| MD    | http://www.hagerstownaa.org                  | tsml               | 62       | MD, PA                     | 10     | Hagerstown Area Intergroup                                                 |
-| MD    | http://www.ocaa.org                          | tsml               | 31       | MD                         | 3      | Ocean City Fellowship Intergroup                                           |
-| MD    | http://www.westcentralaa.org                 | tsml               | 145      | MD                         | 22     | West/Central Intergroup Of Maryland                                        |
-| ME    | http://www.downeastintergroup.org            | tsml               | 189      | ME, NJ                     | 61     | Down East Intergroup                                                       |
-| MI    | http://geneseecountyaa.org                   | tsml               | 191      | MI                         | 19     | Flint Area Unity Council 24                                                |
-| MI    | http://www.aadistrict15mi.com                | tsml               | 26       | MI                         | 4      | District 15                                                                |
-| MI    | http://www.aalansingmi.org                   | tsml               | 323      | IN, MD, ME, MI, MO, NC, TX | 37     | Lansing Central Office                                                     |
-| MI    | http://www.area74.org                        | tsml               | 176      | MI, WI                     | 53     | Area 074 - N. Wisc./Upper Peninsula Mi.                                    |
-| MI    | http://www.baycountyaa.org                   | tsml               | 55       | MI                         | 5      | Bay County Unity Intergroup                                                |
-| MI    | http://www.cmia32.org                        | tsml               | 950      | MI, OH                     | 62     | District 28 Unity Council Answering Service, Area 032 - Central Michigan   |
-| MI    | http://www.grandrapidsaa.org                 | tsml               | 689      | MI                         | 56     | Kent County Central Office                                                 |
-| MI    | http://www.wmd3aa.org                        | tsml               | 112      | MI                         | 9      | WMD3 A.A. Ansr Serv -  Lake MI Shoreline Area, Holland, So. Haven & Covert |
-| MI    | https://district28aa.com/meetings/alano-club | meeting_guide_json | 42       | MI                         | 12     | Area 32 District 28 AA                                                     |
-| MI    | https://gratiotisabellacounty-aa.com         | tsml               | 48       | MI                         | 6      | Gratiot Isabella County AA                                                 |
-| MI    | https://www.aaferndale.org                   | tsml               | 1518     | MI                         | 137    | A.A. Of Greater Detroit                                                    |
-| MN    | http://aasaintcloud.org                      | tsml               | 1070     | MN                         | 99     | St. Cloud Intergroup                                                       |
-| MN    | http://www.aaminneapolis.org                 | tsml               | 983      | MN                         | 88     | Greater Minneapolis Intergroup                                             |
-| MO    | http://tricountyaa.org                       | tsml               | 134      | MO                         | 16     | Tri County Intergroup                                                      |
-| MO    | http://www.aacomm.org                        | tsml               | 199      | MO                         | 22     | Central Office Of Mid-Missouri (C.O.M.M.)                                  |
-| MO    | http://www.aastl.org                         | tsml               | 981      | MO                         | 126    | Central Services Of A.A.(St. Louis Central Service Office)                 |
-| MO    | http://www.d12aa.org                         | meeting_guide_json | 103      | MO                         | 9      | Dist. 12 Office 24 Hr. Answering Service                                   |
-| MO    | http://www.eamo.org                          | tsml               | 1283     | MO                         | 148    | Area 038 - Eastern Missouri                                                |
-| MO    | http://www.kc-aa.org                         | tsml               | 1378     | KS, MO                     | 136    | Kansas City Area Central Office                                            |
-| MS    | http://www.aa-mississippi.org                | tsml               | 811      | MS                         | 92     | Area 037 - Mississippi                                                     |
-| NC    | http://nwpi.net                              | tsml               | 155      | NC                         | 15     | Northwest Piedmont Intergroup                                              |
-| NC    | http://www.aa91nc.org                        | tsml               | 44       | NC                         | 7      | District 91 in Eastern NC                                                  |
-| NC    | http://www.aanc33.org                        | tsml               | 129      | NC                         | 11     | Dist. 33 Answering Service-Alamance,Caswell,Chatham, Orange Counties       |
-| NC    | http://www.aaobx.com                         | tsml               | 64       | NC                         | 14     | Dist 93 Intergroup Covering Outer Banks                                    |
-| NC    | http://www.booneaa.org                       | tsml               | 74       | NC                         | 12     | Boone Intergroup                                                           |
-| NC    | http://www.moorecountyaa.org                 | tsml               | 80       | NC                         | 13     | Sandhills Intergroup                                                       |
-| NC    | http://www.raleighaa.com                     | tsml               | 385      | NC                         | 19     | Tri-County Intergroup                                                      |
-| NC    | https://aajacksonvillenc.org                 | tsml               | 82       | NC                         | 11     | AA Jacksonville NC                                                         |
-| NC    | https://district-21-aa.com                   | tsml               | 105      | NC                         | 8      | District 21 - Rowan, Iredell, Davie Counties                               |
-| NC    | https://ncdistrict11.org                     | tsml               | 69       | NC                         | 11     | Boone, NC                                                                  |
-| NC    | https://www.aaobx.com/meetings               | meeting_guide_json | 64       | NC                         | 14     | Outer Banks, NC (District 93)                                              |
-| NE    | http://www.area41.org                        | tsml               | 1175     | NE                         | 147    | Area 041 - Nebraska                                                        |
-| NE    | http://www.omahaaa.org                       | tsml               | 648      | IA, NE                     | 59     | Omaha Central Office                                                       |
-| NJ    | http://www.capeatlanticaa.org                | tsml               | 397      | NJ, WA                     | 49     | Cape Atlantic Intergroup                                                   |
-| NJ    | http://www.centraljerseyintergroup.org       | meeting_guide_json | 241      | NJ, PA                     | 27     | Central Jersey Intergroup                                                  |
-| NM    | http://nm-aa.org/districts/district-7        | meeting_guide_json | 1025     | NM, TX                     | 80     | Answering Service                                                          |
-| NM    | http://www.nm-aa.org                         | tsml               | 1025     | NM, TX                     | 80     | Area 046 - New Mexico                                                      |
-| NM    | http://www.santafeaa.org                     | tsml               | 110      | NM                         | 7      | Central Office of Santa Fe Intergroup                                      |
-| NV    | http://www.lvcentraloffice.org               | tsml               | 1155     | NV                         | 15     | Las Vegas Intergroup                                                       |
-| NY    | http://aa-stlawrenceny.org                   | tsml               | 28       | NY                         | 11     | District 42, St. Lawrence County Answering Service                         |
-| NY    | http://district0660.org                      | tsml               | 20       | NY                         | 4      | District 0660                                                              |
-| NY    | http://www.aaalbanyny.org                    | tsml               | 1350     | IL, NY, OR                 | 194    | Capital District Central Office, Inc                                       |
-| NY    | http://www.aahmbny.org                       | meeting_guide_json | 1350     | IL, NY, OR                 | 191    | Area 048 - Hudson/Mohawk/Berkshire N.Y., 048 - NENY Area Association       |
-| NY    | http://www.aajci.org                         | tsml               | 49       | NY                         | 16     | Jefferson County Intergroup                                                |
-| NY    | http://www.aasyracuse.org                    | tsml               | 399      | NY                         | 55     | Syracuse Intergroup, Inc                                                   |
-| NY    | http://www.livingstonareaintergroup.org      | tsml               | 47       | NY                         | 23     | Livingston Area Intergroup                                                 |
-| NY    | http://www.niagarafallsnyaameetings.com      | tsml               | 30       | NY                         | 6      | Niagara Intergroup                                                         |
-| NY    | http://www.nyintergroup.org                  | tsml               | 2878     | CT, NJ, NY                 | 131    | Inter-Group Association of A.A. of New York,Inc.                           |
-| NY    | http://www.orangenyaa.org                    | tsml               | 162      | NY                         | 25     | Central Service Intergroup Of Orange County                                |
-| NY    | http://www.queensaa.org                      | tsml               | 332      | NY                         | 27     | Queens Intergroup Of A.A.                                                  |
-| NY    | http://www.suffolkny-aa.org                  | tsml               | 892      | NY                         | 94     | Suffolk Intergroup Association                                             |
-| NY    | https://aaithaca.org                         | tsml               | 63       | NY                         | 9      | Ithaca Area Intergroup                                                     |
-| NY    | https://nassauintergroup.org                 | tsml               | 639      | NY                         | 66     | Nassau Intergroup                                                          |
-| NY    | https://nenyaa.org                           | tsml               | 1350     | IL, NY, OR                 | 191    | Area 048 - NENY Area Association                                           |
-| OH    | http://www.aacincinnati.org                  | tsml               | 683      | IN, KY, NY, OH             | 66     | Cincinnati Intergroup Office                                               |
-| OH    | http://www.aadaytononline.org                | tsml               | 406      | OH                         | 48     | Central Office Of Dayton, Inc.                                             |
-| OH    | http://www.aaigo.net                         | tsml               | 63       | OH                         | 17     | Ashtabula Area Intergroup                                                  |
-| OH    | http://www.aayaig.org                        | tsml               | 219      | OH, PA                     | 41     | Youngstown Area Intergroup                                                 |
-| OH    | http://www.area55aa.org                      | tsml               | 445      | MI, OH                     | 64     | Area 055 - Northwest Ohio                                                  |
-| OH    | http://www.lancasterareaintergroup.org       | tsml               | 50       | OH                         | 18     | Lancaster Area Intergroup                                                  |
-| OH    | http://www.mansfieldaa.org                   | tsml               | 47       | OH                         | 7      | Mansfield Area Intergroup                                                  |
-| OK    | http://www.aaneok.org                        | tsml               | 543      | OK                         | 58     | Northeast Central Service Office                                           |
-| OK    | http://www.aaoklahoma.org                    | tsml               | 1529     | AR, NC, OK                 | 135    | Oklahoma State A.A. Office Area 57, Area 057 - Oklahoma                    |
-| OK    | http://www.okcintergroup.org                 | tsml               | 997      | AR, OK                     | 78     | Intergroup Service Office Inc.                                             |
-| OR    | http://roseburgaa.org                        | tsml               | 50       | OR                         | 9      | District 13                                                                |
-| OR    | http://westsidecentraloffice.com             | tsml               | 412      | OR                         | 23     | Westside Central Office                                                    |
-| OR    | http://www.aa-oregon.org                     | tsml               | 276      | OR                         | 29     | Area 058 - Oregon                                                          |
-| OR    | http://www.coigaa.org                        | tsml               | 177      | OR                         | 17     | Central Oregon Intergroup                                                  |
-| OR    | http://www.grantspassaa.com                  | tsml               | 71       | OR                         | 6      | Josephine County Intergroup                                                |
-| OR    | http://www.jccoaa.org                        | tsml               | 115      | OR                         | 16     | A.A. Jackson County Central Office                                         |
-| OR    | http://www.klciaa.org                        | tsml               | 52       | OR                         | 8      | Klamath Lake Intergroup                                                    |
-| OR    | https://aaoregon-district21.org              | tsml               | 116      | OR                         | 9      | AA Oregon District 21 Mid-Willamette Valley                                |
-| PA    | http://www.aaharrisburg.org                  | tsml               | 186      | PA                         | 22     | Harrisburg Area Intergroup                                                 |
-| PA    | http://www.aasepia.org                       | tsml               | 1890     | PA                         | 133    | South Eastern PA Intergroup Association                                    |
-| PA    | http://www.d35pa-aa.org                      | tsml               | 99       | PA                         | 18     | District 35/Area 59-So. Central P.A. Answering Service                     |
-| PA    | http://www.district43.com                    | tsml               | 59       | PA                         | 12     | District 43                                                                |
-| PA    | http://www.district48aa.org                  | tsml               | 50       | PA                         | 11     | Williamsport Answering Service                                             |
-| PA    | http://www.poconointergroupaa.org            | tsml               | 99       | PA                         | 17     | Pocono Intergroup (Answering Service)                                      |
-| PA    | http://www.readingberksintergroup.org        | tsml               | 138      | PA                         | 29     | Reading-Berks Intergroup                                                   |
-| PA    | http://www.wpaarea60.org                     | tsml               | 945      | PA                         | 215    | Area 060 - Western Pennsylvania                                            |
-| PA    | https://area59aa.org                         | tsml               | 3287     | PA                         | 354    | Area 059 - Eastern Pennsylvania                                            |
-| PA    | https://lancasteraa.org                      | tsml               | 143      | PA                         | 20     | Lancaster AACSO                                                            |
-| RI    | http://www.rhodeisland-aa.org                | tsml               | 713      | CT, MA, RI                 | 72     | R.I. Central Service Office                                                |
-| SC    | http://tcio.org                              | tsml               | 287      | SC                         | 18     | Tri-County Intergroup                                                      |
-| SC    | http://www.area62.org                        | meeting_guide_json | 1372     | SC                         | 116    | Area 062 - South Carolina                                                  |
-| SC    | http://www.upstateintergroup.org             | tsml               | 299      | NC, SC                     | 32     | Upstate Intergroup                                                         |
-| SD    | http://www.area63aa.org                      | tsml               | 415      | SD, WI                     | 69     | Area 063 - South Dakota                                                    |
-| TN    | http://www.aanashville.org                   | tsml               | 1021     | TN                         | 67     | Middle Tennessee Central Office                                            |
-| TN    | http://www.aawesttn.org                      | tsml               | 112      | TN                         | 26     | Jackson / West Tennessee Intergroup                                        |
-| TN    | http://www.chattanooga-aa.com                | tsml               | 288      | GA, TN                     | 31     | Chattanooga Area Central Office                                            |
-| TN    | http://www.etiaa.org                         | tsml               | 470      | TN, VA                     | 52     | East Tennessee Intergroup                                                  |
-| TN    | http://www.memphis-aa.org                    | tsml               | 391      | AR, MS, TN                 | 19     | Memphis Area Intergroup                                                    |
-| TX    | http://www.aargvdist10.org                   | tsml               | 49       | TX                         | 6      | District 10 AA                                                             |
-| TX    | http://www.aasanantonio.org                  | tsml               | 1054     | TX                         | 58     | Central Service Office                                                     |
-| TX    | http://www.cbiaa.org                         | tsml               | 266      | TX                         | 25     | Coastal Bend Intergroup Association                                        |
-| TX    | http://www.nwta66.org                        | tsml               | 775      | NM, TX                     | 49     | Area 066 - Northwest Texas                                                 |
-| TX    | https://aahouston.org                        | tsml               | 1952     | TX                         | 86     | Intergroup Association Inc.                                                |
-| TX    | https://alcoholicosanonimosdallas.org        | tsml               | 523      | LA, TX                     | 40     | Oficina Intergrupal Hispana De A.A.                                        |
-| TX    | https://www.nwta66.org/districts/distrito12  | meeting_guide_json | 775      | NM, TX                     | 49     | Distrito 12                                                                |
-| UT    | https://cachevalleyaa.org                    | tsml               | 31       | ID, UT                     | 4      | Cache Valley Intergroup Of A.A.                                            |
-| UT    | https://dixieaaoffice.com                    | tsml               | 110      | AZ, UT                     | 16     | Dixie Central Office                                                       |
-| VA    | http://vadist15aa.org                        | tsml               | 58       | VA                         | 20     | Alcoholics Anonymous Virginia District 15                                  |
-| VA    | http://www.aarichmond.org                    | tsml               | 417      | VA                         | 37     | Richmond Intergroup Inc.                                                   |
-| VA    | http://www.aaroanoke.org                     | tsml               | 90       | VA                         | 10     | Roanoke Intergroup                                                         |
-| VA    | http://www.aavirginia.org                    | tsml               | 2787     | KY, NC, VA, WV             | 245    | Area 071 - Virginia                                                        |
-| VA    | http://www.tidewaterintergroup.org           | tsml               | 356      | NC, VA                     | 12     | Tidewater Intergroup Council                                               |
-| VA    | https://aaheartofva.org                      | tsml               | 132      | VA                         | 19     | AA Heart of Virginia                                                       |
-| VT    | http://www.aavt.org                          | tsml               | 526      | VT                         | 104    | AA Vermont District 11, AA Vermont District 2, Area 070 - Vermont          |
-| WA    | http://district22aa.org                      | tsml               | 25       | ID, WA                     | 6      | District 22 AA Answering Service                                           |
-| WA    | http://www.aadistrict8.org                   | tsml               | 156      | WA                         | 8      | South Sound Service Center                                                 |
-| WA    | http://www.aaspokane.org                     | tsml               | 241      | WA                         | 14     | Spokane Central Office                                                     |
-| WA    | http://www.area92aa.org                      | tsml               | 1126     | ID, MT, OR, WA             | 120    | Area 092 - Washington State East                                           |
-| WA    | http://www.eastsideaa.org                    | tsml               | 438      | WA                         | 22     | Eastside Intergroup                                                        |
-| WA    | http://www.seattleaa.org                     | tsml               | 1635     | WA                         | 43     | Greater Seattle Intergroup                                                 |
-| WA    | http://www.whatcomaa.org                     | tsml               | 156      | WA                         | 10     | NW Wa-Whatcom County Dist. 11 Answering Service                            |
-| WI    | http://www.district05.org                    | tsml               | 119      | WI                         | 23     | DISTRICT 05 OF AREA 74                                                     |
-| WI    | https://aamadisonwi.org                      | tsml               | 525      | WI                         | 94     | Madison Area Intergroup Central Office, Inc.                               |
-| WI    | https://aawidistrict04.org                   | tsml               | 29       | WI                         | 4      | District 04 Area 74                                                        |
-| WI    | https://doorkewauneeaa.org                   | tsml               | 24       | WI                         | 9      | District 01 Area 74                                                        |
-| WI    | https://racinecentraloffice.org              | tsml               | 246      | IL, WI                     | 18     | Racine Area Central Office                                                 |
-| WI    | https://wiaadistrict3.org/meetings           | meeting_guide_json | 12       | WI                         | 3      | Area 74 District 03 South Wood County Area                                 |
+| State | Site                                         | Feed               | Meetings | States                     | Cities | Listed by                                                                 |
+| ----- | -------------------------------------------- | ------------------ | -------- | -------------------------- | ------ | ------------------------------------------------------------------------- |
+| AK    | http://www.area02alaska.org                  | tsml               | 159      | AK                         | 24     | Area 002 - Alaska                                                         |
+| AL    | http://www.aaauburn.org                      | tsml               | 55       | AL                         | 8      | Area 1 District 9 24 Hour Phone Line                                      |
+| AL    | http://www.aahuntsvilleal.com                | tsml               | 187      | AL                         | 7      | Huntsville Intergroup                                                     |
+| AL    | http://www.birminghamaa.org                  | meeting_guide_json | 273      | AL                         | 34     | Birmingham Intergroup                                                     |
+| AL    | http://www.gulfcoastaa.org                   | tsml               | 52       | AL                         | 8      | Baldwin County Answering Service                                          |
+| AL    | http://www.shoalsaa.org                      | tsml               | 113      | AL, MS                     | 9      | District 01                                                               |
+| AL    | http://www.the12traditions.com               | tsml               | 44       | AL                         | 4      | North Central Dist 2 Intergroup                                           |
+| AL    | https://coosavalleyaa.org                    | tsml               | 95       | AL                         | 15     | District 04                                                               |
+| AL    | https://mobileaa.org                         | tsml               | 108      | AL                         | 11     | District 12                                                               |
+| AR    | http://www.aafsig.org                        | tsml               | 79       | AR, OK                     | 15     | Ft. Smith Area Intergroup/Central Office                                  |
+| AR    | http://www.aawcar.org                        | tsml               | 78       | AR                         | 11     | Intergroup Council of West-Central                                        |
+| AR    | http://www.arkansascentraloffice.org         | tsml               | 936      | AR, OK, TX                 | 113    | Arkansas Central Office                                                   |
+| AZ    | http://aapinalcounty.org                     | tsml               | 71       | AZ                         | 7      | Alcoholics Anonymous - District 12-121                                    |
+| AZ    | http://www.aamesaaz.org                      | tsml               | 642      | AZ                         | 21     | East Valley Intergroup Inc                                                |
+| AZ    | http://www.aaphoenix.org                     | tsml               | 1902     | AZ                         | 45     | Salt River Intergroup,Inc.                                                |
+| AZ    | http://www.aatucson.org                      | tsml               | 523      | AZ                         | 14     | Tucson Area Intergroup Inc.                                               |
+| AZ    | http://www.centralmountain.org               | tsml               | 87       | AZ                         | 6      | Central Mountain Intergroup                                               |
+| AZ    | http://www.flagstaffaa.org                   | tsml               | 118      | AZ                         | 6      | Flagstaff Intergroup Central Office                                       |
+| AZ    | http://www.prescottaa.org                    | tsml               | 154      | AZ                         | 9      | Prescott Area Intergroup Association                                      |
+| AZ    | https://aayuma.com                           | tsml               | 99       | AZ                         | 4      | Yuma Intergroup                                                           |
+| CA    | http://lakecountycaaa.com                    | tsml               | 67       | CA                         | 10     | Lake County Intergroup                                                    |
+| CA    | http://www.aa-tulareco.org                   | tsml               | 194      | CA                         | 16     | Tulare County Central Office                                              |
+| CA    | http://www.aa52centraloffice.org             | meeting_guide_json | 171      | CA                         | 8      | 52nd District Alcoholics Anonymous Central Office                         |
+| CA    | http://www.aabutte-glenn.org                 | tsml               | 157      | CA                         | 12     | North Valley Central Office                                               |
+| CA    | http://www.aadavis.org                       | tsml               | 156      | CA                         | 8      | 24 Hour Answering Service                                                 |
+| CA    | http://www.aamonterey.org                    | tsml               | 151      | CA                         | 9      | Monterey Bay Area Intergroup                                              |
+| CA    | http://www.aanorcal.org                      | tsml               | 182      | CA                         | 25     | Northern California Intergroup                                            |
+| CA    | http://www.aasandiego.org                    | tsml               | 1282     | CA                         | 26     | San Diego Central Office                                                  |
+| CA    | http://www.aascv.org                         | tsml               | 153      | CA                         | 4      | SCV Central Office Of A.A.                                                |
+| CA    | http://www.aasolanosouth.org                 | tsml               | 105      | CA                         | 4      | So. Solano County Central Office                                          |
+| CA    | http://www.aaukiah.org                       | tsml               | 58       | CA                         | 6      | Mendocino Inland Intergroup                                               |
+| CA    | http://www.aaventuracounty.org               | tsml               | 524      | CA                         | 17     | Ventura County Central Service Office                                     |
+| CA    | http://www.eastbayaa.org                     | tsml               | 890      | CA                         | 16     | Eastbay Intergroup Central Office                                         |
+| CA    | http://www.hacoaa.org                        | tsml               | 678      | CA                         | 25     | Harbor Area Central Office                                                |
+| CA    | http://www.ncsandiegoaa.org                  | tsml               | 802      | CA                         | 23     | North County (San Diego) Central Office                                   |
+| CA    | http://www.oc-aa.org                         | tsml               | 1920     | CA                         | 41     | Orange County Central Office                                              |
+| CA    | http://www.sloaa.org                         | tsml               | 363      | CA                         | 17     | Central Coast Central Office Intergroup                                   |
+| CA    | http://www.southbayaa.org                    | meeting_guide_json | 415      | CA                         | 19     | All South Bay Central Office                                              |
+| CA    | http://www.temeculacentraloffice.org         | tsml               | 228      | CA                         | 12     | Temecula Valley Central Office                                            |
+| CA    | http://www.victorvalleyaa.org                | tsml               | 166      | CA                         | 10     | Victor Valley Intergroup Central Office Inc.                              |
+| CA    | https://aainlandempire.org                   | tsml               | 1030     | CA                         | 43     | Inland Empire Central Office Of Alcoholics Anonymous                      |
+| CA    | https://cnia30.org                           | tsml               | 66       | CA                         | 17     | Alcoholics Anonymous - District 30                                        |
+| CO    | http://www.daccaa.org                        | tsml               | 1124     | CO                         | 33     | Denver Area Central Office                                                |
+| CO    | https://bouldercountyaa.com                  | tsml               | 256      | CO                         | 15     | AA Boulder County Central Office                                          |
+| CT    | http://www.ct-aa.org                         | tsml               | 1905     | CT, NY, RI, TX             | 185    | Area 011 - Connecticut                                                    |
+| DC    | http://www.aa-dc.org                         | tsml               | 1039     | DC, MD                     | 46     | Washington Area Intergroup Association                                    |
+| FL    | http://osceolacountyintergroup.org           | tsml               | 78       | FL                         | 4      | Osceola County Intergroup                                                 |
+| FL    | http://www.aaflagler.org                     | tsml               | 59       | FL                         | 3      | Flagler County Intergroup                                                 |
+| FL    | http://www.aafloridakeys.org                 | tsml               | 94       | FL                         | 3      | Key West Intergroup                                                       |
+| FL    | http://www.aagainesville.org                 | tsml               | 172      | FL                         | 21     | North Central Florida Intergroup                                          |
+| FL    | http://www.aahernando.org                    | tsml               | 94       | FL                         | 5      | Hernando County Intergroup                                                |
+| FL    | http://www.aainpalmbeach.org                 | tsml               | 337      | FL                         | 6      | So. Palm Beach County Intergroup Inc.                                     |
+| FL    | http://www.aanaples.org                      | tsml               | 329      | FL                         | 6      | Naples Area Intergroup                                                    |
+| FL    | http://www.aaocalamarion.org                 | tsml               | 169      | FL                         | 9      | Intergroup 17                                                             |
+| FL    | http://www.aapinellas.org                    | tsml               | 707      | FL                         | 17     | Pinellas County Intergroup Inc                                            |
+| FL    | http://www.aastlucieintergroup.com           | tsml               | 154      | FL                         | 4      | St. Lucie County Intergroup Association                                   |
+| FL    | http://www.heartlandintergroup.org           | tsml               | 208      | FL                         | 18     | Heartland Intergroup A.A. Inc                                             |
+| FL    | http://www.leecountyaa.org                   | tsml               | 364      | FL                         | 16     | Lee County Area Intergroup                                                |
+| FL    | http://www.martincountyaa.org                | tsml               | 147      | FL                         | 5      | Intergroup Of Martin County                                               |
+| FL    | http://www.miamiaa.org                       | tsml               | 7        | FL                         | 1      | Central Miami Intergroup                                                  |
+| FL    | http://www.ncintergroup.com                  | tsml               | 29       | FL                         | 2      | Nature Coast Intergroup                                                   |
+| FL    | http://www.neflaa.org                        | tsml               | 719      | FL, GA                     | 27     | Northeast Florida Intergroup                                              |
+| FL    | https://aanorthport.org                      | tsml               | 295      | FL                         | 10     | Intergroup Service Comm Of The 5th Dist Inc.                              |
+| FL    | https://www.aapasco.org                      | tsml               | 169      | FL                         | 4      | West Pasco Tarpon Springs Intergroup                                      |
+| FL    | https://www.staugustineaa.org                | tsml               | 80       | FL                         | 2      | St. Augustine District 6                                                  |
+| GA    | http://www.atlantaaa.org                     | tsml               | 1430     | GA                         | 65     | Central Office                                                            |
+| GA    | http://www.savannahaa.com                    | tsml               | 164      | GA                         | 14     | Savannah Intergroup Association Inc.                                      |
+| HI    | http://www.aamaui.org                        | tsml               | 148      | HI                         | 10     | Maui Central Office                                                       |
+| HI    | http://www.easthawaiiaa.org                  | tsml               | 68       | HI                         | 10     | East Hawaii Intergroup                                                    |
+| HI    | http://www.oahucentraloffice.com             | tsml               | 268      | HI                         | 15     | Oahu Intergroup Of Hawaii                                                 |
+| HI    | http://www.westhawaiiaa.org                  | tsml               | 103      | HI                         | 7      | West Hawaii Central Office                                                |
+| IA    | http://iadistrict13aa.org                    | tsml               | 83       | IA                         | 11     | District 13                                                               |
+| IA    | http://www.aa-cedarrapids.org                | tsml               | 108      | IA                         | 14     | Answer Plus Answering Service                                             |
+| IA    | http://www.aa-iowa.org                       | tsml               | 1322     | IA, IL, NE, SD, WI         | 261    | Area 024 - Iowa                                                           |
+| IA    | http://www.aaquadcities.org                  | tsml               | 216      | IA, IL                     | 22     | IIIowa Intergroup                                                         |
+| IA    | http://www.amesaa.org                        | tsml               | 81       | IA                         | 10     | Ames Intergroup                                                           |
+| IA    | https://aaiowacity.org                       | tsml               | 84       | IA                         | 11     | Dist. 13 Intergroup                                                       |
+| IL    | http://aaci11.org                            | tsml               | 48       | IL                         | 10     | AA Central Illinois District 11                                           |
+| IL    | http://area21district10aa.org                | tsml               | 83       | IL                         | 8      | District 10                                                               |
+| IL    | http://district7aa.com                       | tsml               | 16       | IL                         | 6      | District 07                                                               |
+| IL    | http://www.aad20.org                         | tsml               | 29       | IL                         | 9      | S.I.A. 21 District 20                                                     |
+| IL    | http://www.aaspringfield.org                 | tsml               | 128      | IL                         | 7      | A.A. District 19 Hotline                                                  |
+| IL    | http://www.district10nia.org                 | tsml               | 168      | IL, WI                     | 15     | Antioch/Gumee/RoundLake/Libertyville Area                                 |
+| IL    | http://www.rockfordaa.org                    | meeting_guide_json | 217      | IL                         | 8      | Rockford Area Intergroup                                                  |
+| IL    | http://www.southernillinoisaa.org            | tsml               | 44       | IL                         | 17     | Carbondale Helpline, Mt. Vernon Helpline                                  |
+| IL    | https://aa-nia-dist42.com                    | tsml               | 82       | IL                         | 7      | Dist. 42 Answering Service                                                |
+| IL    | https://aa-nia-dist43.org                    | tsml               | 100      | IL                         | 5      | Dist. 43 Answering Service                                                |
+| IL    | https://www.aad5.org                         | tsml               | 27       | IL                         | 2      | Illinois District 5: Quincy/Pleasant Hill/Pittsfield/Mt. Sterling         |
+| IL    | https://www.dupage41aa.org                   | tsml               | 114      | IL                         | 5      | Dist. 41 Answering Service                                                |
+| IN    | http://www.aaftwayne.org                     | meeting_guide_json | 199      | IN, OH                     | 32     | Fort Wayne Area Intergroup                                                |
+| IN    | http://www.area22indiana.org                 | tsml               | 923      | IN, MI, OH                 | 123    | Area 022 - Northern Indiana                                               |
+| IN    | http://www.area23aa.org                      | tsml               | 112      | IN                         | 22     | Area 023 - Southern Indiana                                               |
+| IN    | http://www.indyaa.org                        | tsml               | 464      | IN                         | 28     | Indianapolis Intergroup Inc.                                              |
+| IN    | https://southwesternindianaaa.org            | tsml               | 135      | IN                         | 18     | Southwestern Indiana Central Office                                       |
+| KS    | http://www.aa-ksdist23.org                   | tsml               | 72       | KS                         | 4      | Alcoholics Anonymous Kansas District 23                                   |
+| KS    | http://www.aatopeka.org                      | tsml               | 98       | KS                         | 8      | Topeka Area Answering Service                                             |
+| KS    | https://ks-aa.org                            | tsml               | 1435     | KS                         | 147    | Area 025 - Kansas                                                         |
+| KY    | http://www.area26.net                        | tsml               | 1356     | IL, IN, KY, TN             | 158    | Area 026 - Kentucky                                                       |
+| KY    | http://www.bluegrassintergroup.org           | tsml               | 417      | KY                         | 49     | Bluegrass Intergroup                                                      |
+| KY    | http://www.wkintergroup.org                  | tsml               | 134      | IL, KY, TN                 | 25     | Western Kentucky Intergroup                                               |
+| KY    | https://bowlinggreenaa.org                   | tsml               | 67       | KY                         | 4      | Bowling Green Central Office                                              |
+| KY    | https://loukyaa.org                          | tsml               | 536      | IN, KY                     | 36     | Greater Louisville Intergroup of AA                                       |
+| LA    | http://aa-swla.org                           | tsml               | 56       | LA                         | 10     | District 8 Hotline                                                        |
+| LA    | http://www.aa-acadiana.org                   | tsml               | 175      | LA                         | 19     | Acadiana Area Central Office                                              |
+| LA    | http://www.aabatonrouge.org                  | tsml               | 357      | LA, MS                     | 31     | Greater Baton Rouge AA Central Office                                     |
+| LA    | https://ladistrict4.org                      | tsml               | 110      | LA                         | 14     | Northeast Louisiana District 4                                            |
+| MA    | http://www.capecodaa.net                     | tsml               | 367      | MA                         | 32     | Cape Cod Intergroup                                                       |
+| MD    | http://www.baltimoreaa.org                   | tsml               | 739      | MD, PA                     | 64     | Baltimore Intergroup Council of AA                                        |
+| MD    | http://www.hagerstownaa.org                  | tsml               | 62       | MD, PA                     | 10     | Hagerstown Area Intergroup                                                |
+| MD    | http://www.ocaa.org                          | tsml               | 31       | MD                         | 3      | Ocean City Fellowship Intergroup                                          |
+| MD    | http://www.westcentralaa.org                 | tsml               | 145      | MD                         | 22     | West/Central Intergroup Of Maryland                                       |
+| ME    | http://www.downeastintergroup.org            | tsml               | 189      | ME, NJ                     | 61     | Down East Intergroup                                                      |
+| MI    | http://geneseecountyaa.org                   | tsml               | 191      | MI                         | 19     | Flint Area Unity Council 24                                               |
+| MI    | http://www.aadistrict15mi.com                | tsml               | 26       | MI                         | 4      | District 15                                                               |
+| MI    | http://www.aalansingmi.org                   | tsml               | 323      | IN, MD, ME, MI, MO, NC, TX | 37     | Lansing Central Office                                                    |
+| MI    | http://www.area74.org                        | tsml               | 176      | MI, WI                     | 53     | Area 074 - N. Wisc./Upper Peninsula Mi.                                   |
+| MI    | http://www.baycountyaa.org                   | tsml               | 55       | MI                         | 5      | Bay County Unity Intergroup                                               |
+| MI    | http://www.cmia32.org                        | tsml               | 950      | MI, OH                     | 62     | District 28 Unity Council Answering Service, Area 032 - Central Michigan  |
+| MI    | http://www.grandrapidsaa.org                 | tsml               | 689      | MI                         | 56     | Kent County Central Office                                                |
+| MI    | http://www.wmd3aa.org                        | tsml               | 112      | MI                         | 9      | WMD3 A.A. Ansr Serv - Lake MI Shoreline Area, Holland, So. Haven & Covert |
+| MI    | https://district28aa.com/meetings/alano-club | meeting_guide_json | 42       | MI                         | 12     | Area 32 District 28 AA                                                    |
+| MI    | https://gratiotisabellacounty-aa.com         | tsml               | 48       | MI                         | 6      | Gratiot Isabella County AA                                                |
+| MI    | https://www.aaferndale.org                   | tsml               | 1518     | MI                         | 137    | A.A. Of Greater Detroit                                                   |
+| MN    | http://aasaintcloud.org                      | tsml               | 1070     | MN                         | 99     | St. Cloud Intergroup                                                      |
+| MN    | http://www.aaminneapolis.org                 | tsml               | 983      | MN                         | 88     | Greater Minneapolis Intergroup                                            |
+| MO    | http://tricountyaa.org                       | tsml               | 134      | MO                         | 16     | Tri County Intergroup                                                     |
+| MO    | http://www.aacomm.org                        | tsml               | 199      | MO                         | 22     | Central Office Of Mid-Missouri (C.O.M.M.)                                 |
+| MO    | http://www.aastl.org                         | tsml               | 981      | MO                         | 126    | Central Services Of A.A.(St. Louis Central Service Office)                |
+| MO    | http://www.d12aa.org                         | meeting_guide_json | 103      | MO                         | 9      | Dist. 12 Office 24 Hr. Answering Service                                  |
+| MO    | http://www.eamo.org                          | tsml               | 1283     | MO                         | 148    | Area 038 - Eastern Missouri                                               |
+| MO    | http://www.kc-aa.org                         | tsml               | 1378     | KS, MO                     | 136    | Kansas City Area Central Office                                           |
+| MS    | http://www.aa-mississippi.org                | tsml               | 811      | MS                         | 92     | Area 037 - Mississippi                                                    |
+| NC    | http://nwpi.net                              | tsml               | 155      | NC                         | 15     | Northwest Piedmont Intergroup                                             |
+| NC    | http://www.aa91nc.org                        | tsml               | 44       | NC                         | 7      | District 91 in Eastern NC                                                 |
+| NC    | http://www.aanc33.org                        | tsml               | 129      | NC                         | 11     | Dist. 33 Answering Service-Alamance,Caswell,Chatham, Orange Counties      |
+| NC    | http://www.aaobx.com                         | tsml               | 64       | NC                         | 14     | Dist 93 Intergroup Covering Outer Banks                                   |
+| NC    | http://www.booneaa.org                       | tsml               | 74       | NC                         | 12     | Boone Intergroup                                                          |
+| NC    | http://www.moorecountyaa.org                 | tsml               | 80       | NC                         | 13     | Sandhills Intergroup                                                      |
+| NC    | http://www.raleighaa.com                     | tsml               | 385      | NC                         | 19     | Tri-County Intergroup                                                     |
+| NC    | https://aajacksonvillenc.org                 | tsml               | 82       | NC                         | 11     | AA Jacksonville NC                                                        |
+| NC    | https://district-21-aa.com                   | tsml               | 105      | NC                         | 8      | District 21 - Rowan, Iredell, Davie Counties                              |
+| NC    | https://ncdistrict11.org                     | tsml               | 69       | NC                         | 11     | Boone, NC                                                                 |
+| NC    | https://www.aaobx.com/meetings               | meeting_guide_json | 64       | NC                         | 14     | Outer Banks, NC (District 93)                                             |
+| NE    | http://www.area41.org                        | tsml               | 1175     | NE                         | 147    | Area 041 - Nebraska                                                       |
+| NE    | http://www.omahaaa.org                       | tsml               | 648      | IA, NE                     | 59     | Omaha Central Office                                                      |
+| NJ    | http://www.capeatlanticaa.org                | tsml               | 397      | NJ, WA                     | 49     | Cape Atlantic Intergroup                                                  |
+| NJ    | http://www.centraljerseyintergroup.org       | meeting_guide_json | 241      | NJ, PA                     | 27     | Central Jersey Intergroup                                                 |
+| NM    | http://nm-aa.org/districts/district-7        | meeting_guide_json | 1025     | NM, TX                     | 80     | Answering Service                                                         |
+| NM    | http://www.nm-aa.org                         | tsml               | 1025     | NM, TX                     | 80     | Area 046 - New Mexico                                                     |
+| NM    | http://www.santafeaa.org                     | tsml               | 110      | NM                         | 7      | Central Office of Santa Fe Intergroup                                     |
+| NV    | http://www.lvcentraloffice.org               | tsml               | 1155     | NV                         | 15     | Las Vegas Intergroup                                                      |
+| NY    | http://aa-stlawrenceny.org                   | tsml               | 28       | NY                         | 11     | District 42, St. Lawrence County Answering Service                        |
+| NY    | http://district0660.org                      | tsml               | 20       | NY                         | 4      | District 0660                                                             |
+| NY    | http://www.aaalbanyny.org                    | tsml               | 1350     | IL, NY, OR                 | 194    | Capital District Central Office, Inc                                      |
+| NY    | http://www.aahmbny.org                       | meeting_guide_json | 1350     | IL, NY, OR                 | 191    | Area 048 - Hudson/Mohawk/Berkshire N.Y., 048 - NENY Area Association      |
+| NY    | http://www.aajci.org                         | tsml               | 49       | NY                         | 16     | Jefferson County Intergroup                                               |
+| NY    | http://www.aasyracuse.org                    | tsml               | 399      | NY                         | 55     | Syracuse Intergroup, Inc                                                  |
+| NY    | http://www.livingstonareaintergroup.org      | tsml               | 47       | NY                         | 23     | Livingston Area Intergroup                                                |
+| NY    | http://www.niagarafallsnyaameetings.com      | tsml               | 30       | NY                         | 6      | Niagara Intergroup                                                        |
+| NY    | http://www.nyintergroup.org                  | tsml               | 2878     | CT, NJ, NY                 | 131    | Inter-Group Association of A.A. of New York,Inc.                          |
+| NY    | http://www.orangenyaa.org                    | tsml               | 162      | NY                         | 25     | Central Service Intergroup Of Orange County                               |
+| NY    | http://www.queensaa.org                      | tsml               | 332      | NY                         | 27     | Queens Intergroup Of A.A.                                                 |
+| NY    | http://www.suffolkny-aa.org                  | tsml               | 892      | NY                         | 94     | Suffolk Intergroup Association                                            |
+| NY    | https://aaithaca.org                         | tsml               | 63       | NY                         | 9      | Ithaca Area Intergroup                                                    |
+| NY    | https://nassauintergroup.org                 | tsml               | 639      | NY                         | 66     | Nassau Intergroup                                                         |
+| NY    | https://nenyaa.org                           | tsml               | 1350     | IL, NY, OR                 | 191    | Area 048 - NENY Area Association                                          |
+| OH    | http://www.aacincinnati.org                  | tsml               | 683      | IN, KY, NY, OH             | 66     | Cincinnati Intergroup Office                                              |
+| OH    | http://www.aadaytononline.org                | tsml               | 406      | OH                         | 48     | Central Office Of Dayton, Inc.                                            |
+| OH    | http://www.aaigo.net                         | tsml               | 63       | OH                         | 17     | Ashtabula Area Intergroup                                                 |
+| OH    | http://www.aayaig.org                        | tsml               | 219      | OH, PA                     | 41     | Youngstown Area Intergroup                                                |
+| OH    | http://www.area55aa.org                      | tsml               | 445      | MI, OH                     | 64     | Area 055 - Northwest Ohio                                                 |
+| OH    | http://www.lancasterareaintergroup.org       | tsml               | 50       | OH                         | 18     | Lancaster Area Intergroup                                                 |
+| OH    | http://www.mansfieldaa.org                   | tsml               | 47       | OH                         | 7      | Mansfield Area Intergroup                                                 |
+| OK    | http://www.aaneok.org                        | tsml               | 543      | OK                         | 58     | Northeast Central Service Office                                          |
+| OK    | http://www.aaoklahoma.org                    | tsml               | 1529     | AR, NC, OK                 | 135    | Oklahoma State A.A. Office Area 57, Area 057 - Oklahoma                   |
+| OK    | http://www.okcintergroup.org                 | tsml               | 997      | AR, OK                     | 78     | Intergroup Service Office Inc.                                            |
+| OR    | http://roseburgaa.org                        | tsml               | 50       | OR                         | 9      | District 13                                                               |
+| OR    | http://westsidecentraloffice.com             | tsml               | 412      | OR                         | 23     | Westside Central Office                                                   |
+| OR    | http://www.aa-oregon.org                     | tsml               | 276      | OR                         | 29     | Area 058 - Oregon                                                         |
+| OR    | http://www.coigaa.org                        | tsml               | 177      | OR                         | 17     | Central Oregon Intergroup                                                 |
+| OR    | http://www.grantspassaa.com                  | tsml               | 71       | OR                         | 6      | Josephine County Intergroup                                               |
+| OR    | http://www.jccoaa.org                        | tsml               | 115      | OR                         | 16     | A.A. Jackson County Central Office                                        |
+| OR    | http://www.klciaa.org                        | tsml               | 52       | OR                         | 8      | Klamath Lake Intergroup                                                   |
+| OR    | https://aaoregon-district21.org              | tsml               | 116      | OR                         | 9      | AA Oregon District 21 Mid-Willamette Valley                               |
+| PA    | http://www.aaharrisburg.org                  | tsml               | 186      | PA                         | 22     | Harrisburg Area Intergroup                                                |
+| PA    | http://www.aasepia.org                       | tsml               | 1890     | PA                         | 133    | South Eastern PA Intergroup Association                                   |
+| PA    | http://www.d35pa-aa.org                      | tsml               | 99       | PA                         | 18     | District 35/Area 59-So. Central P.A. Answering Service                    |
+| PA    | http://www.district43.com                    | tsml               | 59       | PA                         | 12     | District 43                                                               |
+| PA    | http://www.district48aa.org                  | tsml               | 50       | PA                         | 11     | Williamsport Answering Service                                            |
+| PA    | http://www.poconointergroupaa.org            | tsml               | 99       | PA                         | 17     | Pocono Intergroup (Answering Service)                                     |
+| PA    | http://www.readingberksintergroup.org        | tsml               | 138      | PA                         | 29     | Reading-Berks Intergroup                                                  |
+| PA    | http://www.wpaarea60.org                     | tsml               | 945      | PA                         | 215    | Area 060 - Western Pennsylvania                                           |
+| PA    | https://area59aa.org                         | tsml               | 3287     | PA                         | 354    | Area 059 - Eastern Pennsylvania                                           |
+| PA    | https://lancasteraa.org                      | tsml               | 143      | PA                         | 20     | Lancaster AACSO                                                           |
+| RI    | http://www.rhodeisland-aa.org                | tsml               | 713      | CT, MA, RI                 | 72     | R.I. Central Service Office                                               |
+| SC    | http://tcio.org                              | tsml               | 287      | SC                         | 18     | Tri-County Intergroup                                                     |
+| SC    | http://www.area62.org                        | meeting_guide_json | 1372     | SC                         | 116    | Area 062 - South Carolina                                                 |
+| SC    | http://www.upstateintergroup.org             | tsml               | 299      | NC, SC                     | 32     | Upstate Intergroup                                                        |
+| SD    | http://www.area63aa.org                      | tsml               | 415      | SD, WI                     | 69     | Area 063 - South Dakota                                                   |
+| TN    | http://www.aanashville.org                   | tsml               | 1021     | TN                         | 67     | Middle Tennessee Central Office                                           |
+| TN    | http://www.aawesttn.org                      | tsml               | 112      | TN                         | 26     | Jackson / West Tennessee Intergroup                                       |
+| TN    | http://www.chattanooga-aa.com                | tsml               | 288      | GA, TN                     | 31     | Chattanooga Area Central Office                                           |
+| TN    | http://www.etiaa.org                         | tsml               | 470      | TN, VA                     | 52     | East Tennessee Intergroup                                                 |
+| TN    | http://www.memphis-aa.org                    | tsml               | 391      | AR, MS, TN                 | 19     | Memphis Area Intergroup                                                   |
+| TX    | http://www.aargvdist10.org                   | tsml               | 49       | TX                         | 6      | District 10 AA                                                            |
+| TX    | http://www.aasanantonio.org                  | tsml               | 1054     | TX                         | 58     | Central Service Office                                                    |
+| TX    | http://www.cbiaa.org                         | tsml               | 266      | TX                         | 25     | Coastal Bend Intergroup Association                                       |
+| TX    | http://www.nwta66.org                        | tsml               | 775      | NM, TX                     | 49     | Area 066 - Northwest Texas                                                |
+| TX    | https://aahouston.org                        | tsml               | 1952     | TX                         | 86     | Intergroup Association Inc.                                               |
+| TX    | https://alcoholicosanonimosdallas.org        | tsml               | 523      | LA, TX                     | 40     | Oficina Intergrupal Hispana De A.A.                                       |
+| TX    | https://www.nwta66.org/districts/distrito12  | meeting_guide_json | 775      | NM, TX                     | 49     | Distrito 12                                                               |
+| UT    | https://cachevalleyaa.org                    | tsml               | 31       | ID, UT                     | 4      | Cache Valley Intergroup Of A.A.                                           |
+| UT    | https://dixieaaoffice.com                    | tsml               | 110      | AZ, UT                     | 16     | Dixie Central Office                                                      |
+| VA    | http://vadist15aa.org                        | tsml               | 58       | VA                         | 20     | Alcoholics Anonymous Virginia District 15                                 |
+| VA    | http://www.aarichmond.org                    | tsml               | 417      | VA                         | 37     | Richmond Intergroup Inc.                                                  |
+| VA    | http://www.aaroanoke.org                     | tsml               | 90       | VA                         | 10     | Roanoke Intergroup                                                        |
+| VA    | http://www.aavirginia.org                    | tsml               | 2787     | KY, NC, VA, WV             | 245    | Area 071 - Virginia                                                       |
+| VA    | http://www.tidewaterintergroup.org           | tsml               | 356      | NC, VA                     | 12     | Tidewater Intergroup Council                                              |
+| VA    | https://aaheartofva.org                      | tsml               | 132      | VA                         | 19     | AA Heart of Virginia                                                      |
+| VT    | http://www.aavt.org                          | tsml               | 526      | VT                         | 104    | AA Vermont District 11, AA Vermont District 2, Area 070 - Vermont         |
+| WA    | http://district22aa.org                      | tsml               | 25       | ID, WA                     | 6      | District 22 AA Answering Service                                          |
+| WA    | http://www.aadistrict8.org                   | tsml               | 156      | WA                         | 8      | South Sound Service Center                                                |
+| WA    | http://www.aaspokane.org                     | tsml               | 241      | WA                         | 14     | Spokane Central Office                                                    |
+| WA    | http://www.area92aa.org                      | tsml               | 1126     | ID, MT, OR, WA             | 120    | Area 092 - Washington State East                                          |
+| WA    | http://www.eastsideaa.org                    | tsml               | 438      | WA                         | 22     | Eastside Intergroup                                                       |
+| WA    | http://www.seattleaa.org                     | tsml               | 1635     | WA                         | 43     | Greater Seattle Intergroup                                                |
+| WA    | http://www.whatcomaa.org                     | tsml               | 156      | WA                         | 10     | NW Wa-Whatcom County Dist. 11 Answering Service                           |
+| WI    | http://www.district05.org                    | tsml               | 119      | WI                         | 23     | DISTRICT 05 OF AREA 74                                                    |
+| WI    | https://aamadisonwi.org                      | tsml               | 525      | WI                         | 94     | Madison Area Intergroup Central Office, Inc.                              |
+| WI    | https://aawidistrict04.org                   | tsml               | 29       | WI                         | 4      | District 04 Area 74                                                       |
+| WI    | https://doorkewauneeaa.org                   | tsml               | 24       | WI                         | 9      | District 01 Area 74                                                       |
+| WI    | https://racinecentraloffice.org              | tsml               | 246      | IL, WI                     | 18     | Racine Area Central Office                                                |
+| WI    | https://wiaadistrict3.org/meetings           | meeting_guide_json | 12       | WI                         | 3      | Area 74 District 03 South Wood County Area                                |
 
 ## Restricted feeds (contact the intergroup)
 
@@ -307,7 +307,7 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 - Salinas Valley Area Intergroup (CA) — http://www.aasalinas.org
 - San Mateo CO Fellowship Of A.A. (CA) — http://www.aa-san-mateo.org
 - Santa Barbara Central Office (CA) — http://www.santabarbaraaa.com
-- Santa Cruz County Intergroup  Inc. (CA) — http://www.aasantacruz.org
+- Santa Cruz County Intergroup Inc. (CA) — http://www.aasantacruz.org
 - Sonoma County Intergroup (CA) — http://www.sonomacountyaa.org
 - Central Office Of Western Colorado (CO) — http://www.aa-westerncolorado.com
 - Central Office Of Western Colorado Answering Service (CO) — http://www.coaadistrict14.org
@@ -362,7 +362,7 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 - AA Rockingham County (NC) — https://www.nc22.org
 - Bladen, Cumberland, Robeson Central Office (NC) — http://www.fayaa.org
 - District 23 - Greensboro (NC) — https://www.nc23.org/meetings
-- District 52 Moore  Lee  Scotland  Hoke  & Richmond Countries (NC) — http://www.aanc52.org
+- District 52 Moore Lee Scotland Hoke & Richmond Countries (NC) — http://www.aanc52.org
 - Metrolina Intergroup (NC) — http://www.charlotteaa.org
 - NC Mountain Central Office (NC) — http://www.aancmco.org
 - Wilmington Intergroup Association (NC) — http://www.wilmingtonaa.org
@@ -513,7 +513,7 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 - Area 016 - Georgia (GA) — http://www.aageorgia.org
 - Kauai Intergroup (HI) — http://www.kauaiaa.org
 - Area 017 - Hawaii (HI) — http://www.area17aa.org
-- Area 18  Spanish  Language Answering Service -Boise (ID) — no website listed
+- Area 18 Spanish Language Answering Service -Boise (ID) — no website listed
 - Area 18 Answering Service ( Burley and Rupert) (ID) — no website listed
 - Area 18 Answering Service (Gooding and Jerome) (ID) — no website listed
 - Area 18 Answering Service (Idaho Falls) (ID) — no website listed
@@ -574,7 +574,7 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 - No. Kentucky Central Office (KY) — http://www.nkyaa.info
 - Yellowbanks Central Office (KY) — no website listed
 - 17th District Intergroup (LA) — http://www.bayouaa.org
-- Area 27  District 6 Hotline (LA) — http://www.aanatchitoches-district6.org
+- Area 27 District 6 Hotline (LA) — http://www.aanatchitoches-district6.org
 - Central Office (LA) — http://www.aa-shreveport.org
 - District 3-Louisiana (LA) — https://district3aa.com
 - Greater New Orleans Service Board (LA) — http://www.aaneworleans.org
@@ -664,7 +664,7 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 - Answering Service (NM) — no website listed
 - Central Offices Of San Juan (NM) — no website listed
 - Dist. 4 Answering Service (NM) — no website listed
-- Grant County  Answering Service (NM) — no website listed
+- Grant County Answering Service (NM) — no website listed
 - Oficina Intergrupal Hispana (NM) — http://www.aaoficinahispanadealbuquerque.org
 - Telstar Answering Service (NM) — http://www.nmdistrict4aa.com
 - General Service Office of U.S. and Canada (NY) — http://www.aa.org
@@ -798,10 +798,10 @@ Checked 2026-09-28. 782 entities, 233 verified feeds, 98214 meetings.
 - St. Albans Answering Service (VT) — no website listed
 - AA Hampton Virginia (VA) — https://www.aahamptonva.org
 - Answering Service (VA) — no website listed
-- Augusta County - District 47,  Area 71 (VA) — http://aavadistrict47.com
+- Augusta County - District 47, Area 71 (VA) — http://aavadistrict47.com
 - Blue Ridge Area Intergroup (VA) — https://blueridgeareaintergroup.org
 - District 8 Answering Service (VA) — no website listed
-- New River District 13   24-Hr. Phone Line (VA) — http://www.aasouthwestva.org
+- New River District 13 24-Hr. Phone Line (VA) — http://www.aasouthwestva.org
 - Newport News Answering Service (VA) — no website listed
 - North Piedmont Central Office (VA) — http://www.aacentralva.org
 - Northern Virginia Intergroup (VA) — http://www.nvintergroup.org

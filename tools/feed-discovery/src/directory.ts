@@ -62,6 +62,12 @@ function usScope(root: HTMLElement): HTMLElement {
   return root.querySelector(".view-display-id-us") ?? root;
 }
 
+// aa.org names sometimes carry doubled spaces or line breaks ("Area 27  District 6 Hotline"); one
+// space each keeps names tidy in the feeds table and the coverage report.
+function cleanName(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 // Two items that still produce the same id on ONE page (same name, city and state, or the same area
 // name twice) get the id suffixed -2, -3, ... in page order, rather than silently colliding.
 function dedupeIds(entities: DirectoryEntity[]): DirectoryEntity[] {
@@ -77,7 +83,7 @@ function dedupeIds(entities: DirectoryEntity[]): DirectoryEntity[] {
 export function parseDirectoryPage(html: string, stateCode: string): DirectoryEntity[] {
   const scope = usScope(parse(html));
   const offices = scope.querySelectorAll(".area-loc-item").map((item) => {
-    const name = item.querySelector("h3")?.text.trim() ?? "";
+    const name = cleanName(item.querySelector("h3")?.text ?? "");
     // The office's city is the first comma-separated part of its address, e.g. "Chittenden County ,
     // Vermont" -> "Chittenden County". Qualifying the id by city (as well as state) keeps same-named
     // offices in different cities distinct.
@@ -93,7 +99,7 @@ export function parseDirectoryPage(html: string, stateCode: string): DirectoryEn
     const names = block.querySelectorAll("h4");
     const links = block.querySelectorAll("a");
     return names.map((h4, index) => {
-      const name = h4.text.trim();
+      const name = cleanName(h4.text);
       return entity(entityId(name), name, stateCode, links[index]?.getAttribute("href"), "area");
     });
   });

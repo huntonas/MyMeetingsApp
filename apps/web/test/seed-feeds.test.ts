@@ -27,6 +27,7 @@ const verifiedTsml: RegistryEntry = {
   verified: true,
   meeting_count: 120,
   states_covered: ["TN"],
+  cities_covered: [],
   checked_at: "2026-09-25",
   notes: "",
 };
@@ -42,6 +43,7 @@ const restricted: RegistryEntry = {
   verified: false,
   meeting_count: 0,
   states_covered: [],
+  cities_covered: [],
   checked_at: "2026-09-25",
   notes: "requires approval",
 };
@@ -57,6 +59,7 @@ const noneFound: RegistryEntry = {
   verified: false,
   meeting_count: 0,
   states_covered: [],
+  cities_covered: [],
   checked_at: "2026-09-25",
   notes: "no website listed",
 };
@@ -72,6 +75,7 @@ const optedOutArea: RegistryEntry = {
   verified: true,
   meeting_count: 45,
   states_covered: ["TN"],
+  cities_covered: [],
   checked_at: "2026-09-25",
   notes: "",
   opted_out: true,

@@ -33,6 +33,7 @@ function orderedKeys(entry: RegistryEntry): Record<string, unknown> {
     verified: entry.verified,
     meeting_count: entry.meeting_count,
     states_covered: entry.states_covered,
+    cities_covered: entry.cities_covered,
     checked_at: entry.checked_at,
     notes: entry.notes,
   };

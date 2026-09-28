@@ -18,6 +18,7 @@ const someCountyVerification: VerifyResult = {
   verified: true,
   meetingCount: 612,
   statesCovered: ["TN"],
+  citiesCovered: ["Nashville, TN"],
   meetingKeys: new Set(),
 };
 
@@ -60,6 +61,7 @@ describe("buildRegistry", () => {
       verified: true,
       meeting_count: 612,
       states_covered: ["TN"],
+      cities_covered: ["Nashville, TN"],
       checked_at: "2026-09-25",
       notes: "",
     });
@@ -122,6 +124,7 @@ describe("buildRegistry", () => {
         verified: true,
         meeting_count: 612,
         states_covered: ["TN"],
+        cities_covered: [],
         checked_at: "2026-08-25",
         notes: "",
         opted_out: true,
@@ -164,6 +167,7 @@ describe("buildRegistry", () => {
         verified: true,
         meeting_count: 100,
         states_covered: [],
+        cities_covered: [],
         checked_at: "2026-08-25",
         notes: "",
         opted_out: true,
@@ -202,6 +206,7 @@ function registryEntry(overrides: Partial<RegistryEntry>): RegistryEntry {
     verified: true,
     meeting_count: 100,
     states_covered: [],
+    cities_covered: [],
     checked_at: "2026-09-25",
     notes: "",
     ...overrides,
@@ -247,6 +252,7 @@ describe("renderCoverage", () => {
         verified: true,
         meeting_count: 612,
         states_covered: ["TN"],
+        cities_covered: ["Franklin, TN", "Nashville, TN"],
         checked_at: "2026-09-27",
         notes: "",
       }),
@@ -260,6 +266,7 @@ describe("renderCoverage", () => {
         verified: false,
         meeting_count: 0,
         states_covered: [],
+        cities_covered: [],
         checked_at: "2026-09-27",
         notes: "TSML feed restricted; contact the intergroup",
       }),
@@ -274,6 +281,7 @@ describe("renderCoverage", () => {
         verified: false,
         meeting_count: 0,
         states_covered: [],
+        cities_covered: [],
         checked_at: "2026-09-27",
         notes: "no website listed",
       }),
@@ -295,6 +303,12 @@ Checked 2026-09-27. 3 entities, 1 verified feed, 612 meetings.
 | TN    | 2        | 1              | 612      | 1          | 0       |
 | VT    | 1        | 0              | 0        | 0          | 1       |
 
+## Verified feeds (open to us)
+
+| State | Site                | Feed | Meetings | States | Cities | Listed by              |
+| ----- | ------------------- | ---- | -------- | ------ | ------ | ---------------------- |
+| TN    | https://example.org | tsml | 612      | TN     | 2      | Some County Intergroup |
+
 ## Restricted feeds (contact the intergroup)
 
 - Other Intergroup (TN) — https://other.example.org
@@ -310,6 +324,33 @@ None.
 ## Changes since the last run
 
 None.`);
+  });
+
+  it("counts a feed shared by several entities once, in the totals and the feed list", () => {
+    const shared = {
+      state: "VT",
+      website: "http://www.aavt.org",
+      feed_type: "tsml" as const,
+      feed_url: "https://aavt.org/wp-admin/admin-ajax.php?action=meetings",
+      verified: true,
+      meeting_count: 526,
+      states_covered: ["VT"],
+      cities_covered: ["Burlington, VT"],
+    };
+    const markdown = renderCoverage(
+      [
+        registryEntry({ ...shared, id: "area-070-vermont", name: "Area 070 Vermont", entity_type: "area" }),
+        registryEntry({ ...shared, id: "district-2", name: "District 2", entity_type: "district" }),
+      ],
+      [],
+      { stoppedResponding: [], removedFromDirectory: [], newEntities: [], countDrops: [] },
+    );
+
+    expect(markdown).toContain("2 entities, 1 verified feed, 526 meetings.");
+    expect(markdown).toContain("| VT    | 2        | 1              | 526      | 0          | 0       |");
+    expect(markdown).toContain(
+      "| VT    | http://www.aavt.org | tsml | 526      | VT     | 1      | Area 070 Vermont, District 2 |",
+    );
   });
 
   it("lists entities removed from the directory apart from feeds that stopped responding", () => {

@@ -61,9 +61,9 @@ Source: the open Meeting Guide JSON spec (`github.com/code4recovery/spec`), publ
 - **Opt-outs:** `feeds.opted_out` (entity asks us to stop using their feed) and `meetings.tags_disabled` (a group asks not to be tagged: no tags accepted or shown). Requests come in via the support page.
 - Record per-feed sync status: last attempt, last success, error, meeting count.
 
-## 4. Feed discovery task (run before launch, then monthly)
+## 4. Feed discovery task (run before launch, then only when needed)
 
-Goal: a verified registry of every US A.A. service entity with a usable meeting feed, plus a coverage report showing gaps. A standalone script in `/tools/feed-discovery`, separate from the app. It runs monthly as a scheduled GitHub Actions workflow that opens a PR with registry changes.
+Goal: a verified registry of every US A.A. service entity with a usable meeting feed, plus a coverage report showing gaps. A standalone script in `/tools/feed-discovery`, separate from the app. It runs on demand (locally, or as a manually triggered GitHub Actions workflow that opens a PR with registry changes); the committed registry is the lasting record, so there is no routine re-crawl. Broken feeds show up in the weekly sync instead.
 
 **Source list:** the entities listed in the "A.A. Near You" directory on aa.org (US areas, districts, intergroups, and central offices with websites). Check aa.org's terms and robots.txt first.
 
@@ -97,11 +97,13 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
   verified: true
   meeting_count: 612
   states_covered: [TN]
+  cities_covered: ["Knoxville, TN", "Maryville, TN"] # every US city the feed lists a meeting in
   checked_at: 2026-09-25
   notes: ""
 ```
 
-- `tools/feed-discovery/coverage.md`: per-state summary (entities found, verified feeds, total meetings, restricted feeds, entities with no feed), and a list of overlapping feeds.
+- `tools/feed-discovery/coverage.md`: per-state summary (entities found, verified feeds, total meetings, restricted feeds, entities with no feed), a table of every verified feed (site, feed type, meetings, states, number of cities, which entities list it), and a list of overlapping feeds. A feed_url shared by several entities counts once.
+- Both files are committed, so they are the lasting record of which sites publish a feed, which restrict theirs and what each covers; discovery is re-run only when that record needs refreshing, not routinely.
 - A seed script that loads verified feeds into the `feeds` table with priorities (intergroup/district before area).
 
 **Parsers:** one normalizer per feed type, not per site, in `apps/web` (shared with sync). TSML and Meeting Guide JSON share a parser. BMLT gets its own mapping to the Meeting Guide shape. `none_found` entries are a manual backlog, not scraped.
@@ -271,7 +273,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - **Migrations:** drizzle-kit in CI against the direct connection string, never on app startup.
 - **Cold starts:** Neon can scale to zero. Cacheable endpoints use `s-maxage`, and search results use Runtime Cache, which hides most of this.
 - **Cron:** defined in `vercel.ts`: `sync-feeds` every 15 minutes, `maintenance` nightly. Cron only runs on production deployments. Routes must be idempotent.
-- **Discovery:** monthly GitHub Actions workflow (section 4).
+- **Discovery:** on-demand GitHub Actions workflow (section 4).
 - **Secrets:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `METRICS_USER`, `METRICS_PASSWORD`, `DEVICE_ID_PEPPER`, `CRON_SECRET`, `REQUIRE_ATTESTATION`, `AI_GATEWAY_API_KEY` (or OIDC), `SUGGESTION_MODEL`, Apple App Attest team/bundle IDs, Google Play Integrity credentials. All in Vercel environment variables. Never commit them.
 
 ## 13. Data inventory (source of truth for the privacy policy)
@@ -338,5 +340,5 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - **Preview databases** branch from a seed branch, never production.
 - **CSRF protection and login rate limiting** for admin.
 - **Census geocoder;** time zone derived from coordinates when missing.
-- **Vercel Pro,** 15-minute sync batches, monthly discovery in GitHub Actions.
+- **Vercel Pro,** 15-minute sync batches, on-demand discovery in GitHub Actions.
 - **Full third-party list and data inventory** for the privacy policy and store forms.

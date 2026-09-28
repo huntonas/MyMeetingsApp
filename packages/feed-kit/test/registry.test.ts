@@ -13,6 +13,7 @@ const entry = {
   verified: true,
   meeting_count: 612,
   states_covered: ["TN"],
+  cities_covered: ["Nashville, TN"],
   checked_at: "2026-09-25",
   notes: "",
 };
@@ -33,6 +34,8 @@ describe("RegistryEntry", () => {
     { checked_at: "Sept 25" },
     { feed_url: "javascript:alert(1)" },
     { website: "example.org" },
+    { cities_covered: [""] },
+    { cities_covered: undefined },
   ])("rejects %j", (change) => {
     expect(RegistryEntry.safeParse({ ...entry, ...change }).success).toBe(false);
   });
@@ -47,6 +50,7 @@ describe("RegistryEntry", () => {
         verified: false,
         meeting_count: 0,
         states_covered: [],
+        cities_covered: [],
       }),
     ).toMatchObject({ website: null, feed_url: null });
   });
@@ -63,6 +67,7 @@ describe("parseRegistry", () => {
   verified: true
   meeting_count: 612
   states_covered: [TN]
+  cities_covered: ["Nashville, TN"]
   checked_at: "2026-09-25"
   notes: ""
 `;

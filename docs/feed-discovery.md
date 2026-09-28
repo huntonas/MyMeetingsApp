@@ -47,21 +47,37 @@ run; a local run can take just as long.
 
 ## The monthly workflow
 
-`.github/workflows/feed-discovery.yml` runs `pnpm --filter feed-discovery discover`, and if
-`tools/feed-discovery/registry.yaml` or `coverage.md` changed, opens a pull request titled
-`Feed registry refresh YYYY-MM` on a `registry/YYYY-MM` branch, with the "Changes since the last run"
-section of `coverage.md` as the PR body.
+`.github/workflows/feed-discovery.yml` has two jobs, so the job that crawls third-party sites can't
+write to the repository:
+
+- **`discover`** has read-only access (`contents: read`) and checks out without keeping git
+  credentials. It installs dependencies, runs `pnpm --filter feed-discovery discover`, and, if
+  `tools/feed-discovery/registry.yaml` or `coverage.md` changed, uploads both files plus the pull
+  request body (the "Changes since the last run" section of `coverage.md`) as the `feed-registry`
+  artifact.
+- **`open-pr`** runs only when something changed. It has `contents: write` and `pull-requests: write`,
+  but installs nothing and runs no project code: it downloads the artifact into `tools/feed-discovery`,
+  commits the two files to a `registry/YYYY-MM` branch, pushes it, and opens a pull request titled
+  `Feed registry refresh YYYY-MM`.
 
 Two things must be true before it can open that PR:
 
 - **The repo setting "Allow GitHub Actions to create pull requests"** (Settings → Actions → General →
   Workflow permissions) must be turned on. It's off by default; without it, `gh pr create` fails.
 - **The first full run needs the owner's go-ahead** (spec §4, good-citizen rules: don't hit ~700
-  third-party sites without asking). For that reason the workflow's `schedule` trigger is commented out
-  in the YAML — only `workflow_dispatch` is live. The first run happens locally, or by triggering the
-  workflow manually (Actions → Feed discovery → Run workflow), never automatically. Once that first
-  run's PR has been reviewed and merged, uncomment the `schedule: - cron: "0 9 1 * *"` block so the
-  workflow runs on its own every month.
+  third-party sites without asking). For that reason the workflow only has a `workflow_dispatch`
+  trigger. The first run happens locally, or by triggering the workflow manually (Actions → Feed
+  discovery → Run workflow), never automatically.
+
+Once that first run's PR has been reviewed and merged, and the owner approves a monthly schedule,
+replace the workflow's `on:` block with this, so it also runs at 09:00 UTC on the 1st of every month:
+
+```yaml
+on:
+  schedule:
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+```
 
 ## Reviewing the PR
 

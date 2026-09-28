@@ -71,6 +71,8 @@ export async function run(options: RunOptions = {}): Promise<RunResult> {
 
   const crawler = createCrawler();
 
+  const previous = await readRegistry(registryPath);
+
   const entityById = new Map<string, DirectoryEntity>();
   for (const code of states) {
     const result = await crawler.get(`${directoryUrl}?state=${code}`);
@@ -80,14 +82,17 @@ export async function run(options: RunOptions = {}): Promise<RunResult> {
       throw new Error(`${code}: directory page unavailable; nothing was written`);
     }
     const pageEntities = parseDirectoryPage(result.body, code);
+    // A page that parses to nothing where entities were listed before is a challenge page or a markup
+    // change, not a state whose every office closed; accepting it would drop the whole state.
+    if (pageEntities.length === 0 && previous.some((entry) => entry.state === code)) {
+      throw new Error(`${code}: directory page lists no entities; nothing was written`);
+    }
     console.log(`${code}: ${String(pageEntities.length)} entities`);
     for (const entity of pageEntities) {
       if (!entityById.has(entity.id)) entityById.set(entity.id, entity);
     }
   }
   const entities = [...entityById.values()];
-
-  const previous = await readRegistry(registryPath);
 
   const detections = new Map<string, { detection: Detection; verification: VerifyResult | null }>();
   const withWebsite = entities.filter(hasWebsite);

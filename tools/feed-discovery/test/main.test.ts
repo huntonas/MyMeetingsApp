@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
 import { run } from "../src/main";
+import { readRegistry, writeRegistry } from "../src/registry-file";
 
 type Routes = Record<string, { status: number; body?: string; headers?: Record<string, string> }>;
 
@@ -106,5 +107,33 @@ describe("run", () => {
       /NH/,
     );
     expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("fails, writing nothing, when a state that had registry entries now lists none", async () => {
+    const directory = await startServer((path) =>
+      path === "/robots.txt"
+        ? { status: 404, body: "" }
+        : { status: 200, body: "<p>Checking your browser</p>" },
+    );
+    servers.push(directory);
+    const previous = RegistryEntry.parse({
+      id: "vermont-office-burlington-vt",
+      name: "Vermont Office",
+      entity_type: "central_office",
+      state: "VT",
+      website: null,
+      feed_type: "none_found",
+      feed_url: null,
+      verified: false,
+      meeting_count: 0,
+      states_covered: [],
+      checked_at: "2026-08-01",
+      notes: "no website listed",
+    });
+    await writeRegistry(join(dir, "registry.yaml"), [previous]);
+
+    await expect(run({ states: ["VT"], directoryUrl: directory.baseUrl, outDir: dir })).rejects.toThrow(/VT/);
+    expect(await readdir(dir)).toEqual(["registry.yaml"]);
+    expect(await readRegistry(join(dir, "registry.yaml"))).toEqual([previous]);
   });
 });

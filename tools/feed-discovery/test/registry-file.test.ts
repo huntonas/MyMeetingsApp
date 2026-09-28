@@ -18,6 +18,7 @@ const entryA: RegistryEntry = {
   verified: true,
   meeting_count: 612,
   states_covered: ["TN"],
+  cities_covered: ["Nashville, TN"],
   checked_at: "2026-09-25",
   notes: "",
 };
@@ -33,6 +34,7 @@ const entryB: RegistryEntry = {
   verified: false,
   meeting_count: 0,
   states_covered: [],
+  cities_covered: [],
   checked_at: "2026-09-25",
   notes: "no website listed",
 };

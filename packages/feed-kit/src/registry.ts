@@ -25,6 +25,8 @@ export const RegistryEntry = z.object({
   verified: z.boolean(),
   meeting_count: z.number().int().min(0),
   states_covered: z.array(z.string().regex(/^[A-Z]{2}$/)),
+  // "City, ST" for every US city the feed lists a meeting in, so coverage is known without re-crawling.
+  cities_covered: z.array(z.string().min(1)),
   checked_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   notes: z.string(),
   opted_out: z.boolean().optional(),

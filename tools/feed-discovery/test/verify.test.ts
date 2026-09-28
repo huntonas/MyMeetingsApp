@@ -29,6 +29,20 @@ describe("verifyFeed", () => {
   );
 
   it("ignores non-US state codes and malformed addresses", () => {
-    expect(verifyFeed([{ ...meeting, state: "ON", formatted_address: "Toronto" }]).statesCovered).toEqual([]);
+    const result = verifyFeed([{ ...meeting, state: "ON", city: "Toronto", formatted_address: "Toronto" }]);
+    expect(result.statesCovered).toEqual([]);
+    expect(result.citiesCovered).toEqual([]);
+  });
+
+  it("lists the cities a feed covers, from the city field or else the address, once each", () => {
+    expect(
+      verifyFeed([
+        meeting,
+        { ...meeting, slug: "b" },
+        { ...meeting, slug: "c", city: " Franklin ", formatted_address: "5 Oak St, Franklin, TN 37064, USA" },
+        { ...meeting, slug: "d", state: "KY", city: "Bowling Green", formatted_address: undefined },
+        { ...meeting, slug: "e", formatted_address: "Online" },
+      ]).citiesCovered,
+    ).toEqual(["Bowling Green, KY", "Franklin, TN", "Nashville, TN"]);
   });
 });

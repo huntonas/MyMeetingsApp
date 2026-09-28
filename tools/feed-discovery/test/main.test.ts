@@ -127,6 +127,7 @@ describe("run", () => {
       verified: false,
       meeting_count: 0,
       states_covered: [],
+      cities_covered: [],
       checked_at: "2026-08-01",
       notes: "no website listed",
     });

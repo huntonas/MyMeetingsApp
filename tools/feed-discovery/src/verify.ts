@@ -4,13 +4,15 @@ import { US_STATES } from "./states";
 
 const US_STATE_CODES = new Set(US_STATES.map((state) => state.code));
 
-// Matches a US state code and zip in a Google-style formatted address, e.g. "Nashville, TN 37203, USA".
-const STATE_IN_ADDRESS = /,\s*([A-Z]{2})\s+\d{5}/;
+// Matches the city, US state code and zip in a Google-style formatted address, e.g.
+// "1 Main St, Nashville, TN 37203, USA".
+const CITY_STATE_IN_ADDRESS = /(?:^|,)\s*([^,]+?),\s*([A-Z]{2})\s+\d{5}/;
 
 export interface VerifyResult {
   verified: boolean;
   meetingCount: number;
   statesCovered: string[];
+  citiesCovered: string[];
   meetingKeys: Set<string>;
 }
 
@@ -36,13 +38,24 @@ function stateFor(item: Record<string, unknown>): string | null {
     return item.state;
   }
   if (typeof item.formatted_address === "string") {
-    const match = STATE_IN_ADDRESS.exec(item.formatted_address);
-    const code = match?.[1];
+    const code = CITY_STATE_IN_ADDRESS.exec(item.formatted_address)?.[2];
     if (code !== undefined && US_STATE_CODES.has(code)) {
       return code;
     }
   }
   return null;
+}
+
+// "City, ST" for an item with a US state, from its own `city` field or else parsed out of
+// `formatted_address`.
+function cityFor(item: Record<string, unknown>, state: string): string | null {
+  const city =
+    typeof item.city === "string" && item.city.trim() !== ""
+      ? item.city.trim()
+      : typeof item.formatted_address === "string"
+        ? CITY_STATE_IN_ADDRESS.exec(item.formatted_address)?.[1]
+        : undefined;
+  return city === undefined ? null : `${city}, ${state}`;
 }
 
 // The overlap-detection key for an item, when it has a day, time and a usable address. Never written
@@ -63,10 +76,15 @@ export function verifyFeed(body: unknown): VerifyResult {
   const verified = items.length > 0 && items.some(hasRequiredFields);
 
   const states = new Set<string>();
+  const cities = new Set<string>();
   const meetingKeys = new Set<string>();
   for (const item of items) {
     const state = stateFor(item);
-    if (state !== null) states.add(state);
+    if (state !== null) {
+      states.add(state);
+      const city = cityFor(item, state);
+      if (city !== null) cities.add(city);
+    }
     const key = keyFor(item);
     if (key !== null) meetingKeys.add(key);
   }
@@ -75,6 +93,7 @@ export function verifyFeed(body: unknown): VerifyResult {
     verified,
     meetingCount: Array.isArray(body) ? body.length : 0,
     statesCovered: [...states].sort(),
+    citiesCovered: [...cities].sort(),
     meetingKeys,
   };
 }

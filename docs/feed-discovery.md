@@ -27,7 +27,7 @@ silently drop that state's entities from the registry. Re-run it later.
 
 **This sends real requests to every entity's website** — about 700 sites for a full run — so it must
 never run without the owner's go-ahead first. The one exception is `workflow_dispatch` runs the owner
-themselves triggers (see "The monthly workflow" below).
+themselves triggers (see "The discovery workflow" below).
 
 ### robots.txt
 
@@ -35,7 +35,7 @@ The crawler reads each site's robots.txt once per run, following RFC 9309. A 2xx
 A 4xx (usually a 404), or a robots.txt that redirects more than five times, means the site has no rules.
 A 5xx, a network error or a timeout means the whole site is treated as disallowed, and every probe comes
 back blocked. An entity whose note says `blocked by robots.txt` may therefore just have been down when
-the run reached it; the next monthly run tries again.
+the run reached it; the next run tries again.
 
 ### How long a full run takes
 
@@ -45,7 +45,7 @@ small pilot first (a state or two, as above) to get a feel for how responsive th
 before committing to a full run. The GitHub Actions workflow budgets `timeout-minutes: 180` for a full
 run; a local run can take just as long.
 
-## The monthly workflow
+## The discovery workflow
 
 `.github/workflows/feed-discovery.yml` has two jobs, so the job that crawls third-party sites can't
 write to the repository:
@@ -69,15 +69,11 @@ Two things must be true before it can open that PR:
   trigger. The first run happens locally, or by triggering the workflow manually (Actions → Feed
   discovery → Run workflow), never automatically.
 
-Once that first run's PR has been reviewed and merged, and the owner approves a monthly schedule,
-replace the workflow's `on:` block with this, so it also runs at 09:00 UTC on the 1st of every month:
-
-```yaml
-on:
-  schedule:
-    - cron: "0 9 1 * *"
-  workflow_dispatch:
-```
+There is deliberately no schedule. The committed `registry.yaml` and `coverage.md` are the lasting
+record of which sites publish a feed, which restrict theirs and what each covers, and the weekly sync
+already flags any feed that breaks (`feeds.last_error`). Re-run discovery only when that record needs
+refreshing — for example to pick up new intergroups, or after several synced feeds start failing —
+and only with the owner's go-ahead.
 
 ## Reviewing the PR
 

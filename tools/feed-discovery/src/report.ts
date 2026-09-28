@@ -62,6 +62,7 @@ export function buildRegistry(
       verified: verification?.verified ?? false,
       meeting_count: verification?.meetingCount ?? 0,
       states_covered: verification?.statesCovered ?? [],
+      cities_covered: verification?.citiesCovered ?? [],
       checked_at: checkedAt,
       notes: detection.notes,
     };
@@ -140,6 +141,30 @@ function listOrNone(items: string[]): string {
   return items.length === 0 ? "None." : items.map((item) => `- ${item}`).join("\n");
 }
 
+interface VerifiedFeed {
+  entry: RegistryEntry;
+  listedBy: string[];
+}
+
+// Verified entries grouped by feed_url: several directory entities (an area and its districts, say)
+// can publish the same feed, and it must count once in the totals.
+function verifiedFeeds(entries: RegistryEntry[]): VerifiedFeed[] {
+  const byUrl = new Map<string, VerifiedFeed>();
+  for (const entry of entries) {
+    if (!entry.verified || entry.feed_url === null) continue;
+    const feed = byUrl.get(entry.feed_url);
+    if (feed === undefined) byUrl.set(entry.feed_url, { entry, listedBy: [entry.name] });
+    else feed.listedBy.push(entry.name);
+  }
+  return [...byUrl.values()].sort((a, b) =>
+    `${a.entry.state}|${a.entry.website ?? ""}`.localeCompare(`${b.entry.state}|${b.entry.website ?? ""}`),
+  );
+}
+
+function sumMeetings(feeds: VerifiedFeed[]): number {
+  return feeds.reduce((sum, feed) => sum + feed.entry.meeting_count, 0);
+}
+
 function backlogLine(entry: RegistryEntry): string {
   return `${entry.name} (${entry.state}) — ${entry.website ?? "no website listed"}`;
 }
@@ -149,17 +174,18 @@ function backlogLine(entry: RegistryEntry): string {
 // overlapping feeds, and changes since the last run.
 export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], changes: Changes): string {
   const checkedAt = entries[0]?.checked_at ?? "";
-  const verifiedCount = entries.filter((entry) => entry.verified).length;
-  const totalMeetings = entries.reduce((sum, entry) => sum + entry.meeting_count, 0);
+  const feeds = verifiedFeeds(entries);
+  const totalMeetings = sumMeetings(feeds);
 
   const states = [...new Set(entries.map((entry) => entry.state))].sort();
   const rows = states.map((state) => {
     const stateEntries = entries.filter((entry) => entry.state === state);
+    const stateFeeds = verifiedFeeds(stateEntries);
     return [
       state,
       String(stateEntries.length),
-      String(stateEntries.filter((entry) => entry.verified).length),
-      String(stateEntries.reduce((sum, entry) => sum + entry.meeting_count, 0)),
+      String(stateFeeds.length),
+      String(sumMeetings(stateFeeds)),
       String(stateEntries.filter((entry) => entry.feed_type === "restricted").length),
       String(stateEntries.filter((entry) => entry.feed_type === "none_found").length),
     ];
@@ -181,10 +207,26 @@ export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], ch
 
   const blocks = [
     "# Feed coverage",
-    `Checked ${checkedAt}. ${String(entries.length)} entities, ${String(verifiedCount)} verified feed${
-      verifiedCount === 1 ? "" : "s"
+    `Checked ${checkedAt}. ${String(entries.length)} entities, ${String(feeds.length)} verified feed${
+      feeds.length === 1 ? "" : "s"
     }, ${String(totalMeetings)} meetings.`,
     renderTable(["State", "Entities", "Verified feeds", "Meetings", "Restricted", "No feed"], rows),
+    `## Verified feeds (open to us)\n\n${
+      feeds.length === 0
+        ? "None."
+        : renderTable(
+            ["State", "Site", "Feed", "Meetings", "States", "Cities", "Listed by"],
+            feeds.map((feed) => [
+              feed.entry.state,
+              feed.entry.website ?? "",
+              feed.entry.feed_type,
+              String(feed.entry.meeting_count),
+              feed.entry.states_covered.join(", "),
+              String(feed.entry.cities_covered.length),
+              feed.listedBy.join(", "),
+            ]),
+          )
+    }`,
     `## Restricted feeds (contact the intergroup)\n\n${listOrNone(restricted.map(backlogLine))}`,
     `## No feed found (manual backlog)\n\n${listOrNone(noFeed.map(backlogLine))}`,
     `## Overlapping feeds\n\n${listOrNone(

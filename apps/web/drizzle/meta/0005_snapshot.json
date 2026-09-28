@@ -1,6 +1,6 @@
 {
-  "id": "1a9aed8d-109f-4f5c-b77f-d6cb37a04756",
-  "prevId": "84797506-a283-49e0-89ea-6b30fe68c77b",
+  "id": "f307b02a-5879-4acf-ad6b-975e50c926ef",
+  "prevId": "d6eee946-dc2b-4f7d-bec1-9636bb72060a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -313,7 +313,7 @@
           "notNull": false,
           "generated": {
             "type": "stored",
-            "as": "coalesce(\n    'zoom:' || (regexp_match(regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g'),\n      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],\n    rtrim(regexp_replace(lower(btrim(\"conference_url\")), '[?#].*$', ''), '/')\n  )"
+            "as": "coalesce(\n    'zoom:' || (regexp_match(regexp_replace(lower(\"conference_url\"), '%20|[[:space:]]', '', 'g'),\n      '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],\n    rtrim(regexp_replace(\n      lower(substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*')) || substring(regexp_replace(\"conference_url\", '^[[:space:]]+|[[:space:]]+$', '', 'g') from '^[^/?#]*//[^/?#]*(.*)$'),\n      '#.*$', ''), '/')\n  )"
           }
         },
         "conference_url_notes": {

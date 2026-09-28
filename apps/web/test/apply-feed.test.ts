@@ -44,6 +44,20 @@ function listing(name: string, formattedAddress: string, latitude: number, longi
   return { name, formattedAddress, addressKey: addressKey(formattedAddress), latitude, longitude };
 }
 
+// Each active meeting's sources' types, e.g. [["M", "M"], ["W", "W"]] for two single-gender meetings.
+async function typesByMeeting() {
+  const rows = await db
+    .select({ meetingId: feedMeetings.meetingId, types: feedMeetings.types })
+    .from(feedMeetings)
+    .innerJoin(meetings, eq(meetings.id, feedMeetings.meetingId))
+    .where(isNull(meetings.archivedAt));
+  const byMeeting = new Map<string, string[]>();
+  for (const row of rows) {
+    byMeeting.set(row.meetingId, [...(byMeeting.get(row.meetingId) ?? []), row.types.join(",")]);
+  }
+  return [...byMeeting.values()].map((types) => types.sort()).sort();
+}
+
 describe("applyFeedSnapshot", () => {
   it("creates one canonical meeting per row", async () => {
     const feedId = await seedFeed("a");
@@ -137,6 +151,7 @@ describe("applyFeedSnapshot", () => {
     ["Men's Stag", "Women's Stag", 2],
     ["Women's Serenity", "Serenity", 2],
     ["Men Stag", "Men's Stag", 1],
+    ["Grupo Español", "Grupo Espanol", 1],
   ])("matches %j and %j 100 m apart into %i meeting(s)", async (first, second, expected) => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
@@ -203,6 +218,45 @@ describe("applyFeedSnapshot", () => {
     expect(await activeMeetings()).toHaveLength(2);
   });
 
+  it.each([
+    ["Sisters in Sobriety", "Brothers in Sobriety", 2],
+    ["Girls Night Out", "Guys Night Out", 2],
+    ["Open Discussion", "Discussion", 1],
+  ])("matches %j and %j at one address and time into %i meeting(s)", async (first, second, expected) => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ name: first })]);
+    await applyFeedSnapshot(b, [feedMeeting({ sourceSlug: "b", name: second })]);
+    expect(await activeMeetings()).toHaveLength(expected);
+  });
+
+  it("pairs two feeds' men's and women's listings at one address by their types", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const menFirst = feedMeeting({ sourceSlug: "a-men", name: "Big Book", types: ["M"] });
+    await applyFeedSnapshot(a, [menFirst]);
+    await applyFeedSnapshot(a, [
+      menFirst,
+      feedMeeting({ sourceSlug: "a-women", name: "Big Book", types: ["W"] }),
+    ]);
+    await applyFeedSnapshot(b, [
+      feedMeeting({ sourceSlug: "b-women", name: "Big Book", types: ["W"] }),
+      feedMeeting({ sourceSlug: "b-men", name: "Big Book", types: ["M"] }),
+    ]);
+    expect(await typesByMeeting()).toEqual([
+      ["M", "M"],
+      ["W", "W"],
+    ]);
+  });
+
+  it("treats a men's name and the M type as the same audience", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ name: "Men's Big Book", types: [] })]);
+    await applyFeedSnapshot(b, [feedMeeting({ sourceSlug: "b", name: "Big Book", types: ["M"] })]);
+    expect(await activeMeetings()).toHaveLength(1);
+  });
+
   it("joins listings of one Zoom meeting even when only one name has an audience word", async () => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
@@ -247,7 +301,7 @@ describe("applyFeedSnapshot", () => {
     ["https://us02web.zoom.us/j/2014115493?pwd=Y0sy#success", "https://us02web.zoom.us/j/2014115493"],
     ["https://us04web.zoom.us/j/83492157355", "https://zoom.us/j/83492157355"],
     ["https://us06web.zoom.us/my/Serenity.Now", "https://zoom.us/my/serenity.now"],
-    ["https://meet.google.com/abc-defg-hij?authuser=0", " HTTPS://Meet.Google.com/abc-defg-hij/ "],
+    ["https://meet.google.com/abc-defg-hij", " HTTPS://Meet.Google.com/abc-defg-hij/#join "],
   ])("joins online meetings whose conference URLs %s and %s name the same room", async (first, second) => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
@@ -287,6 +341,23 @@ describe("applyFeedSnapshot", () => {
       feedMeeting({ ...online, sourceSlug: "listing-b", conferenceUrl: "https://zoom.us/j/740716108" }),
     ]);
     expect(await activeMeetings()).toHaveLength(1);
+  });
+
+  it("keeps two Webex meetings in one feed apart when their URLs differ only in the query", async () => {
+    const feedId = await seedFeed("a");
+    await applyFeedSnapshot(feedId, [
+      feedMeeting({
+        ...online,
+        sourceSlug: "a",
+        conferenceUrl: "https://example.webex.com/example/j.php?MTID=m1111",
+      }),
+      feedMeeting({
+        ...online,
+        sourceSlug: "b",
+        conferenceUrl: "https://example.webex.com/example/j.php?MTID=m2222",
+      }),
+    ]);
+    expect(await activeMeetings()).toHaveLength(2);
   });
 
   it("merges a meeting one feed calls online and another calls hybrid, by conference URL", async () => {
@@ -417,6 +488,36 @@ describe("applyFeedSnapshot merging stored duplicates", () => {
       feedMeeting({ sourceSlug: "room-b" }),
     ]);
     expect(await activeMeetings()).toHaveLength(2);
+  });
+
+  it("merges stored men's and women's listings by their types, never across them", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const bigBook = (sourceSlug: string, type: "M" | "W") =>
+      feedMeeting({ sourceSlug, name: "Big Book", types: [type] });
+    await storedMeeting(b, bigBook("b-women", "W"), "2026-01-01T00:00:00Z");
+    await storedMeeting(b, bigBook("b-men", "M"), "2026-02-01T00:00:00Z");
+    await storedMeeting(a, bigBook("a-men", "M"), "2026-03-01T00:00:00Z");
+    await storedMeeting(a, bigBook("a-women", "W"), "2026-04-01T00:00:00Z");
+    await applyFeedSnapshot(a, [bigBook("a-men", "M"), bigBook("a-women", "W")]);
+    expect(await typesByMeeting()).toEqual([
+      ["M", "M"],
+      ["W", "W"],
+    ]);
+  });
+
+  it("merges only one of a feed's two rooms into a third meeting that matches both", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const third = await storedMeeting(b, feedMeeting({ sourceSlug: "b" }), "2026-01-01T00:00:00Z");
+    await storedMeeting(a, feedMeeting({ sourceSlug: "room-a" }), "2026-02-01T00:00:00Z");
+    const roomB = await storedMeeting(a, feedMeeting({ sourceSlug: "room-b" }), "2026-03-01T00:00:00Z");
+    await applyFeedSnapshot(a, [
+      feedMeeting({ sourceSlug: "room-a" }),
+      feedMeeting({ sourceSlug: "room-b" }),
+    ]);
+    expect(await sourcesOf(third)).toEqual(["b", "room-a"]);
+    expect(await sourcesOf(roomB)).toEqual(["room-b"]);
   });
 
   it("merges two slugs in one feed that share a conference key", async () => {

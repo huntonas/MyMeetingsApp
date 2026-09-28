@@ -41,13 +41,17 @@ export const meetings = pgTable(
 
 // Spec §3: the one comparable form of a conference URL, used for the stored conference_key column and for
 // rows not yet stored. Zoom links become "zoom:<meeting id or personal link>", ignoring the regional
-// subdomain, query, fragment and stray spaces; other URLs are lowercased without query, fragment or
-// trailing slash.
+// subdomain, query, fragment and stray spaces. Other URLs keep their query, which can name the meeting (Webex
+// MTID), and only lose surrounding whitespace, the fragment and a trailing slash, with the scheme and host
+// lowercased.
 export function conferenceKey(url: SQL): SQL {
+  const trimmed = sql`regexp_replace(${url}, '^[[:space:]]+|[[:space:]]+$', '', 'g')`;
   return sql`coalesce(
     'zoom:' || (regexp_match(regexp_replace(lower(${url}), '%20|[[:space:]]', '', 'g'),
       '^https?://(?:[a-z0-9-]+[.])*zoom[.]us/(?:j|my|w|s)/([^/?#]+)'))[1],
-    rtrim(regexp_replace(lower(btrim(${url})), '[?#].*$', ''), '/')
+    rtrim(regexp_replace(
+      lower(substring(${trimmed} from '^[^/?#]*//[^/?#]*')) || substring(${trimmed} from '^[^/?#]*//[^/?#]*(.*)$'),
+      '#.*$', ''), '/')
   )`;
 }
 

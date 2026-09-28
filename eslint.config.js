@@ -36,6 +36,11 @@ export default defineConfig([
     rules: { "no-console": "off" },
   },
   {
+    // Each tool's own CLI entry point reports progress and results to the terminal.
+    files: ["tools/*/src/main.ts"],
+    rules: { "no-console": "off" },
+  },
+  {
     // Shared package tests exercise the public entry point only.
     files: ["packages/shared/test/**/*.ts"],
     rules: {

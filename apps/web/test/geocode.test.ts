@@ -1,15 +1,15 @@
+import { createHostThrottle } from "@mymeetingapp/feed-kit";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
 import { addressGeocodes, meetings } from "@/db/schema";
-import { createHostThrottle } from "@/server/feeds/throttle";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { geocodePendingAddresses } from "@/server/meetings/geocode";
 
 import { resetDb } from "./db";
 import { feedMeeting, seedFeed } from "./feed-fixtures";
-import { startServer } from "./http-server";
+import { startServer } from "@mymeetingapp/test-server";
 
 beforeEach(resetDb);
 afterEach(() => {

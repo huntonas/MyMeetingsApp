@@ -1,9 +1,9 @@
+import { createHostThrottle } from "@mymeetingapp/feed-kit";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { fetchFeed } from "@/server/feeds/fetch-feed";
-import { createHostThrottle } from "@/server/feeds/throttle";
 
-import { startServer } from "./http-server";
+import { startServer } from "@mymeetingapp/test-server";
 
 const noCache = { etag: null, lastModified: null };
 const servers: { close(): Promise<void> }[] = [];
@@ -74,30 +74,32 @@ describe("fetchFeed", () => {
     });
   });
 
-  it("rejects a declared Content-Length over 50 MB without reading the body", async () => {
-    const declared = 60 * 1024 * 1024;
-    const chunk = "x".repeat(65_536);
+  it("maps a declared Content-Length over 50 MB to a 'too large' error", async () => {
+    // No real body is sent: readBodyCapped's byte-counting behaviour is covered by feed-kit's own tests.
+    // This just proves fetchFeed maps its null result to the right error.
     const server = await serve(() => ({
       status: 200,
-      headers: { "Content-Length": String(declared) },
-      stream: { chunk, count: declared / 65_536 },
+      headers: { "Content-Length": String(60 * 1024 * 1024) },
     }));
     expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
       kind: "error",
       message: "too large",
     });
-    expect(server.requests[0]?.sentBytes).toBeLessThan(20 * 1024 * 1024);
   });
 
-  it("stops reading a streamed body once it passes 50 MB, counting bytes rather than characters", async () => {
-    // 3 bytes per character: about 131 MB on the wire but only 44 million characters.
-    const chunk = "€".repeat(21_845);
-    const server = await serve(() => ({ status: 200, stream: { chunk, count: 2000 } }));
-    expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
-      kind: "error",
-      message: "too large",
-    });
-    expect(server.requests[0]?.sentBytes).toBeLessThan(100 * 1024 * 1024);
+  it("spaces requests to one host a second apart, but doesn't delay a different host", async () => {
+    const first = await serve(() => ({ status: 200, body: "[]" }));
+    const second = await serve(() => ({ status: 200, body: "[]" }));
+    const throttle = createHostThrottle();
+
+    await fetchFeed(`${first.baseUrl}/a`, noCache, throttle);
+    await fetchFeed(`${second.baseUrl}/a`, noCache, throttle);
+    await fetchFeed(`${first.baseUrl}/b`, noCache, throttle);
+
+    const [firstA, firstB] = first.requests;
+    const [secondA] = second.requests;
+    expect((secondA?.at ?? Infinity) - (firstA?.at ?? 0)).toBeLessThan(500);
+    expect((firstB?.at ?? 0) - (firstA?.at ?? Infinity)).toBeGreaterThanOrEqual(990);
   });
 
   it("reports a host that refuses connections", async () => {
@@ -108,16 +110,5 @@ describe("fetchFeed", () => {
       kind: "error",
       message: "could not connect",
     });
-  });
-
-  it("waits a second between requests to the same host, but not across hosts", async () => {
-    const server = await serve(() => ({ status: 200, body: "[]" }));
-    const throttle = createHostThrottle();
-    await fetchFeed(`${server.baseUrl}/a`, noCache, throttle);
-    await fetchFeed(`http://localhost:${String(server.port)}/b`, noCache, throttle);
-    await fetchFeed(`${server.baseUrl}/c`, noCache, throttle);
-    const [first, otherHost, sameHost] = server.requests.map((request) => request.at);
-    expect((otherHost ?? 0) - (first ?? 0)).toBeLessThan(500);
-    expect((sameHost ?? 0) - (first ?? 0)).toBeGreaterThanOrEqual(990);
   });
 });

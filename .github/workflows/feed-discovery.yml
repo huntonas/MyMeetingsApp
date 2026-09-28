@@ -1,0 +1,93 @@
+name: Feed discovery
+
+# Manual runs only until the owner approves a schedule; docs/feed-discovery.md has the exact YAML to add.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  # Crawls third-party sites with read-only repository access and no stored git credentials, so nothing
+  # the crawl touches can write to the repository.
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          # pnpm comes from corepack in the next step, so setup-node can't cache its store.
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter feed-discovery discover
+
+      - name: Check for registry changes
+        id: diff
+        run: |
+          if [ -n "$(git status --porcelain tools/feed-discovery)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stage the registry, coverage report and pull request body
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          mkdir -p "${RUNNER_TEMP}/registry"
+          cp tools/feed-discovery/registry.yaml tools/feed-discovery/coverage.md "${RUNNER_TEMP}/registry/"
+          awk '/^## Changes since the last run/{ show = 1 } show' tools/feed-discovery/coverage.md \
+            > "${RUNNER_TEMP}/registry/pr-body.md"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          name: feed-registry
+          path: ${{ runner.temp }}/registry/
+          if-no-files-found: error
+          retention-days: 7
+
+  # Only this job can write, and it runs no project code: it commits the two files, pushes a branch and
+  # opens the pull request.
+  open-pr:
+    needs: discover
+    if: needs.discover.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: feed-registry
+          path: tools/feed-discovery
+
+      - name: Open a pull request with the refreshed registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          month="$(date +%Y-%m)"
+          branch="registry/${month}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${branch}"
+          git add tools/feed-discovery/registry.yaml tools/feed-discovery/coverage.md
+          git commit -m "Feed registry refresh ${month}"
+          git push origin "${branch}"
+
+          gh pr create \
+            --base main \
+            --head "${branch}" \
+            --title "Feed registry refresh ${month}" \
+            --body-file tools/feed-discovery/pr-body.md

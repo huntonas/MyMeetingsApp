@@ -1,0 +1,23 @@
+{
+  "name": "@mymeetingapp/feed-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mymeetingapp/shared": "workspace:*",
+    "yaml": "^2.8.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@mymeetingapp/test-server": "workspace:*",
+    "@types/node": "^24.19.0",
+    "vitest": "^5.0.2"
+  }
+}

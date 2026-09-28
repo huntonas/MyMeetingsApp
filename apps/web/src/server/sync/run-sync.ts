@@ -1,3 +1,4 @@
+import { createHostThrottle, type HostThrottle } from "@mymeetingapp/feed-kit";
 import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { Client } from "pg";
 import { z } from "zod";
@@ -8,7 +9,6 @@ import { feedMeetings, feeds } from "@/db/schema";
 import { logError } from "@/lib/log";
 import { fetchFeed } from "@/server/feeds/fetch-feed";
 import { FeedFormatError, normalizeFeed } from "@/server/feeds/normalize";
-import { createHostThrottle, type HostThrottle } from "@/server/feeds/throttle";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { geocodePendingAddresses } from "@/server/meetings/geocode";
 import { recomputeMeetings } from "@/server/meetings/recompute";

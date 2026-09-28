@@ -1,0 +1,23 @@
+{
+  "name": "feed-discovery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "discover": "tsx src/main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mymeetingapp/feed-kit": "workspace:*",
+    "node-html-parser": "^6.1.13",
+    "robots-parser": "^3.0.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@mymeetingapp/test-server": "workspace:*",
+    "@types/node": "^24.19.0",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.2"
+  }
+}

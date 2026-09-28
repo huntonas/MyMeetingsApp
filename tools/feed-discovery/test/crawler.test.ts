@@ -16,6 +16,21 @@ async function serve(
   return server;
 }
 
+// Whether the server finishes closing in time: it can't while a response it is still streaming is
+// being held open by a client that neither read nor cancelled the body.
+async function closesPromptly(server: { close(): Promise<void> }): Promise<boolean> {
+  return Promise.race([
+    server.close().then(() => true),
+    new Promise<boolean>((resolve) => {
+      setTimeout(() => {
+        resolve(false);
+      }, 1000);
+    }),
+  ]);
+}
+
+const bigStream = { chunk: "x".repeat(65_536), count: 2000 };
+
 describe("createCrawler", () => {
   it("fetches an allowed page with the project User-Agent", async () => {
     const server = await serve({
@@ -41,6 +56,115 @@ describe("createCrawler", () => {
     const result = await createCrawler().get(`${server.baseUrl}/wp-json/tsml/meetings`);
     expect(result).toEqual({ kind: "blocked_by_robots", url: `${server.baseUrl}/wp-json/tsml/meetings` });
     expect(server.requests.map((r) => r.path)).toEqual(["/robots.txt"]);
+  });
+
+  it("treats a robots.txt server error as disallowing everything (RFC 9309)", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 503 },
+      "/page": { status: 200, body: "hello" },
+    });
+    const result = await createCrawler().get(`${server.baseUrl}/page`);
+    expect(result).toEqual({ kind: "blocked_by_robots", url: `${server.baseUrl}/page` });
+    expect(server.requests.map((r) => r.path)).toEqual(["/robots.txt"]);
+  });
+
+  it("treats an unreachable robots.txt as disallowing everything", async () => {
+    const server = await startServer(() => ({ status: 200 }));
+    await server.close();
+    expect(await createCrawler().get(`${server.baseUrl}/page`)).toEqual({
+      kind: "blocked_by_robots",
+      url: `${server.baseUrl}/page`,
+    });
+  });
+
+  it("treats a robots.txt body that fails mid-read as disallowing everything", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 200, body: "not gzip", headers: { "Content-Encoding": "gzip" } },
+      "/page": { status: 200, body: "hello" },
+    });
+    expect(await createCrawler().get(`${server.baseUrl}/page`)).toEqual({
+      kind: "blocked_by_robots",
+      url: `${server.baseUrl}/page`,
+    });
+  });
+
+  it("follows a redirected robots.txt and honours the file it lands on", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 301, headers: { Location: "/real-robots.txt" } },
+      "/real-robots.txt": { status: 200, body: "User-agent: *\nDisallow: /private" },
+      "/private/feed": { status: 200, body: "[]" },
+    });
+    const result = await createCrawler().get(`${server.baseUrl}/private/feed`);
+    expect(result).toEqual({ kind: "blocked_by_robots", url: `${server.baseUrl}/private/feed` });
+    expect(server.requests.map((r) => r.path)).toEqual(["/robots.txt", "/real-robots.txt"]);
+  });
+
+  it("treats robots.txt as unavailable, allowing everything, after five redirects", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 302, headers: { Location: "/robots.txt" } },
+      "/page": { status: 200, body: "hello" },
+    });
+    expect(await createCrawler().get(`${server.baseUrl}/page`)).toMatchObject({
+      kind: "response",
+      body: "hello",
+    });
+    expect(server.requests.filter((r) => r.path === "/robots.txt")).toHaveLength(6);
+  });
+
+  it("treats a robots.txt redirect to a malformed Location as unavailable, allowing everything", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 301, headers: { Location: "http://bad host/robots.txt" } },
+      "/page": { status: 200, body: "hello" },
+    });
+    expect(await createCrawler().get(`${server.baseUrl}/page`)).toMatchObject({
+      kind: "response",
+      body: "hello",
+    });
+  });
+
+  it("reports a redirect to a malformed Location as an error instead of throwing", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 404 },
+      "/start": { status: 301, headers: { Location: "http://bad host/feed" } },
+    });
+    expect(await createCrawler().get(`${server.baseUrl}/start`)).toEqual({
+      kind: "error",
+      message: "bad redirect",
+    });
+  });
+
+  it("reports a body that fails mid-read as an error instead of throwing", async () => {
+    const server = await serve({
+      "/robots.txt": { status: 404 },
+      // Claims gzip but isn't, so decoding the body fails after the response has arrived.
+      "/broken": { status: 200, body: "not gzip", headers: { "Content-Encoding": "gzip" } },
+    });
+    expect(await createCrawler().get(`${server.baseUrl}/broken`)).toEqual({
+      kind: "error",
+      message: "could not read the response",
+    });
+  });
+
+  it("cancels a redirect's unread body before following it", async () => {
+    const server = await startServer((path) =>
+      path === "/start"
+        ? { status: 301, headers: { Location: "/end" }, stream: bigStream }
+        : { status: path === "/end" ? 200 : 404, body: "done" },
+    );
+    servers.push(server);
+    expect(await createCrawler().get(`${server.baseUrl}/start`)).toMatchObject({ body: "done" });
+    expect(await closesPromptly(server)).toBe(true);
+  });
+
+  it("cancels a robots.txt redirect's unread body before following it", async () => {
+    const server = await startServer((path) =>
+      path === "/robots.txt"
+        ? { status: 301, headers: { Location: "/real-robots.txt" }, stream: bigStream }
+        : { status: path === "/page" ? 200 : 404, body: "done" },
+    );
+    servers.push(server);
+    expect(await createCrawler().get(`${server.baseUrl}/page`)).toMatchObject({ body: "done" });
+    expect(await closesPromptly(server)).toBe(true);
   });
 
   it("checks robots.txt again for every redirect hop", async () => {

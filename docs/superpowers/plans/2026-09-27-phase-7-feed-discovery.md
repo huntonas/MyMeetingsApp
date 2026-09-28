@@ -286,7 +286,7 @@ export type RegistryEntry = z.infer<typeof RegistryEntry>;
     - `{ kind: "error"; message: string }`
   - `createCrawler(): { get(url: string): Promise<CrawlResult> }`.
 
-  The crawler caches robots.txt once per origin, and a missing or unreadable robots.txt means everything is allowed. It checks robots and applies the throttle before every hop, including each redirect, and follows at most 5 redirects manually. Each request has a 30 s timeout and a 50 MB cap, which is enforced by `content-length` and while streaming, and it never retries.
+  The crawler caches robots.txt once per origin and fetches it per RFC 9309: a 2xx is parsed; a 4xx, or more than five redirects, means everything is allowed; and a 5xx, network error or timeout means everything is disallowed. (Amended in the final-review fix pass; the original draft allowed everything whenever robots.txt was unreadable.) It checks robots and applies the throttle before every hop, including each redirect, and follows at most 5 redirects manually. Each request has a 30 s timeout and a 50 MB cap, which is enforced by `content-length` and while streaming, and it never retries.
 
 - [ ] **Step 1: Package shell.**
   - Name: `feed-discovery`, private, `type: module`.

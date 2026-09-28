@@ -92,13 +92,7 @@ export async function run(options: RunOptions = {}): Promise<RunResult> {
   const withWebsite = entities.filter(hasWebsite);
   let checked = 0;
   await mapWithConcurrency(withWebsite, CONCURRENCY, async (entity) => {
-    let detection: Detection;
-    try {
-      detection = await detectFeed(entity.website, crawler);
-    } catch {
-      console.log(`check failed: ${entity.id}`);
-      detection = { feedType: "none_found", notes: "check failed" };
-    }
+    const detection = await detectFeed(entity.website, crawler);
     const verification = hasBody(detection) ? verifyFeed(detection.body) : null;
     detections.set(entity.id, { detection, verification });
     checked += 1;

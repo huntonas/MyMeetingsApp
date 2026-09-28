@@ -25,6 +25,14 @@ run's files. A manual `opted_out: true` on an entry survives a re-run (see below
 never run without the owner's go-ahead first. The one exception is `workflow_dispatch` runs the owner
 themselves triggers (see "The monthly workflow" below).
 
+### robots.txt
+
+The crawler reads each site's robots.txt once per run, following RFC 9309. A 2xx robots.txt is obeyed.
+A 4xx (usually a 404), or a robots.txt that redirects more than five times, means the site has no rules.
+A 5xx, a network error or a timeout means the whole site is treated as disallowed, and every probe comes
+back blocked. An entity whose note says `blocked by robots.txt` may therefore just have been down when
+the run reached it; the next monthly run tries again.
+
 ### How long a full run takes
 
 There's no fixed number: most of the time is spent waiting on ~700 third-party sites, one request per

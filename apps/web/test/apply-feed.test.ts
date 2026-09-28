@@ -133,6 +133,10 @@ describe("applyFeedSnapshot", () => {
     ["Stepping Stones", "Steping Stones", 1],
     ["The Big Book", "Big Book Meeting", 1],
     ["Joy", "Joyful Living", 2],
+    ["Hope", "Hopeful Hearts", 2],
+    ["Men's Stag", "Women's Stag", 2],
+    ["Women's Serenity", "Serenity", 2],
+    ["Men Stag", "Men's Stag", 1],
   ])("matches %j and %j 100 m apart into %i meeting(s)", async (first, second, expected) => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
@@ -188,6 +192,23 @@ describe("applyFeedSnapshot", () => {
       }),
     ]);
     expect(await activeMeetings()).toHaveLength(2);
+  });
+
+  it("keeps a men's and a women's meeting at one address and time apart", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    const church = listing("Grupo Hombres", "1 Main St, Nashville, TN 37203, USA", 36.17, -86.78);
+    await applyFeedSnapshot(a, [feedMeeting(church)]);
+    await applyFeedSnapshot(b, [feedMeeting({ ...church, sourceSlug: "b", name: "Grupo Mujeres" })]);
+    expect(await activeMeetings()).toHaveLength(2);
+  });
+
+  it("joins listings of one Zoom meeting even when only one name has an audience word", async () => {
+    const a = await seedFeed("a");
+    const b = await seedFeed("b");
+    await applyFeedSnapshot(a, [feedMeeting({ ...online, name: "Women's Serenity" })]);
+    await applyFeedSnapshot(b, [feedMeeting({ ...online, sourceSlug: "b", name: "Serenity" })]);
+    expect(await activeMeetings()).toHaveLength(1);
   });
 
   it("keeps meetings in one building apart when their start times differ", async () => {

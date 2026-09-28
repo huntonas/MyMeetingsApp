@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 type EnvName =
   | "DATABASE_URL"
   | "DATABASE_URL_UNPOOLED"
+  | "DEVICE_ID_PEPPER"
   | "MIN_VERSION_IOS"
   | "MIN_VERSION_ANDROID"
   | "LATEST_VERSION_IOS"

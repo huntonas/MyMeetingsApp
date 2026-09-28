@@ -91,6 +91,12 @@ describe("detectFeed", () => {
       },
     });
     expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({ feedType: "restricted" });
+    // Detection stops there: the homepage and anything after it are never requested.
+    expect(s.requests.map((r) => r.path)).toEqual([
+      "/robots.txt",
+      "/wp-json/tsml/meetings",
+      "/wp-admin/admin-ajax.php?action=meetings",
+    ]);
   });
 
   it("follows a Meetings Feed link on the homepage", async () => {

@@ -43,6 +43,25 @@ describe("the support page", () => {
     );
   });
 
+  it("says only the exact location stays on the phone, since a search sends a rounded point", () => {
+    expect(text).toContain(
+      "your exact location, sobriety date and favorites stay on your phone; a search sends only a point rounded to about 1 km",
+    );
+  });
+
+  it("says email goes through Google Workspace, and where the policy covers it", () => {
+    expect(text).toContain("Email to us goes through Google Workspace");
+    expect(renderToStaticMarkup(<SupportPage />)).toContain('href="/privacy#email"');
+  });
+
+  it("never asks for the app's ID, which nothing on our side uses", () => {
+    expect(text).not.toMatch(/app ID/i);
+  });
+
+  it("doesn't claim the privacy policy lists everything", () => {
+    expect(text).not.toContain("lists everything");
+  });
+
   it("lists crisis help", () => {
     expect(text).toContain("call or text 988");
   });

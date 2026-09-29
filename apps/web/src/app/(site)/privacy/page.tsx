@@ -1,7 +1,7 @@
 import { BRAND } from "@mymeetingapp/shared";
 
 import { DraftNotice } from "@/components/draft-notice";
-import { DATA_INVENTORY, ON_PHONE, THIRD_PARTIES } from "@/content/privacy-inventory";
+import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
 import { pageMetadata } from "@/lib/page-metadata";
 import { RETENTION } from "@/server/retention";
 
@@ -18,8 +18,7 @@ export default function PrivacyPage() {
       <DraftNotice />
       <p>
         {BRAND.appName} is made by {BRAND.publisher}, a Tennessee company. This policy covers the app for
-        iPhone and Android and this website. It describes each kind of data our server stores, why, and for
-        how long.
+        iPhone and Android and this website. It describes each kind of data we keep, why, and for how long.
       </p>
 
       <h2>In short</h2>
@@ -58,6 +57,11 @@ export default function PrivacyPage() {
           </dl>
         </section>
       ))}
+
+      <h2 id="email">{SUPPORT_EMAIL.title}</h2>
+      <p>
+        {SUPPORT_EMAIL.what} {SUPPORT_EMAIL.kept} {SUPPORT_EMAIL.linkedTo}
+      </p>
 
       <h2>Meeting listings</h2>
       <p>
@@ -105,7 +109,8 @@ export default function PrivacyPage() {
       <h2>Children</h2>
       <p>
         The app isn&apos;t meant for children under 13, and we don&apos;t knowingly collect anything from
-        them. We don&apos;t collect names, contact details or exact locations from anyone.
+        them. Apart from an email you choose to send us, we don&apos;t collect names, contact details or exact
+        locations from anyone.
       </p>
 
       <h2>Changes and contact</h2>

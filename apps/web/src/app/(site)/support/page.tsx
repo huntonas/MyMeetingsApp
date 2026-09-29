@@ -15,8 +15,8 @@ export default function SupportPage() {
     <>
       <h1>Support</h1>
       <p>
-        Email {email}. We read every message. If your question is about your tags, include the app ID shown in
-        the app&apos;s Settings.
+        Email {email}. We read every message. Email to us goes through Google Workspace; the{" "}
+        <a href="/privacy#email">privacy policy</a> says how long we keep it.
       </p>
 
       <h2>Common questions</h2>
@@ -37,8 +37,9 @@ export default function SupportPage() {
       </p>
       <h3>Does the app know who I am?</h3>
       <p>
-        No. There are no accounts, and your location and personal details stay on your phone. The{" "}
-        <a href="/privacy">privacy policy</a> lists everything we store.
+        No. There are no accounts, and your exact location, sobriety date and favorites stay on your phone; a
+        search sends only a point rounded to about 1 km. The <a href="/privacy">privacy policy</a> explains
+        what we keep and why.
       </p>
 
       <h2>Opting out</h2>

@@ -30,8 +30,8 @@ export default function HomePage() {
         <h2 id="descriptions">Descriptions, not ratings</h2>
         <p>
           After a meeting, attendees can pick up to six words from a fixed list, like “Welcoming”, “Step
-          study” or “Easy parking”. The app shows how many people chose each one. There are no stars, no
-          scores and no written reviews, so nobody can single out a group or a person.
+          study” or “Easy parking”. The app shows how many people chose each one. There are no stars, scores
+          or written reviews, so nothing ranks one meeting against another, and tags never describe people.
         </p>
         <ExampleMeetingCard />
       </section>

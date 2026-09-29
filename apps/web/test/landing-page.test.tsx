@@ -35,6 +35,14 @@ describe("the landing page's content", () => {
     expect(renderToStaticMarkup(<HomePage />)).not.toMatch(/apps\.apple\.com|play\.google\.com/);
   });
 
+  it("says what the tags leave out, without claiming nobody can be singled out", () => {
+    const text = renderText(<HomePage />);
+    expect(text).toContain(
+      "There are no stars, scores or written reviews, so nothing ranks one meeting against another, and tags never describe people.",
+    );
+    expect(text).not.toContain("single out");
+  });
+
   it("keeps one place for the app screenshot", () => {
     expect(renderToStaticMarkup(<HomePage />)).toContain('aria-label="App screenshot coming soon"');
   });

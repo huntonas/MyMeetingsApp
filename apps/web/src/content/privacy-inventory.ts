@@ -1,3 +1,5 @@
+import { BRAND } from "@mymeetingapp/shared";
+
 import { RETENTION } from "@/server/retention";
 
 interface InventoryEntry {
@@ -193,6 +195,23 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   },
 ];
 
+// Spec §13's support-email row. The privacy policy gives it its own section, since the mailbox isn't our server.
+// Owner decision: we delete a message within 90 days after it's resolved; no code enforces that, so RETENTION
+// doesn't hold it.
+export const SUPPORT_EMAIL: InventoryEntry = {
+  specRow: "Support email",
+  specCells: {
+    contents: "sender's email address, message (in Google Workspace); kept only to answer and act on it",
+    linkedTo: "nothing else (never tags)",
+    retention: "until resolved, then deleted within 90 days",
+  },
+  table: null,
+  title: "When you email us",
+  what: `Email to ${BRAND.contactEmail} goes through Google Workspace, so your email address and message are held on Google's mail servers.`,
+  linkedTo: "We never link it to anyone's tags.",
+  kept: "We keep it only to answer you and act on it, and delete it within 90 days after it's resolved.",
+};
+
 // Spec §13's "Stays on the phone" list, in the same order.
 export const ON_PHONE: readonly { specItem: string; text: string }[] = [
   { specItem: "exact location", text: "your exact location" },
@@ -236,6 +255,11 @@ export const THIRD_PARTIES: readonly { specName: string; name: string; role: str
     specName: "Google",
     name: "Google",
     role: "On Android, Google Maps draws the map and gives directions, Android's geocoder turns a place you type into a map point, and, once switched on, Play Integrity confirms that requests come from the real app.",
+  },
+  {
+    specName: "Google Workspace",
+    name: "Google Workspace",
+    role: "Carries and holds the email you send to our support address (see “When you email us”).",
   },
   {
     specName: "the AI provider used for suggestion screening",

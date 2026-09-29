@@ -4,7 +4,7 @@ export function PrivacyPromise() {
     <>
       <ul className="promise" aria-label="Our privacy promise">
         <li>
-          <strong>No account.</strong> No name, email, phone number or sign-in, ever.
+          <strong>No account.</strong> The app never asks for a name, email, phone number or sign-in.
         </li>
         <li>
           <strong>Your exact location stays on your phone.</strong> A search sends only a point rounded to

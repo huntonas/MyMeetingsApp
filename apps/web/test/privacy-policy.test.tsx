@@ -6,7 +6,7 @@ import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import PrivacyPage from "@/app/(site)/privacy/page";
-import { DATA_INVENTORY, ON_PHONE, THIRD_PARTIES } from "@/content/privacy-inventory";
+import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
 import * as schema from "@/db/schema";
 
 import { renderText } from "./render";
@@ -118,17 +118,19 @@ function tableRows(text: string, n: number): string[][] {
 
 const inventory = section("13. Data inventory (source of truth for the privacy policy)");
 const storedRows = tableRows(inventory, 0);
+// Every row of §13's stored-data table: what our server and hosts keep, and the support mailbox.
+const ALL_ENTRIES = [...DATA_INVENTORY, SUPPORT_EMAIL];
 
 describe("the privacy policy matches SPEC.md §13", () => {
   it("has one entry for each row of the stored-data table", () => {
-    expect(DATA_INVENTORY.map((entry) => entry.specRow).sort()).toEqual(
+    expect(ALL_ENTRIES.map((entry) => entry.specRow).sort()).toEqual(
       storedRows.map(([name]) => name ?? "").sort(),
     );
   });
 
   it("states every retention period the table gives", () => {
     for (const [name, , , retention] of storedRows) {
-      const entry = DATA_INVENTORY.find((candidate) => candidate.specRow === name);
+      const entry = ALL_ENTRIES.find((candidate) => candidate.specRow === name);
       const numbers = (retention ?? "").replace(/§\d+/g, "").match(/\d+/g) ?? [];
       for (const number of numbers) {
         expect(entry?.kept, `${String(name)} keeps ${number}`).toMatch(new RegExp(`\\b${number}\\b`));
@@ -138,7 +140,7 @@ describe("the privacy policy matches SPEC.md §13", () => {
 
   it("repeats each row's cells, so any edit to the table forces a review of the policy", () => {
     for (const [name, contents, linkedTo, retention] of storedRows) {
-      const entry = DATA_INVENTORY.find((candidate) => candidate.specRow === name);
+      const entry = ALL_ENTRIES.find((candidate) => candidate.specRow === name);
       expect(entry?.specCells, String(name)).toEqual({ contents, linkedTo, retention });
     }
   });
@@ -209,7 +211,7 @@ describe("the privacy policy page", () => {
   });
 
   it("shows every inventory entry, everything that stays on the phone and every third party", () => {
-    for (const entry of DATA_INVENTORY) {
+    for (const entry of ALL_ENTRIES) {
       for (const words of [entry.title, entry.what, entry.linkedTo, entry.kept])
         expect(text).toContain(words);
     }
@@ -218,6 +220,14 @@ describe("the privacy policy page", () => {
       expect(text).toContain(party.name);
       expect(text).toContain(party.role);
     }
+  });
+
+  it("says who carries support email, how long we keep it, and that it's never linked to tags", () => {
+    expect(text).toContain("When you email us");
+    expect(text).toContain("goes through Google Workspace");
+    expect(text).toContain("only to answer you and act on it");
+    expect(text).toContain("delete it within 90 days after it's resolved");
+    expect(text).toContain("never link it to anyone's tags");
   });
 
   it("says deleted data can outlive deletion in the database's restore history (spec §9)", () => {

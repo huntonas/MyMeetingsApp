@@ -28,7 +28,7 @@ Hosting: **Vercel Pro** for the Next.js app, **Neon** for the database.
 
 These override convenience everywhere. Flag any conflict instead of working around it.
 
-- **No accounts.** No name, email, phone, or login anywhere.
+- **No accounts.** The app and site never ask for a name, email, phone, or login. Only someone who chooses to email support gives us an email address (section 13).
 - **The server knows meetings, not people.** Nothing in our database links a device to the meetings it tagged, apart from a 7-day abuse-review log (section 6): tag rows carry only a per-meeting submitter ID, so a copy of the database alone can't join one device's tags across meetings. Each tag write computes the device's submitter ID for that one meeting; the server finds one device's rows across meetings (from its hash and the pepper) only for delete-mine and for blocking a device, and never stores or returns that list. The platform's request logs (Vercel) hold IP addresses with paths that can name a meeting (section 13).
 - **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple or Google, to find a place).
 - **Device IDs are stored only as a keyed hash:** `device_hash = HMAC-SHA256(k_device, platform + ":" + rawId)`. The raw ID is never stored or logged. Keys are derived from `DEVICE_ID_PEPPER` via HKDF. The pepper can't be rotated without breaking every existing link, so treat it as permanent.
@@ -39,7 +39,7 @@ These override convenience everywhere. Flag any conflict instead of working arou
 - **No ads, no analytics SDKs, no tracking,** and no cookies or analytics on the website (no Vercel Web Analytics or Speed Insights).
 - **Metrics show totals only,** never per-device rows.
 - **Don't log** IP addresses beyond the platform's short-term request logs, and never log request headers or bodies. Error handlers must strip headers before logging.
-- **Third parties that receive data** must each be listed in the privacy policy: Vercel (hosting, request logs), Neon (database), Apple and Google (maps, platform geocoder, app attestation), and the AI provider used for suggestion screening (zero data retention).
+- **Third parties that receive data** must each be listed in the privacy policy: Vercel (hosting, request logs), Neon (database), Apple and Google (maps, platform geocoder, app attestation), Google Workspace (email sent to the support address), and the AI provider used for suggestion screening (zero data retention).
 
 ## 3. Meeting data
 
@@ -304,6 +304,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | `ai_decisions`      | suggestion text, AI decision, reason, model, time                                                           | a suggestion (device link via the suggestion ≤ 30 days) | kept; deleted with its suggestion by delete-mine                               |
 | Search request      | rounded lat/lng (~1 km)                                                                                     | nothing                                                 | not stored; used for one query                                                 |
 | Vercel request logs | IP, path, time                                                                                              | nothing we control                                      | Vercel plan retention                                                          |
+| Support email       | sender's email address, message (in Google Workspace); kept only to answer and act on it                    | nothing else (never tags)                               | until resolved, then deleted within 90 days                                    |
 
 | Stays on the phone (never reaches our server)                                                                                                                                             |     |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |

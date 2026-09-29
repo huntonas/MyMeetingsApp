@@ -2,6 +2,7 @@ node_modules/
 .next/
 .turbo/
 .vercel/
+.vitest/
 .superpowers/
 coverage/
 *.tsbuildinfo

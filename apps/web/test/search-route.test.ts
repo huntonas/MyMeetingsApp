@@ -5,10 +5,13 @@ import { format } from "node:util";
 
 import { POST } from "@/app/api/v1/meetings/search/route";
 import { db, pool } from "@/db/client";
+import { seedVocabulary } from "@/db/seed-vocabulary";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
+import { recountTags } from "@/server/tags/counts";
 
 import { resetDb } from "./db";
 import { feedMeeting, seedFeed } from "./feed-fixtures";
+import { insertSubmission } from "./tag-fixtures";
 
 beforeEach(resetDb);
 afterAll(() => pool.end());
@@ -97,6 +100,21 @@ describe("POST /api/v1/meetings/search", () => {
       await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
     );
     expect(meetings).toHaveLength(1000);
+  });
+
+  it("includes each meeting's tag counts", async () => {
+    await seedVocabulary();
+    await seedNashville();
+    const before = MeetingSearchResponse.parse(
+      await (await search({ lat: 36.17, lng: -86.78, radiusKm: 5 })).json(),
+    ).meetings;
+    const nearest = before[0]?.id ?? "";
+    await insertSubmission(nearest, ["welcoming"]);
+    await recountTags([nearest], db);
+    const [first] = MeetingSearchResponse.parse(
+      await (await search({ lat: 36.17, lng: -86.78, radiusKm: 5 })).json(),
+    ).meetings;
+    expect(first?.tags).toEqual([{ slug: "welcoming", count: 1 }]);
   });
 
   it.each([

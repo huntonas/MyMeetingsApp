@@ -1,6 +1,7 @@
 import { type AppConfigResponse, SemVer } from "@mymeetingapp/shared";
 
 import { readEnv } from "@/env";
+import { ApiError } from "@/lib/api/respond";
 
 type VersionVar = "MIN_VERSION_IOS" | "MIN_VERSION_ANDROID" | "LATEST_VERSION_IOS" | "LATEST_VERSION_ANDROID";
 type FeatureVar = "FEATURE_TAGGING" | "FEATURE_SUGGESTIONS";
@@ -29,4 +30,9 @@ export function readAppConfig(): AppConfigResponse {
     latestVersion: { ios: version("LATEST_VERSION_IOS"), android: version("LATEST_VERSION_ANDROID") },
     features: { tagging: enabled("FEATURE_TAGGING"), suggestions: enabled("FEATURE_SUGGESTIONS") },
   };
+}
+
+// Spec §7: the tagging and suggestions switches in /config also stop the writes they cover.
+export function assertFeatureEnabled(feature: keyof AppConfigResponse["features"]): void {
+  if (!readAppConfig().features[feature]) throw new ApiError("tags_disabled");
 }

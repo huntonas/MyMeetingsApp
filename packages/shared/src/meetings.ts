@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { TagCount } from "./tags";
+
 // Official Meeting Guide type codes (github.com/code4recovery/spec data/types.json, 2026-09).
 // TC (temporarily closed) and ONL (online) are left out: `attendance` already says both.
 export const MEETING_TYPE_CODES = [
@@ -118,6 +120,9 @@ export const MeetingSummary = z.object({
   conferencePhone: Text,
   conferencePhoneNotes: Text,
   sourceUrl: WebUrl,
+  // Spec §3: the group asked not to be tagged, so the app offers no tagging and `tags` is empty.
+  tagsDisabled: z.boolean(),
+  tags: z.array(TagCount),
 });
 export type MeetingSummary = z.infer<typeof MeetingSummary>;
 

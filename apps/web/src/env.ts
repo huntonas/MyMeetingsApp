@@ -4,14 +4,23 @@ import { existsSync } from "node:fs";
 type EnvName =
   | "DATABASE_URL"
   | "DATABASE_URL_UNPOOLED"
+  | "DEVICE_ID_PEPPER"
   | "MIN_VERSION_IOS"
   | "MIN_VERSION_ANDROID"
   | "LATEST_VERSION_IOS"
   | "LATEST_VERSION_ANDROID"
   | "FEATURE_TAGGING"
   | "FEATURE_SUGGESTIONS"
+  | "SUGGESTION_MODEL"
+  | "AI_GATEWAY_BASE_URL"
+  | "REQUIRE_ATTESTATION"
   | "CENSUS_GEOCODER_URL"
-  | "CRON_SECRET";
+  | "CRON_SECRET"
+  | "VERCEL_ENV"
+  | "NEON_API_URL"
+  | "NEON_API_KEY"
+  | "NEON_PROJECT_ID"
+  | "NEON_PREVIEW_BRANCH_ID";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

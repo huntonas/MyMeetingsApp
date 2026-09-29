@@ -5,8 +5,10 @@ export const TAG_CATEGORIES = ["format", "sharing", "crowd", "feel", "practical"
 const TagCategory = z.enum(TAG_CATEGORIES);
 type TagCategory = z.infer<typeof TagCategory>;
 
+export const TagSlug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+
 const VocabularyTag = z.object({
-  slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
+  slug: TagSlug,
   label: z.string().min(1).max(40),
   category: TagCategory,
 });

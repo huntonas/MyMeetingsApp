@@ -13,13 +13,16 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:add-feed": "tsx scripts/add-feed.ts",
-    "db:seed-feeds": "tsx scripts/seed-feeds.ts"
+    "db:block-device": "tsx scripts/block-device.ts",
+    "db:seed-feeds": "tsx scripts/seed-feeds.ts",
+    "db:reset-preview": "tsx scripts/reset-preview-db.ts"
   },
   "dependencies": {
     "@mymeetingapp/feed-kit": "workspace:*",
     "@mymeetingapp/shared": "workspace:*",
     "@photostructure/tz-lookup": "^11.7.0",
     "@vercel/functions": "^3.9.9",
+    "ai": "^7.0.118",
     "drizzle-orm": "^0.45.3",
     "next": "^16.3.6",
     "pg": "^8.23.0",

@@ -50,6 +50,48 @@
       "when": 1790629211135,
       "tag": "0006_enable-pg-trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790637244465,
+      "tag": "0007_lock-timeout-tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790637244911,
+      "tag": "0008_tag-storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790638283681,
+      "tag": "0009_devices",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790639479686,
+      "tag": "0010_rate-limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790641820890,
+      "tag": "0011_tag-swings",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790642353594,
+      "tag": "0012_suggestions",
+      "breakpoints": true
     }
   ]
 }

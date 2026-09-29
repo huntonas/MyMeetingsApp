@@ -23,6 +23,8 @@ const summary = {
   conferencePhone: null,
   conferencePhoneNotes: null,
   sourceUrl: null,
+  tagsDisabled: false,
+  tags: [{ slug: "laid-back", count: 14 }],
 };
 
 describe("MeetingSearchRequest", () => {
@@ -60,6 +62,13 @@ describe("MeetingSummary", () => {
   ])("rejects %j", (change) => {
     expect(MeetingSummary.safeParse({ ...summary, ...change }).success).toBe(false);
   });
+
+  it.each([{ tags: [{ slug: "laid-back", count: 0 }] }, { tags: [{ slug: "Laid Back", count: 3 }] }])(
+    "rejects tag counts that aren't a slug with a positive count: %j",
+    (change) => {
+      expect(MeetingSummary.safeParse({ ...summary, ...change }).success).toBe(false);
+    },
+  );
 });
 
 describe("OnlineMeetingsQuery", () => {

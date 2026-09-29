@@ -93,7 +93,7 @@ describe("POST /api/v1/tags/delete-mine", () => {
   it("finds the device's rows under a merged-away meeting id", async () => {
     const { newer } = await seedDuplicateCopies();
     await tag(newer);
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
     expect(DeleteMineResponse.parse(await (await deleteMine()).json())).toEqual({ deletedTags: 1 });
     expect(await db.select().from(tagSubmissions)).toEqual([]);
   });

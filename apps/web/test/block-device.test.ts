@@ -43,7 +43,7 @@ describe("blockDevice", () => {
     await tag(newer);
     await tag(other);
     await tag(other, deviceHeaders(DEVICE_B, "android"));
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
 
     expect(await blockDevice(DEVICE_A_HASH)).toEqual({ excludedTags: 2 });
 

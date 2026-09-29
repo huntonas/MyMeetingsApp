@@ -86,7 +86,7 @@ describe("swing flags", () => {
     const { older, newer } = await seedDuplicateCopies();
     await tagFromDevices(older, 1, 5, ["serious-tone"]);
     await tagFromDevices(newer, 6, 5, ["serious-tone", "lively"]);
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
     const flags = await openFlags();
     expect(flags.map((flag) => [flag.meetingId, flag.slug]).sort()).toEqual([
       [older, "lively"],

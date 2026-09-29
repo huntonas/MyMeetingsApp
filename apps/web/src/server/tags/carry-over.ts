@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import type { Executor } from "@/db/client";
-import { meetingAliases, meetings, tagAudit, tagSubmissions, tagSwings } from "@/db/schema";
+import { meetingAliases, meetings, tagAudit, tagCounts, tagSubmissions, tagSwings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import { recountTags } from "@/server/tags/counts";
 
@@ -21,6 +21,9 @@ export async function carryTagsOnMerge(
   const losers = pairs.map((pair) => pair.loser);
   const survivors = pairs.map((pair) => pair.survivor);
   const merged = sql`unnest(${sqlArray(losers, "uuid")}, ${sqlArray(survivors, "uuid")}) as merged(loser, survivor)`;
+  // The nightly recount (recountAllTags) locks tag_counts and then key-share locks meetings as it inserts, so the
+  // merge takes its tag_counts lock before locking any meeting: the two then queue on tag_counts, never in a cycle.
+  await executor.execute(sql`lock table ${tagCounts} in row exclusive mode`);
   // Waits for tag writes holding any of these meetings (findTaggableMeeting) and keeps new ones out until the
   // merge commits, so no submission lands on a loser after its rows have moved. In id order, so two merges can't
   // deadlock.

@@ -38,8 +38,9 @@ export async function recountTags(meetingIds: string[], executor: Executor): Pro
 // Locks tag_counts in EXCLUSIVE mode first (readers, e.g. meetingTagCounts, are still allowed) so this can't
 // race a live tag write's recountTags: both insert into the same table on the same (meeting_id, tag_id) primary
 // key, and without this lock either side can hit a duplicate-key error, failing a user's write or rolling back
-// the whole nightly transaction (including the audit purge). The caller runs this last, so the lock is held only
-// as long as this one statement pair takes. Returns how many meetings have counts.
+// the nightly rebuild. The caller runs this in a transaction of its own that holds no other locks, so the lock is
+// held only as long as this one statement pair takes, and never while this waits on anything a writer holds.
+// Returns how many meetings have counts.
 export async function recountAllTags(executor: Executor): Promise<number> {
   await executor.execute(sql`lock table ${tagCounts} in exclusive mode`);
   await executor.execute(sql`delete from ${tagCounts}`);

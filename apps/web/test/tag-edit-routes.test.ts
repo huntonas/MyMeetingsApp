@@ -132,7 +132,7 @@ describe("PUT /api/v1/tags/:meetingId", () => {
     const { older, newer } = await seedDuplicateCopies();
     await post(older, ["quiet"]);
     await post(newer, ["quiet"]);
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
     expect(await db.select().from(tagSubmissions)).toHaveLength(2);
     const res = await put(newer, ["lively"]);
     expect(TagWriteResponse.parse(await res.json())).toEqual({
@@ -172,7 +172,7 @@ describe("DELETE /api/v1/tags/:meetingId", () => {
   it("finds the row of a copy that merged away", async () => {
     const { older, newer } = await seedDuplicateCopies();
     await post(newer, ["quiet"]);
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
     expect(TagWriteResponse.parse(await (await del(older)).json())).toEqual({ meetingId: older, tags: [] });
   });
 });

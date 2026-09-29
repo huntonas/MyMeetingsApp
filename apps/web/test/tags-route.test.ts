@@ -189,7 +189,7 @@ describe("POST /api/v1/tags", () => {
   it("does not add a second row for a device that tagged a copy merged into this meeting", async () => {
     const { older, newer } = await seedDuplicateCopies();
     await post({ meetingId: newer, tags: ["quiet"] });
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
     await expectError(await post({ meetingId: older, tags: ["lively"] }), 409, "already_tagged");
     await expectError(await post({ meetingId: newer, tags: ["lively"] }), 409, "already_tagged");
     expect(await rowsOn(older)).toHaveLength(1);

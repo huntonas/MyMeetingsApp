@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db, pool } from "@/db/client";
 import { meetingAliases, meetings, tagAudit, tagCounts, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { runMaintenance } from "@/server/maintenance";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
@@ -67,7 +68,7 @@ describe("tags across a merge", () => {
     await db.update(meetings).set({ tagsDisabled: true }).where(eq(meetings.id, newer));
     await recountTags([older, newer], db);
 
-    await mergeDuplicateMeetings([newer], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newer], tx));
 
     const rows = await db.select().from(tagSubmissions);
     expect(rows.map((row) => row.meetingId)).toEqual([older, older, older]);
@@ -92,7 +93,7 @@ describe("tags across a merge", () => {
       .set({ createdAt: new Date("2026-02-01T00:00:00Z") })
       .where(eq(meetings.id, middle));
     await recomputeMeetings([middle, newest]);
-    await mergeDuplicateMeetings([newest], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([newest], tx));
     const oldest = await insertMeetingWithSources([{ feedId: c, row: feedMeeting({ sourceSlug: "c" }) }]);
     await db
       .update(meetings)
@@ -101,7 +102,7 @@ describe("tags across a merge", () => {
     await recomputeMeetings([oldest]);
     await insertSubmission(middle, ["coffee"], { scopeMeetingId: newest });
 
-    await mergeDuplicateMeetings([oldest], db);
+    await db.transaction((tx) => mergeDuplicateMeetings([oldest], tx));
 
     expect(await aliases()).toEqual(
       [
@@ -157,5 +158,38 @@ describe("mergeDuplicateMeetings racing a tag write", () => {
     await merge;
     const rows = await db.select().from(tagSubmissions);
     expect(rows.map((row) => row.meetingId)).toEqual([older]);
+  });
+});
+
+describe("mergeDuplicateMeetings racing the nightly maintenance", () => {
+  it("takes turns with it, even over an audit row the nightly run purges", async () => {
+    const { older, newer } = await seedDuplicateCopies();
+    await insertSubmission(older, ["quiet"]);
+    const moving = await insertSubmission(newer, ["quiet"]);
+    await recountTags([older, newer], db);
+    await db.insert(tagAudit).values({
+      deviceHash: "a".repeat(64),
+      meetingId: newer,
+      action: "submit",
+      at: new Date(Date.now() - 8 * DAY_MS),
+    });
+    // Stalls the merge after it has locked both meetings, before it moves their tags and audit rows.
+    const holder = await pool.connect();
+    await holder.query("begin");
+    await holder.query("select 1 from tag_submissions where submitter_id = $1 for update", [moving]);
+    let mergeSettled = false;
+    const merge = db
+      .transaction((tx) => mergeDuplicateMeetings([newer], tx))
+      .finally(() => (mergeSettled = true));
+    await untilWaitingOnLock(() => mergeSettled);
+    let nightlySettled = false;
+    const nightly = runMaintenance().finally(() => (nightlySettled = true));
+    await untilWaitingOnLock(() => nightlySettled, 2);
+    await holder.query("commit");
+    holder.release();
+    await Promise.all([merge, nightly]);
+    expect((await db.select().from(tagSubmissions)).map((row) => row.meetingId)).toEqual([older, older]);
+    expect(await countsOf(older)).toEqual([["quiet", 2, 0]]);
+    expect(await db.select().from(tagAudit)).toEqual([]);
   });
 });

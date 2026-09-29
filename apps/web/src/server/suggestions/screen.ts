@@ -13,8 +13,9 @@ const Screening = z.object({
 type Screening = z.infer<typeof Screening>;
 
 const TIMEOUT_MS = 10_000;
-// A decision, a slug and one sentence fit well inside this; it caps the cost of a runaway reply.
-const MAX_OUTPUT_TOKENS = 200;
+// Caps the cost of a runaway reply. Reasoning models (such as openai/gpt-5-nano) spend output tokens thinking
+// before they answer, so this leaves room for that; the schema still bounds what is stored.
+const MAX_OUTPUT_TOKENS = 1000;
 
 function instructions(vocabulary: readonly { slug: string; label: string }[]): string {
   return [
@@ -44,7 +45,8 @@ export async function screenSuggestion(
     instructions: instructions(vocabulary),
     prompt: text,
     output: Output.object({ schema: Screening }),
-    providerOptions: { gateway: { zeroDataRetention: true } },
+    // reasoningEffort only reaches OpenAI models; a one-line classification needs no deliberation.
+    providerOptions: { gateway: { zeroDataRetention: true }, openai: { reasoningEffort: "minimal" } },
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(TIMEOUT_MS),

@@ -1,19 +1,24 @@
-import { TagWriteResponse } from "@mymeetingapp/shared";
+import { MeetingDetailResponse, TagWriteResponse } from "@mymeetingapp/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { GET as getMeeting } from "@/app/api/v1/meetings/[id]/route";
 import { DELETE, PUT } from "@/app/api/v1/tags/[meetingId]/route";
 import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
 import { devices, meetings, rateLimits, tagAudit, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
 import { resetDb } from "./db";
+import { feedMeeting, seedFeed } from "./feed-fixtures";
 import {
   DEVICE_A_HASH,
   DEVICE_B,
   deviceHeaders,
+  elsewhere,
+  meetingIdOfSlug,
   seedDuplicateCopies,
   seedMeetingStarted,
 } from "./tag-fixtures";
@@ -199,5 +204,46 @@ describe("DELETE and the device checks", () => {
       "attestation_failed",
     );
     expect(await db.select().from(tagSubmissions)).toHaveLength(1);
+  });
+});
+
+describe("a tagged meeting the feed sync merges away", () => {
+  it("keeps the device's tags reachable by the old id", async () => {
+    const start = new Date(Date.now() - 3_600_000);
+    const listing = (sourceSlug: string, overrides: Parameters<typeof feedMeeting>[0] = {}) =>
+      feedMeeting({
+        timezone: "UTC",
+        day: start.getUTCDay(),
+        time: start.toISOString().slice(11, 16),
+        ...overrides,
+        sourceSlug,
+      });
+    const [a, b] = [await seedFeed("a"), await seedFeed("b")];
+    await applyFeedSnapshot(a, [listing("a")]);
+    await applyFeedSnapshot(b, [listing("b", elsewhere(1))]);
+    const [older, newer] = [await meetingIdOfSlug("a"), await meetingIdOfSlug("b")];
+    expect(newer).not.toBe(older);
+    expect((await post(newer, ["quiet"])).status).toBe(201);
+
+    // Feed b moves its listing to feed a's address, so this sync merges the newer meeting into the older.
+    await applyFeedSnapshot(b, [listing("b")]);
+    expect(await meetingIdOfSlug("b")).toBe(older);
+
+    await expectError(await post(older, ["lively"]), 409, "already_tagged");
+    const edited = await put(newer, ["lively"]);
+    expect(edited.status).toBe(200);
+    expect(TagWriteResponse.parse(await edited.json())).toEqual({
+      meetingId: older,
+      tags: [{ slug: "lively", count: 1 }],
+    });
+    const detail = await getMeeting(new Request(`http://test/api/v1/meetings/${newer}`), {
+      params: Promise.resolve({ id: newer }),
+    });
+    expect(detail.status).toBe(200);
+    expect(MeetingDetailResponse.parse(await detail.json()).meeting.id).toBe(older);
+    const deleted = await del(newer);
+    expect(deleted.status).toBe(200);
+    expect(TagWriteResponse.parse(await deleted.json())).toEqual({ meetingId: older, tags: [] });
+    expect(await db.select().from(tagSubmissions)).toEqual([]);
   });
 });

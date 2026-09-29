@@ -4,7 +4,6 @@ import type { Executor } from "@/db/client";
 import { tagSubmissions } from "@/db/schema";
 import { submitterId, submitterIds } from "@/server/devices/ids";
 import { submitterScopes } from "@/server/meetings/aliases";
-import { recountTags } from "@/server/tags/counts";
 import { lockMeetingsForTags } from "@/server/tags/taggable-meeting";
 
 const SUBMITTER_ID_BATCH = 5_000;
@@ -114,12 +113,14 @@ async function lockMeetingsHolding(batches: string[][], executor: Executor): Pro
 }
 
 // Spec §6 and §7: deletes (delete-mine) or excludes (blockDevice) every row the device wrote, merged-away scopes
-// included, and recounts the meetings they're on. Call it after the device lock. Returns how many rows changed.
+// included. Call it after the device lock. Returns how many rows changed and the meetings they're on, which the
+// caller recounts as its very last step: tag_counts is the last lock every tag writer takes, as the nightly
+// maintenance takes it last too (after locking the rows it purges), so the two can't wait on each other in a cycle.
 export async function changeEverySubmission(
   deviceHash: string,
   change: "delete" | "exclude",
   executor: Executor,
-): Promise<number> {
+): Promise<{ changed: number; meetingIds: string[] }> {
   const batches = await everySubmitterIdBatch(deviceHash, executor);
   const meetingIds = await lockMeetingsHolding(batches, executor);
   let changed = 0;
@@ -138,6 +139,5 @@ export async function changeEverySubmission(
             .returning({ meetingId: tagSubmissions.meetingId });
     changed += rows.length;
   }
-  await recountTags(meetingIds, executor);
-  return changed;
+  return { changed, meetingIds };
 }

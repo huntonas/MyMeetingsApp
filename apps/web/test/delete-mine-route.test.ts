@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db/client";
 import { aiDecisions, devices, rateLimits, suggestions, tagAudit, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { runMaintenance } from "@/server/maintenance";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
 import { resetDb, untilWaitingOnLock } from "./db";
@@ -147,6 +148,33 @@ describe("POST /api/v1/tags/delete-mine", () => {
       const res = await whileTagWriteHolds(meetingId, () => deleteMine());
       expect(res.status).toBe(200);
       expect(await countsOf(meetingId)).toEqual([["quiet", 1, 0]]);
+    });
+
+    it("takes turns with the nightly maintenance", async () => {
+      const meetingId = await seedMeetingStarted(1);
+      await tag(meetingId);
+      // Old enough for the nightly run to unlink, so both lock this row.
+      await db.insert(suggestions).values({
+        text: "Candlelight",
+        deviceHash: DEVICE_A_HASH,
+        createdAt: new Date(Date.now() - 31 * 86_400_000),
+      });
+      // Stalls delete-mine after it has changed the device's tag rows, before it deletes its audit rows.
+      const holder = await pool.connect();
+      await holder.query("begin");
+      await holder.query("select 1 from tag_audit where device_hash = $1 for update", [DEVICE_A_HASH]);
+      let deleteSettled = false;
+      const deleting = deleteMine().finally(() => (deleteSettled = true));
+      await untilWaitingOnLock(() => deleteSettled);
+      let nightlySettled = false;
+      const nightly = runMaintenance().finally(() => (nightlySettled = true));
+      await untilWaitingOnLock(() => nightlySettled, 2);
+      await holder.query("commit");
+      holder.release();
+      const [res] = await Promise.all([deleting, nightly]);
+      expect(res.status).toBe(200);
+      expect(await db.select().from(tagSubmissions)).toEqual([]);
+      expect(await countsOf(meetingId)).toEqual([]);
     });
 
     it("takes turns with the sync's merge of a meeting it holds a row on", async () => {

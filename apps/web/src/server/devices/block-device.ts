@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { devices } from "@/db/schema";
 import { lockDevice } from "@/server/devices/write-request";
+import { recountTags } from "@/server/tags/counts";
 import { changeEverySubmission } from "@/server/tags/own-submissions";
 
 // Spec §6: the admin blocks a device found through a flagged swing's audit rows. Its later writes get
@@ -21,6 +22,8 @@ export async function blockDevice(deviceHash: string): Promise<{ excludedTags: n
   if (blocked.length === 0) throw new Error("No device has that hash");
   return db.transaction(async (tx) => {
     await lockDevice(deviceHash, tx);
-    return { excludedTags: await changeEverySubmission(deviceHash, "exclude", tx) };
+    const excluded = await changeEverySubmission(deviceHash, "exclude", tx);
+    await recountTags(excluded.meetingIds, tx);
+    return { excludedTags: excluded.changed };
   });
 }

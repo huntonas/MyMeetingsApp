@@ -120,7 +120,10 @@ export async function approveSuggestion(input: z.output<typeof ApproveSuggestion
       })
       .onConflictDoNothing({ target: tags.slug })
       .returning({ id: tags.id });
-    if (tag === undefined) return "tag_exists";
+    if (tag === undefined) {
+      const [existing] = await tx.select({ status: tags.status }).from(tags).where(eq(tags.slug, slug));
+      return existing?.status === "retired" ? "tag_retired" : "tag_exists";
+    }
     await markReviewed(input.suggestionId, "approved", tag.id, tx);
     return "approved";
   });

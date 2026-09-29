@@ -99,6 +99,9 @@ describe("listRecentAiDecisions", () => {
 describe("approveSuggestion (spec §5)", () => {
   it("adds an active tag from the label, last in the vocabulary order, and unlinks the device", async () => {
     const id = await pendingSuggestion("Big print books");
+    const lastSortOrder = Math.max(
+      ...(await db.select({ sortOrder: tags.sortOrder }).from(tags)).map((tag) => tag.sortOrder),
+    );
     expect(
       await approveSuggestion({ suggestionId: id, label: "Large print books", category: "practical" }),
     ).toBe("approved");
@@ -107,7 +110,7 @@ describe("approveSuggestion (spec §5)", () => {
       label: "Large print books",
       category: "practical",
       status: "active",
-      sortOrder: 26,
+      sortOrder: lastSortOrder + 1,
     });
     const row = await suggestionRow(id);
     expect(row).toMatchObject({ status: "approved", mergedTagId: tag?.id, deviceHash: null });
@@ -124,6 +127,15 @@ describe("approveSuggestion (spec §5)", () => {
     const id = await pendingSuggestion("Laid-back");
     expect(await approveSuggestion({ suggestionId: id, label: "Laid-back", category: "format" })).toBe(
       "tag_exists",
+    );
+    expect(await suggestionRow(id)).toMatchObject({ status: "pending", deviceHash: DEVICE_A_HASH });
+  });
+
+  it("says so when the label makes a retired tag's slug, leaving the suggestion pending", async () => {
+    await db.update(tags).set({ status: "retired" }).where(eq(tags.slug, "laid-back"));
+    const id = await pendingSuggestion("Laid-back");
+    expect(await approveSuggestion({ suggestionId: id, label: "Laid-back", category: "format" })).toBe(
+      "tag_retired",
     );
     expect(await suggestionRow(id)).toMatchObject({ status: "pending", deviceHash: DEVICE_A_HASH });
   });

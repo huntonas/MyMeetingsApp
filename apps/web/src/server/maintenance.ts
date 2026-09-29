@@ -1,4 +1,4 @@
-import { and, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, isNotNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
@@ -14,12 +14,12 @@ export const MaintenanceSummary = z.object({
 });
 export type MaintenanceSummary = z.infer<typeof MaintenanceSummary>;
 
-// Spec §5, §6 and §13, nightly and idempotent: rebuild every count, then enforce each retention limit. Blocked
-// devices are purged like any other once inactive: blocking only stops future writes, and nothing else keys off
-// the row once its retention window has passed.
+// Spec §5, §6 and §13, nightly and idempotent: enforce each retention limit, then rebuild every count last, so
+// the brief EXCLUSIVE lock recountAllTags takes on tag_counts (see there) doesn't hold up the other purges a
+// moment longer than it has to. Blocked devices are exempt from the 13-month purge: blocking is a standing
+// decision the owner made, and even delete-mine can't undo it, so the row must outlive inactivity too.
 export async function runMaintenance(): Promise<MaintenanceSummary> {
   return db.transaction(async (tx) => {
-    const meetingsWithTags = await recountAllTags(tx);
     const audit = await tx
       .delete(tagAudit)
       .where(lt(tagAudit.at, sql`now() - interval '7 days'`))
@@ -38,8 +38,14 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
       .returning({ id: suggestions.id });
     const purged = await tx
       .delete(devices)
-      .where(lt(devices.lastSeenDate, sql`((now() at time zone 'utc') - interval '13 months')::date`))
+      .where(
+        and(
+          eq(devices.blocked, false),
+          lt(devices.lastSeenDate, sql`((now() at time zone 'utc') - interval '13 months')::date`),
+        ),
+      )
       .returning({ deviceHash: devices.deviceHash });
+    const meetingsWithTags = await recountAllTags(tx);
     return {
       meetingsWithTags,
       auditRowsPurged: audit.length,

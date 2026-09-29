@@ -178,7 +178,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
   - Each write: iOS sends an App Attest assertion over the SHA-256 of the request body plus timestamp; the server checks the signature and that the counter increased. Android sends a Play Integrity token whose request hash matches the body.
 - **Abuse-review log:** `tag_audit(device_hash, meeting_id, action, at)`, purged after 7 days. This is the only place a device is linked to meetings, and it exists so the admin can identify and block devices behind a flagged swing.
 - **Pattern check (flag for review, never auto-block):** sudden one-sided tag swings on a meeting (e.g. one tag gaining 5+ new devices within 48 hours on a meeting that had fewer than 10 in total). No cross-meeting or device-cluster analysis.
-- **Blocking:** the admin marks a device `blocked`. Its future writes are rejected with `device_blocked`, and the server sets `excluded = true` on its past rows by computing its `submitter_id` for every meeting (about 60k HMACs, which is fast), then recomputes counts for affected meetings.
+- **Blocking:** the admin marks a device `blocked`. Its future writes are rejected with `device_blocked`, and the server sets `excluded = true` on its past rows by computing its `submitter_id` for every meeting (about 60k HMACs, which is fast), then recomputes counts for affected meetings. A blocked device's row is exempt from the 13-month inactivity purge: blocking is a standing decision, not undone by inactivity or by delete-mine.
 
 ## 7. API (`/api/v1`)
 
@@ -291,15 +291,15 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 ## 13. Data inventory (source of truth for the privacy policy)
 
-| Stored on server    | Contents                                                                   | Linked to          | Retention                                       |
-| ------------------- | -------------------------------------------------------------------------- | ------------------ | ----------------------------------------------- |
-| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else       | until delete-mine; inactive 13 months → deleted |
-| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                         | one meeting only   | until edited/deleted; counts only use 180 days  |
-| `tag_audit`         | device hash, meeting, action, time                                         | device + meeting   | 7 days                                          |
-| `rate_limits`       | device hash, bucket, count                                                 | device only        | 2 days                                          |
-| `suggestions`       | text, AI decision; device hash until reviewed                              | device (temporary) | text kept; device link ≤ 30 days                |
-| Search request      | rounded lat/lng (~1 km)                                                    | nothing            | not stored; used for one query                  |
-| Vercel request logs | IP, path, time                                                             | nothing we control | Vercel plan retention                           |
+| Stored on server    | Contents                                                                   | Linked to          | Retention                                                                      |
+| ------------------- | -------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else       | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6) |
+| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                         | one meeting only   | until edited/deleted; counts only use 180 days                                 |
+| `tag_audit`         | device hash, meeting, action, time                                         | device + meeting   | 7 days                                                                         |
+| `rate_limits`       | device hash, bucket, count                                                 | device only        | 2 days                                                                         |
+| `suggestions`       | text, AI decision; device hash until reviewed                              | device (temporary) | text kept; device link ≤ 30 days                                               |
+| Search request      | rounded lat/lng (~1 km)                                                    | nothing            | not stored; used for one query                                                 |
+| Vercel request logs | IP, path, time                                                             | nothing we control | Vercel plan retention                                                          |
 
 | Stays on the phone                                                                                                                                                                        |     |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |

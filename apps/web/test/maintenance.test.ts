@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "@/app/api/cron/maintenance/route";
@@ -7,8 +7,9 @@ import { db, pool } from "@/db/client";
 import { devices, rateLimits, suggestions, tagAudit, tagCounts } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
+import { recountTags } from "@/server/tags/counts";
 
-import { resetDb } from "./db";
+import { resetDb, untilWaitingOnLock } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -37,6 +38,18 @@ function cron(authorization?: string) {
       headers: authorization === undefined ? {} : { Authorization: authorization },
     }),
   );
+}
+
+// The exact cutoff `runMaintenance` uses, straight from Postgres, so the boundary test doesn't reimplement
+// calendar-month arithmetic and risk disagreeing with it.
+async function purgeBoundary(): Promise<string> {
+  const [row] = (
+    await db.execute<{ boundary: string }>(
+      sql`select ((now() at time zone 'utc') - interval '13 months')::date as boundary`,
+    )
+  ).rows;
+  if (row === undefined) throw new Error("no boundary computed");
+  return row.boundary;
 }
 
 describe("runMaintenance", () => {
@@ -87,27 +100,51 @@ describe("runMaintenance", () => {
     ]);
   });
 
-  it("deletes devices inactive for 13 months", async () => {
+  it("deletes a device inactive for 13 months, keeping one still exactly at the boundary", async () => {
+    const boundary = await purgeBoundary();
+    const dayBefore = utcDate(new Date(new Date(`${boundary}T00:00:00Z`).getTime() - DAY_MS));
     await db.insert(devices).values([
-      { deviceHash: "a".repeat(64), platform: "ios", lastSeenDate: utcDate(daysAgo(400)) },
-      { deviceHash: "b".repeat(64), platform: "android", lastSeenDate: utcDate(daysAgo(360)) },
+      { deviceHash: "a".repeat(64), platform: "ios", lastSeenDate: dayBefore },
+      { deviceHash: "b".repeat(64), platform: "android", lastSeenDate: boundary },
     ]);
     expect((await runMaintenance()).devicesPurged).toBe(1);
     expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual(["b".repeat(64)]);
+  });
+
+  it("keeps a blocked device past 13 months of inactivity", async () => {
+    await db.insert(devices).values([
+      { deviceHash: "a".repeat(64), platform: "ios", lastSeenDate: utcDate(daysAgo(400)), blocked: true },
+      { deviceHash: "b".repeat(64), platform: "android", lastSeenDate: utcDate(daysAgo(400)) },
+    ]);
+    expect((await runMaintenance()).devicesPurged).toBe(1);
+    expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual(["a".repeat(64)]);
   });
 
   it("leaves no table linking a device to the meetings it tagged once 7 days pass", async () => {
     const first = await seedMeetingStarted(1, elsewhere(1));
     const second = await seedMeetingStarted(1, elsewhere(2));
     for (const meetingId of [first, second]) {
-      await POST(
+      const res = await POST(
         new Request("http://test/api/v1/tags", {
           method: "POST",
           headers: deviceHeaders(),
           body: JSON.stringify({ meetingId, tags: ["quiet"] }),
         }),
       );
+      expect(res.status).toBe(201);
     }
+    // Positive control: before the purge, tag_audit really does link this device to both meetings.
+    expect(
+      (
+        await db
+          .select({ meetingId: tagAudit.meetingId })
+          .from(tagAudit)
+          .where(eq(tagAudit.deviceHash, DEVICE_A_HASH))
+      )
+        .map((row) => row.meetingId)
+        .sort(),
+    ).toEqual([first, second].sort());
+
     await db.update(tagAudit).set({ at: daysAgo(8) });
     await runMaintenance();
     const tables = await db.execute<{ table_name: string }>(
@@ -124,6 +161,36 @@ describe("runMaintenance", () => {
         }
       }
     }
+  });
+
+  it("lets a concurrent tag write finish while the nightly recount runs, both succeeding with correct counts", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    await insertSubmission(meetingId, ["quiet"]);
+    await runMaintenance();
+    // A second device confirms; tag_counts doesn't reflect it yet.
+    await insertSubmission(meetingId, ["quiet"]);
+
+    // Hold a tag write's own recount open mid-transaction, exactly as submitTags leaves it before committing.
+    let release: () => void = () => undefined;
+    const hold = new Promise<void>((resolve) => (release = resolve));
+    let ready: () => void = () => undefined;
+    const writeReady = new Promise<void>((resolve) => (ready = resolve));
+    const write = db.transaction(async (tx) => {
+      await recountTags([meetingId], tx);
+      ready();
+      await hold;
+    });
+    await writeReady;
+
+    let settled = false;
+    const nightly = runMaintenance().finally(() => (settled = true));
+    await untilWaitingOnLock(() => settled);
+    release();
+    await write;
+    const summary = await nightly;
+
+    expect(summary.meetingsWithTags).toBe(1);
+    expect(await countsOf(meetingId)).toEqual([["quiet", 2, 0]]);
   });
 });
 

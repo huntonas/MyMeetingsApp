@@ -14,8 +14,8 @@
       "includeEntryExports": false
     },
     "apps/web": {
-      "entry": ["scripts/*.ts!"],
-      "project": ["src/**/*.{ts,tsx}!", "scripts/**/*.ts!", "test/**/*.ts", "*.ts"]
+      "entry": ["scripts/*.ts!", "vitest.e2e.config.ts", "test/*.e2e.ts"],
+      "project": ["src/**/*.{ts,tsx}!", "scripts/**/*.ts!", "test/**/*.{ts,tsx}", "*.ts"]
     }
   }
 }

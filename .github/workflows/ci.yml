@@ -33,8 +33,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm knip:production
-      - name: Build without a database
-        run: pnpm --filter web build
+      - name: Build without a database, then run the end-to-end tests against it
+        run: pnpm --filter web test:e2e
         env:
-          DATABASE_URL: ""
           NEXT_TELEMETRY_DISABLED: "1"

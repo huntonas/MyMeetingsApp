@@ -16,6 +16,7 @@ import {
   RejectSuggestionForm,
 } from "@/server/admin/suggestions";
 import { blockSwingDevice, BlockSwingDeviceForm, closeSwing, CloseSwingForm } from "@/server/admin/swings";
+import { setTagRetired, TagStatusForm } from "@/server/admin/vocabulary";
 
 // Every admin Server Action. Each one is adminAction(page to return to, form, change).
 export const approveSuggestionAction = adminAction(
@@ -45,3 +46,4 @@ export const setMeetingTagsAction = adminAction(
   setMeetingTagsDisabled,
 );
 export const setFeedOptOutAction = adminAction("/metrics/opt-outs", FeedOptOutForm, setFeedOptedOut);
+export const setTagRetiredAction = adminAction("/metrics/vocabulary", TagStatusForm, setTagRetired);

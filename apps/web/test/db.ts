@@ -4,6 +4,8 @@ import { db } from "@/db/client";
 
 // Add each new table here when it is created.
 const APP_TABLES = [
+  "ai_decisions",
+  "suggestions",
   "rate_limits",
   "devices",
   "tag_audit",

@@ -4,7 +4,7 @@ import type { Executor } from "@/db/client";
 import { type RateLimitBucket, rateLimits } from "@/db/schema";
 import { ApiError } from "@/lib/api/respond";
 
-const DAILY_LIMITS: Record<RateLimitBucket, number> = { tag_submission: 10 };
+const DAILY_LIMITS: Record<RateLimitBucket, number> = { tag_submission: 10, suggestion: 5 };
 
 // Spec §5: counted per device per UTC day in Postgres. One statement increments only while under the limit, so
 // two requests can't both take the last slot. Call it after every other check, inside the write's transaction,

@@ -28,6 +28,11 @@ const SUCCESS_INTERVAL = sql`interval '7 days'`;
 const RETRY_INTERVAL = sql`interval '1 day'`;
 const SHRINK_GUARD_MINIMUM = 20;
 
+// A feed that has gone longer than this without a success has missed its weekly sync and its retry (owner decision
+// 1; /metrics shows it). Parenthesized so it stays 8 days wherever it's substituted after a `-`: without the
+// parentheses, `now() - a + b` reads as `(now() - a) + b`, not `now() - (a + b)`.
+export const FEED_OVERDUE_AFTER = sql`(${SUCCESS_INTERVAL} + ${RETRY_INTERVAL})`;
+
 type Feed = typeof feeds.$inferSelect;
 type Outcome = "synced" | "unchanged" | "failed";
 

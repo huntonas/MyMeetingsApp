@@ -210,3 +210,46 @@ h3 {
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Admin pages: wider, same calm look. */
+.admin {
+  max-width: 64rem;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+
+.totals div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.totals dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.totals dd {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}

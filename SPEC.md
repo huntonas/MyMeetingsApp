@@ -258,7 +258,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - Protected by HTTP Basic Auth in `proxy.ts` (Next.js 16's replacement for middleware), constant-time credential comparison, HTTPS only, `noindex`, `no-store`, rate-limited failed logins. A Vercel Firewall rule on `/metrics` limits each visitor, so the app stores no IP address. As a backstop, failed logins are also counted in `rate_limits` under one site-wide `metrics_login` bucket: after 200 in a UTC day, every sign-in is refused until the next day. No IP address or device is stored.
 - Admin actions use Server Actions (Next.js checks the request origin) so Basic Auth can't be abused through CSRF.
 - Server components query Postgres directly; no public metrics endpoint.
-- **Shows:** active devices (7 and 30 days, from `last_seen_date`), new tag submissions this week, share with the attendance check, meetings with at least one tag vs. total, pending suggestions, submissions per day (14 days), top tags (30 days), platform split, per-feed sync health (flag feeds without a successful sync in 30 hours).
+- **Shows:** active devices (7 and 30 days, from `last_seen_date`), new tag submissions this week, share with the attendance check, meetings with at least one tag vs. total, pending suggestions, submissions per day (14 days), top tags (30 days), platform split, per-feed sync health (flag feeds whose last attempt failed, or that have been tried without a success for 8 days: the weekly sync plus its one-day retry).
 - **Admin views:** suggestion review, AI decision log, flagged tag swings (with the 7-day audit rows needed to block), block device, per-meeting `tags_disabled`, feed `opted_out`.
 
 ## 11. Store requirements

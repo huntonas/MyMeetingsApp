@@ -5,6 +5,7 @@ import type { Executor } from "@/db/client";
 import { meetings, tagCounts, tagSubmissions } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import { tagCountsJson } from "@/server/meetings/summary";
+import { RETENTION } from "@/server/retention";
 
 // Spec §5: a tag's count on a meeting is the number of non-excluded submissions that include it and were confirmed
 // in the last 180 days. A device has one row per meeting, and counting distinct submitters keeps a row that lists a
@@ -18,7 +19,7 @@ function insertCounts(executor: Executor, where: SQL) {
       select s.meeting_id, tag_id, count(distinct s.submitter_id),
         count(distinct s.submitter_id) filter (where s.near_meeting)
       from ${tagSubmissions} s cross join lateral unnest(s.tag_ids) tag_id
-      where ${where} and not s.excluded and s.confirmed_at > now() - interval '180 days'
+      where ${where} and not s.excluded and s.confirmed_at > now() - make_interval(days => ${RETENTION.countWindowDays}::int)
       group by s.meeting_id, tag_id
       returning meeting_id
     )

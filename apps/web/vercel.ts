@@ -6,6 +6,10 @@ import type { VercelConfig } from "@vercel/config/v1";
 export const config: VercelConfig = {
   framework: "nextjs",
   buildCommand: "pnpm run db:reset-preview && pnpm run db:migrate && pnpm run build",
-  // Every 15 minutes (spec §3). Needs Vercel Pro: Hobby allows only daily crons.
-  crons: [{ path: "/api/cron/sync-feeds", schedule: "*/15 * * * *" }],
+  crons: [
+    // Every 15 minutes (spec §3). Needs Vercel Pro: Hobby allows only daily crons.
+    { path: "/api/cron/sync-feeds", schedule: "*/15 * * * *" },
+    // Nightly at 08:00 UTC, 3-4 am across the continental US (spec §7).
+    { path: "/api/cron/maintenance", schedule: "0 8 * * *" },
+  ],
 };

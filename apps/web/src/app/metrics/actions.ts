@@ -2,6 +2,12 @@
 
 import { adminAction } from "@/app/metrics/admin-action";
 import {
+  FeedOptOutForm,
+  MeetingOptOutForm,
+  setFeedOptedOut,
+  setMeetingTagsDisabled,
+} from "@/server/admin/opt-outs";
+import {
   approveSuggestion,
   ApproveSuggestionForm,
   mergeSuggestion,
@@ -33,3 +39,9 @@ export const blockSwingDeviceAction = adminAction(
   blockSwingDevice,
 );
 export const closeSwingAction = adminAction("/metrics/swings", CloseSwingForm, closeSwing);
+export const setMeetingTagsAction = adminAction(
+  "/metrics/opt-outs",
+  MeetingOptOutForm,
+  setMeetingTagsDisabled,
+);
+export const setFeedOptOutAction = adminAction("/metrics/opt-outs", FeedOptOutForm, setFeedOptedOut);

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import type { Executor } from "@/db/client";
+import { meetingAliases, meetings, tagAudit, tagSubmissions, tagSwings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import { recountTags } from "@/server/tags/counts";
 
@@ -24,33 +25,33 @@ export async function carryTagsOnMerge(
   // merge commits, so no submission lands on a loser after its rows have moved. In id order, so two merges can't
   // deadlock.
   await executor.execute(sql`
-    select 1 from meetings where id = any(${sqlArray([...losers, ...survivors], "uuid")}) order by id for update
+    select 1 from ${meetings} where id = any(${sqlArray([...losers, ...survivors], "uuid")}) order by id for update
   `);
   await executor.execute(sql`
-    update meeting_aliases a set meeting_id = merged.survivor from ${merged} where a.meeting_id = merged.loser
+    update ${meetingAliases} a set meeting_id = merged.survivor from ${merged} where a.meeting_id = merged.loser
   `);
   await executor.execute(sql`
-    insert into meeting_aliases (old_meeting_id, meeting_id) select loser, survivor from ${merged}
+    insert into ${meetingAliases} (old_meeting_id, meeting_id) select loser, survivor from ${merged}
   `);
   await executor.execute(sql`
-    update tag_submissions s set meeting_id = merged.survivor from ${merged} where s.meeting_id = merged.loser
+    update ${tagSubmissions} s set meeting_id = merged.survivor from ${merged} where s.meeting_id = merged.loser
   `);
   await executor.execute(sql`
-    update tag_audit a set meeting_id = merged.survivor from ${merged} where a.meeting_id = merged.loser
+    update ${tagAudit} a set meeting_id = merged.survivor from ${merged} where a.meeting_id = merged.loser
   `);
   await executor.execute(sql`
-    update meetings survivor set tags_disabled = true
-    from ${merged} join meetings loser on loser.id = merged.loser
+    update ${meetings} survivor set tags_disabled = true
+    from ${merged} join ${meetings} loser on loser.id = merged.loser
     where survivor.id = merged.survivor and loser.tags_disabled
   `);
   // A loser's open flag moves unless the survivor already has one open for that tag; a duplicate is dropped.
   await executor.execute(sql`
-    update tag_swings w set meeting_id = merged.survivor from ${merged}
+    update ${tagSwings} w set meeting_id = merged.survivor from ${merged}
     where w.meeting_id = merged.loser and (w.reviewed_at is not null or not exists (
-      select 1 from tag_swings open_flag
+      select 1 from ${tagSwings} open_flag
       where open_flag.meeting_id = merged.survivor and open_flag.tag_id = w.tag_id and open_flag.reviewed_at is null
     ))
   `);
-  await executor.execute(sql`delete from tag_swings where meeting_id = any(${sqlArray(losers, "uuid")})`);
+  await executor.execute(sql`delete from ${tagSwings} where meeting_id = any(${sqlArray(losers, "uuid")})`);
   await recountTags([...new Set([...losers, ...survivors])], executor);
 }

@@ -1,8 +1,8 @@
 import type { TagCount } from "@mymeetingapp/shared";
-import { type SQL, eq, inArray, sql } from "drizzle-orm";
+import { type SQL, eq, sql } from "drizzle-orm";
 
 import type { Executor } from "@/db/client";
-import { meetings, tagCounts } from "@/db/schema";
+import { meetings, tagCounts, tagSubmissions } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import { tagCountsJson } from "@/server/meetings/summary";
 
@@ -17,7 +17,7 @@ function insertCounts(executor: Executor, where: SQL) {
       insert into ${tagCounts} (meeting_id, tag_id, device_count, verified_count)
       select s.meeting_id, tag_id, count(distinct s.submitter_id),
         count(distinct s.submitter_id) filter (where s.near_meeting)
-      from tag_submissions s cross join lateral unnest(s.tag_ids) tag_id
+      from ${tagSubmissions} s cross join lateral unnest(s.tag_ids) tag_id
       where ${where} and not s.excluded and s.confirmed_at > now() - interval '180 days'
       group by s.meeting_id, tag_id
       returning meeting_id
@@ -29,8 +29,9 @@ function insertCounts(executor: Executor, where: SQL) {
 // Recounts these meetings in the caller's transaction, after any change to their submissions.
 export async function recountTags(meetingIds: string[], executor: Executor): Promise<void> {
   if (meetingIds.length === 0) return;
-  await executor.delete(tagCounts).where(inArray(tagCounts.meetingId, meetingIds));
-  await insertCounts(executor, sql`s.meeting_id = any(${sqlArray(meetingIds, "uuid")})`);
+  const ids = sqlArray(meetingIds, "uuid");
+  await executor.delete(tagCounts).where(sql`${tagCounts.meetingId} = any(${ids})`);
+  await insertCounts(executor, sql`s.meeting_id = any(${ids})`);
 }
 
 // Spec §5: the nightly rebuild expires submissions older than 180 days and applies exclusions everywhere.

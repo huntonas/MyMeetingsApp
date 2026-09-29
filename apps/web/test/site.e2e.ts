@@ -17,4 +17,10 @@ describe("the public site", () => {
     expect(res.headers.get("set-cookie")).toBeNull();
     expect(await res.text()).not.toMatch(/<script[^>]+src="https?:\/\//);
   });
+
+  it("builds the structured data with the site URL", async () => {
+    const html = await (await fetch(`${E2E_URL}/`)).text();
+    expect(html).toContain('"@type":"MobileApplication"');
+    expect(html).toContain('"url":"https://mymeetingapp.test"');
+  });
 });

@@ -58,7 +58,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     title: "Your tags on a meeting",
     what: "The tags you chose for one meeting, whether the app confirmed you were near it (yes or no, never where you were), the dates, and whether we've set them aside because we blocked the phone for spam. They're stored under an ID made for that meeting alone, so someone with only a copy of our database can't connect your tags on two meetings.",
     linkedTo:
-      "That one meeting. Our server works out which rows are one phone's only when you use “Delete all my tags” or when we block a phone for spam.",
+      "That one meeting. Our server finds one phone's tags on different meetings only when you use “Delete all my tags” or when we block a phone for spam.",
     kept: `Until you change or remove them. The counts in the app only include tags confirmed in the last ${String(RETENTION.countWindowDays)} days.`,
   },
   {
@@ -85,7 +85,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     title: "Abuse-review log",
     what: "Your phone's hash, a meeting, whether you added or changed tags, and when.",
     linkedTo:
-      "Your phone and one meeting. This is the only stored link between a phone and a meeting, kept so we can find and block spam.",
+      "Your phone and one meeting. This is the only link between a phone and a meeting in our database, kept so we can find and block spam.",
     kept: `${String(RETENTION.auditDays)} days, then deleted in the next nightly cleanup.`,
   },
   {
@@ -181,7 +181,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     },
     table: null,
     title: "Hosting request logs",
-    what: "Our host, Vercel, records each request's IP address, the page or API path, and the time.",
+    what: "Our host, Vercel, records each request's IP address, the page or API path, and the time. When the app loads a meeting or saves your tags, the path names that meeting.",
     linkedTo: "Nothing we control. We never add request contents, headers or locations to these logs.",
     kept: "For the short time Vercel's plan keeps them. We don't copy them anywhere.",
   },

@@ -29,7 +29,7 @@ Hosting: **Vercel Pro** for the Next.js app, **Neon** for the database.
 These override convenience everywhere. Flag any conflict instead of working around it.
 
 - **No accounts.** No name, email, phone, or login anywhere.
-- **The server knows meetings, not people.** Nothing stored links a device to the meetings it tagged, apart from a 7-day abuse-review log (section 6): tag rows carry only a per-meeting submitter ID, so a copy of the database alone can't join one device's tags across meetings. The server works out one device's rows (from its hash and the pepper) only for delete-mine and for blocking a device, and never stores or returns that list.
+- **The server knows meetings, not people.** Nothing in our database links a device to the meetings it tagged, apart from a 7-day abuse-review log (section 6): tag rows carry only a per-meeting submitter ID, so a copy of the database alone can't join one device's tags across meetings. Each tag write computes the device's submitter ID for that one meeting; the server finds one device's rows across meetings (from its hash and the pepper) only for delete-mine and for blocking a device, and never stores or returns that list. The platform's request logs (Vercel) hold IP addresses with paths that can name a meeting (section 13).
 - **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple or Google, to find a place).
 - **Device IDs are stored only as a keyed hash:** `device_hash = HMAC-SHA256(k_device, platform + ":" + rawId)`. The raw ID is never stored or logged. Keys are derived from `DEVICE_ID_PEPPER` via HKDF. The pepper can't be rotated without breaking every existing link, so treat it as permanent.
 - **Tag rows use a per-meeting submitter ID:** `submitter_id = HMAC-SHA256(k_submitter, device_hash + ":" + meetingId)`. The same device always gets the same ID for the same meeting, so it can edit or delete its tags at any time, but rows can't be joined across meetings.
@@ -305,7 +305,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | Search request      | rounded lat/lng (~1 km)                                                    | nothing                                                 | not stored; used for one query                                                 |
 | Vercel request logs | IP, path, time                                                             | nothing we control                                      | Vercel plan retention                                                          |
 
-| Stays on the phone                                                                                                                                                                        |     |
+| Stays on the phone (never reaches our server)                                                                                                                                             |     |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
 | exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features |     |
 

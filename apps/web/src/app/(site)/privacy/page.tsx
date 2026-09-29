@@ -27,11 +27,11 @@ export default function PrivacyPage() {
         <li>No accounts. We never ask for your name, email or phone number.</li>
         <li>We know your phone only by a keyed hash of the app&apos;s ID for it, never the ID itself.</li>
         <li>
-          Our database doesn&apos;t record which meetings one phone has tagged. The only stored link between a
-          phone and a meeting is a {RETENTION.auditDays}-day abuse-review log. Your tags on each meeting are
-          stored under an ID made for that meeting alone, so someone with only a copy of our database
-          can&apos;t connect your tags on different meetings. We work out one phone&apos;s tags only when you
-          delete your tags, or when we block a phone for spam.
+          Our database doesn&apos;t record which meetings one phone has tagged. The only link between a phone
+          and a meeting in our database is a {RETENTION.auditDays}-day abuse-review log. Your tags on each
+          meeting are stored under an ID made for that meeting alone, so someone with only a copy of our
+          database can&apos;t connect your tags on different meetings. Our server finds one phone&apos;s tags
+          on different meetings only when you use “Delete all my tags” or when we block a phone for spam.
         </li>
         <li>No ads, analytics, tracking or cookies, in the app or on this website.</li>
       </ul>
@@ -62,9 +62,10 @@ export default function PrivacyPage() {
       <h2>Meeting listings</h2>
       <p>
         Meeting times and places come from meeting lists that AA intergroups and other service entities
-        publish. We keep only the meeting details (name, time, place, format and online links), never the
-        contact names, emails or phone numbers some lists include. We look up missing map locations with the
-        US Census Bureau&apos;s geocoder, sending it only the meeting&apos;s address.
+        publish. We keep the meeting details (name, time, place, format, online links, dial-in numbers and
+        notes), never the separate contact fields (names, emails, phone numbers) some lists include. Meeting
+        notes are shown as the intergroup published them. We look up missing map locations with the US Census
+        Bureau&apos;s geocoder, sending it only the meeting&apos;s address.
       </p>
 
       <h2>Who else receives data</h2>

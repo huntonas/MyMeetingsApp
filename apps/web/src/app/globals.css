@@ -253,3 +253,50 @@ td {
   font-size: 1.5rem;
   font-weight: 700;
 }
+
+.notice {
+  background: var(--notice-bg);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.review {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1rem;
+}
+
+form.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.25rem 0.75rem 0.25rem 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  border-radius: 0.4rem;
+}
+
+button {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+}
+
+input,
+select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}

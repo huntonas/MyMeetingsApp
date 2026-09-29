@@ -134,7 +134,8 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   {
     specRow: "suggestions",
     specCells: {
-      contents: "text, status, merged tag; device hash until reviewed",
+      contents:
+        "text, status (pending, approved, merged, rejected), the tag it became or joined; device hash until reviewed",
       linkedTo: "device (temporary)",
       retention: "text kept; device link ≤ 30 days; deleted by delete-mine while still linked",
     },

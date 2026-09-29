@@ -9,7 +9,8 @@ export const config: VercelConfig = {
   crons: [
     // Every 15 minutes (spec §3). Needs Vercel Pro: Hobby allows only daily crons.
     { path: "/api/cron/sync-feeds", schedule: "*/15 * * * *" },
-    // Nightly at 08:00 UTC, 3-4 am across the continental US (spec §7).
-    { path: "/api/cron/maintenance", schedule: "0 8 * * *" },
+    // Nightly at 08:07 UTC, 3-4 am across the continental US (spec §7). Off the quarter hour, so it doesn't start
+    // with a feed sync.
+    { path: "/api/cron/maintenance", schedule: "7 8 * * *" },
   ],
 };

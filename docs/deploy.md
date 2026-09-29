@@ -127,7 +127,7 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 ### Maintenance cron
 
-`/api/cron/maintenance` runs nightly at 08:00 UTC: it purges `tag_audit` rows older than 7 days, `rate_limits` rows older than yesterday (UTC), suggestion device links older than 30 days and devices inactive for 13 months (blocked devices are kept), then recounts every meeting's tags. Run it by hand from Settings → Cron Jobs → Run. The response is counts only.
+`/api/cron/maintenance` runs nightly at 08:07 UTC (off the quarter hour, so it never starts alongside a feed sync): it purges `tag_audit` rows older than 7 days, `rate_limits` rows older than yesterday (UTC), suggestion device links older than 30 days and devices inactive for 13 months (blocked devices are kept), then recounts every meeting's tags. Run it by hand from Settings → Cron Jobs → Run. The response is counts only.
 
 ### Blocking a device
 

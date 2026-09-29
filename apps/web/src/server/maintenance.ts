@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { db } from "@/db/client";
 import { devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
+import { utcToday } from "@/db/sql";
 import { recountAllTags } from "@/server/tags/counts";
 
 export const MaintenanceSummary = z.object({
@@ -27,7 +28,7 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
     // Two days: today's and yesterday's UTC windows stay.
     const limits = await tx
       .delete(rateLimits)
-      .where(lt(rateLimits.windowStart, sql`(now() at time zone 'utc')::date - 1`))
+      .where(lt(rateLimits.windowStart, sql`${utcToday} - 1`))
       .returning({ bucket: rateLimits.bucket });
     const unlinked = await tx
       .update(suggestions)
@@ -41,7 +42,7 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
       .where(
         and(
           eq(devices.blocked, false),
-          lt(devices.lastSeenDate, sql`((now() at time zone 'utc') - interval '13 months')::date`),
+          lt(devices.lastSeenDate, sql`(${utcToday} - interval '13 months')::date`),
         ),
       )
       .returning({ deviceHash: devices.deviceHash });

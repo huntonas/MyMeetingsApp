@@ -1,9 +1,10 @@
 import { Platform, SemVer } from "@mymeetingapp/shared";
-import { eq, sql } from "drizzle-orm";
+import { eq, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, type Executor } from "@/db/client";
 import { devices } from "@/db/schema";
+import { utcToday } from "@/db/sql";
 import { parseInput } from "@/lib/api/request";
 import { ApiError } from "@/lib/api/respond";
 import { readAppConfig } from "@/server/app-config";
@@ -83,8 +84,8 @@ export async function writeAsDevice<T>(device: WriteDevice, write: (tx: Executor
     .values({ deviceHash: device.deviceHash, platform: device.platform })
     .onConflictDoUpdate({
       target: devices.deviceHash,
-      set: { lastSeenDate: sql`(now() at time zone 'utc')::date` },
-      setWhere: sql`${devices.lastSeenDate} < (now() at time zone 'utc')::date`,
+      set: { lastSeenDate: utcToday },
+      setWhere: lt(devices.lastSeenDate, utcToday),
     });
   return db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);

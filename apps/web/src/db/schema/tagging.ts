@@ -18,7 +18,7 @@ import {
 
 import { meetings } from "@/db/schema/meetings";
 import { tags } from "@/db/schema/tags";
-import { sqlStringList } from "@/db/sql";
+import { sqlStringList, utcToday } from "@/db/sql";
 
 const AUDIT_ACTIONS = ["submit", "edit"] as const;
 
@@ -94,17 +94,14 @@ export const tagAudit = pgTable(
   ],
 );
 
-// Spec §6: dates are UTC calendar days, so the table never holds a time of day.
-const UTC_TODAY = sql`(now() at time zone 'utc')::date`;
-
 // Spec §6: one row per device, keyed by its hash, with dates only and no meeting references.
 export const devices = pgTable(
   "devices",
   {
     deviceHash: text("device_hash").primaryKey(),
     platform: text("platform", { enum: PLATFORMS }).notNull(),
-    firstSeenDate: date("first_seen_date").notNull().default(UTC_TODAY),
-    lastSeenDate: date("last_seen_date").notNull().default(UTC_TODAY),
+    firstSeenDate: date("first_seen_date").notNull().default(utcToday),
+    lastSeenDate: date("last_seen_date").notNull().default(utcToday),
     blocked: boolean("blocked").notNull().default(false),
   },
   (table) => [

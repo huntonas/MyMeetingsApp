@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { Executor } from "@/db/client";
 import { type RateLimitBucket, rateLimits } from "@/db/schema";
+import { utcToday } from "@/db/sql";
 import { ApiError } from "@/lib/api/respond";
 
 const DAILY_LIMITS: Record<RateLimitBucket, number> = { tag_submission: 10, suggestion: 5 };
@@ -16,7 +17,7 @@ export async function consumeDailyLimit(
 ): Promise<void> {
   const counted = await executor.execute(sql`
     insert into ${rateLimits} (device_hash, bucket, window_start, count)
-    values (${deviceHash}, ${bucket}, (now() at time zone 'utc')::date, 1)
+    values (${deviceHash}, ${bucket}, ${utcToday}, 1)
     on conflict (device_hash, bucket, window_start) do update set count = rate_limits.count + 1
       where rate_limits.count < ${DAILY_LIMITS[bucket]}
     returning count

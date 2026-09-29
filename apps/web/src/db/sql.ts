@@ -17,3 +17,6 @@ export function sqlArray(values: readonly string[], type: "uuid" | "text"): SQL 
     sql`, `,
   )}]`;
 }
+
+// Spec §6: the current UTC calendar day, for the date columns that must never hold a time of day.
+export const utcToday = sql`(now() at time zone 'utc')::date`;

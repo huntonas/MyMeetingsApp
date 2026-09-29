@@ -35,6 +35,10 @@ describe("the landing page's content", () => {
     expect(renderToStaticMarkup(<HomePage />)).not.toMatch(/apps\.apple\.com|play\.google\.com/);
   });
 
+  it("marks the store badges as plain text, not as disabled controls", () => {
+    expect(renderToStaticMarkup(<HomePage />)).not.toContain("aria-disabled");
+  });
+
   it("says what the tags leave out, without claiming nobody can be singled out", () => {
     const text = renderText(<HomePage />);
     expect(text).toContain(

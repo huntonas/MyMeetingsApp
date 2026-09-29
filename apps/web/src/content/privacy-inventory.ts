@@ -124,13 +124,13 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     specCells: {
       contents:
         "device hash, bucket, count (plus one site-wide count of failed /metrics sign-ins, with no device)",
-      linkedTo: "device only",
+      linkedTo: "device only (the sign-in count: nothing)",
       retention: "2 days",
     },
     table: { name: "rate_limits", columns: ["device_hash", "bucket", "window_start", "count"] },
     title: "Daily limits",
     what: "Your phone's hash, which daily limit it counts (new tags or suggestions), the day (UTC) and how many you've used that day. A separate count of failed sign-ins to our admin page covers the whole site and names no phone.",
-    linkedTo: "Your phone only.",
+    linkedTo: "Your phone only; the sign-in count links to nothing.",
     kept: `${String(RETENTION.rateLimitDays)} days: today's and yesterday's counts (UTC) are kept, and older ones are deleted in the next nightly cleanup.`,
   },
   {

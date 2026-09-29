@@ -3,12 +3,12 @@ export function StoreBadges() {
   return (
     <ul className="store-badges" aria-label="Download the app">
       <li>
-        <span className="store-badge" aria-disabled="true">
+        <span className="store-badge">
           App Store <small>coming soon</small>
         </span>
       </li>
       <li>
-        <span className="store-badge" aria-disabled="true">
+        <span className="store-badge">
           Google Play <small>coming soon</small>
         </span>
       </li>

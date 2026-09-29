@@ -1,6 +1,8 @@
+import { ApiErrorBody } from "@mymeetingapp/shared";
 import { describe, expect, it } from "vitest";
 
 import { E2E_URL } from "./e2e-server";
+import { deviceHeaders } from "./tag-fixtures";
 
 describe("the public site", () => {
   it("serves the landing page with the footer disclaimer and a self-hosted font", async () => {
@@ -45,4 +47,33 @@ describe("search engine files and links", () => {
       expect(html).toContain('<meta property="og:site_name" content="mymeetingapp"/>');
     },
   );
+});
+
+describe("requests from other sites", () => {
+  it.each(["/", "/support"])("refuses a cross-site post to %s", async (path) => {
+    const res = await fetch(`${E2E_URL}${path}`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { origin: "https://evil.example" },
+      body: new FormData(),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("still takes the app's posts to /api/, which carry no Origin", async () => {
+    const res = await fetch(`${E2E_URL}/api/v1/tags`, {
+      method: "POST",
+      headers: deviceHeaders(),
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+    expect(ApiErrorBody.parse(await res.json()).error.code).toBe("invalid_request");
+  });
+
+  it("serves the self-hosted font, as Next builds it", async () => {
+    const html = await (await fetch(`${E2E_URL}/`)).text();
+    const font = /<link[^>]+href="(\/_next\/static\/media\/[^"]+\.woff2)"/.exec(html)?.[1];
+    expect(font).toBeDefined();
+    expect((await fetch(`${E2E_URL}${font ?? ""}`)).status).toBe(200);
+  });
 });

@@ -60,9 +60,10 @@ Each item has a recommendation, and the plan is written to follow it so work isn
    - The e2e script builds with `DATABASE_URL=` (empty), so it also enforces "nothing queries the database at build time".
    - CI swaps its bare build step for it, which adds roughly two minutes.
    - It isn't part of `pnpm check`. Tasks that touch the proxy, pages or Server Actions run it explicitly, and every phase ends with it.
-9. **CSRF.** `proxy.ts` refuses any non-GET/HEAD request to `/metrics` whose `Origin` doesn't match the host (`x-forwarded-host`, else `host`), and one with no `Origin`, before any credentials are checked.
-   - Basic credentials ride along on cross-site requests, so this is the real protection.
-   - Next.js checks Server Actions the same way, but it logs the mismatched header values. Refusing first keeps them out of the logs.
+9. **CSRF.** `proxy.ts` refuses any non-GET/HEAD request whose `Origin` doesn't match the host (`x-forwarded-host`, else `host`), and one with no `Origin`, on every path but `/api/` (and Next's built assets), before any credentials are checked. Nothing is logged.
+   - Basic credentials ride along on cross-site requests, so this is the real protection for `/metrics`.
+   - Next.js checks Server Actions the same way on every page, but it logs the requests it refuses. Refusing first keeps them out of the logs.
+   - `/api/` is left out: the mobile app calls it with no `Origin`, and crons use GET.
 10. **`proxy.ts` is the one file that may import `NextResponse`,** for `NextResponse.next({ headers })`. ESLint exempts only that file.
 11. **Admin actions re-check the credentials** inside every Server Action (`adminAction`), as the Next.js docs advise, so moving an action can never leave it unguarded. They answer with a 303 redirect to the same page plus `?notice=<code>`, and the page shows a fixed message for that code.
 12. **Suggestion review.**

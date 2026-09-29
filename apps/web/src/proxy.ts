@@ -6,9 +6,10 @@ import { checkAdminLogin } from "@/server/admin/login-guard";
 const PRIVATE = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" };
 const CHALLENGE = 'Basic realm="mymeetingapp admin", charset="UTF-8"';
 
-// Browsers attach Basic credentials to any request for this site, even one another site triggers, so anything but
-// a read must come from a page on this host. Next.js checks Server Actions the same way, but logs the mismatched
-// header values when it refuses one; refusing here first keeps them out of the logs (spec §2).
+// Anything but a read to the site (not /api/) must come from a page on this host. Browsers attach /metrics' Basic
+// credentials to any request for this site, even one another site triggers, so this is the admin views' CSRF
+// protection. Next.js checks Server Actions too, but it logs the request when it refuses one, on any page; refusing
+// here first keeps requests out of the logs (spec §2). The app calls /api/ with no Origin, and crons use GET.
 function isSameOrigin(request: NextRequest): boolean {
   const origin = request.headers.get("origin");
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
@@ -24,6 +25,8 @@ export async function proxy(request: NextRequest): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD" && !isSameOrigin(request)) {
     return new Response("Requests from other sites aren't allowed here.", { status: 403, headers: PRIVATE });
   }
+  const { pathname } = request.nextUrl;
+  if (pathname !== "/metrics" && !pathname.startsWith("/metrics/")) return NextResponse.next();
   switch (await checkAdminLogin(request.headers.get("authorization"))) {
     case "allowed":
       return NextResponse.next({ headers: PRIVATE });
@@ -40,4 +43,5 @@ export async function proxy(request: NextRequest): Promise<Response> {
   }
 }
 
-export const config = { matcher: ["/metrics", "/metrics/:path*"] };
+// Everything but the API and Next's built assets.
+export const config = { matcher: ["/((?!api/|_next/static/|_next/image).*)"] };

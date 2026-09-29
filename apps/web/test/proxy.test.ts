@@ -28,8 +28,8 @@ afterEach(() => {
 });
 afterAll(() => pool.end());
 
-function request(init: { method?: string; headers?: Record<string, string> } = {}) {
-  return new NextRequest(`${SITE}/metrics`, {
+function request(init: { method?: string; headers?: Record<string, string>; path?: string } = {}) {
+  return new NextRequest(`${SITE}${init.path ?? "/metrics"}`, {
     method: init.method ?? "GET",
     headers: { host: "mymeetingapp.test", ...init.headers },
   });
@@ -138,5 +138,35 @@ describe("proxy for /metrics (spec §10)", () => {
       }),
     );
     expect(passesThrough(res)).toBe(true);
+  });
+});
+
+describe("proxy for the rest of the site (everything but /api/)", () => {
+  it("refuses a post to a public page from another site, or with no Origin, and logs nothing", async () => {
+    const log = vi.spyOn(console, "log");
+    const warn = vi.spyOn(console, "warn");
+    const error = vi.spyOn(console, "error");
+    const crossSite: Record<string, string>[] = [{ origin: "https://evil.example" }, {}];
+    for (const headers of crossSite) {
+      const res = await proxy(request({ method: "POST", path: "/", headers }));
+      expect(res.status).toBe(403);
+    }
+    expect([log, warn, error].flatMap((spy) => spy.mock.calls)).toEqual([]);
+  });
+
+  it("lets a same-site post to a public page through without asking for credentials", async () => {
+    const res = await proxy(request({ method: "POST", path: "/support", headers: { origin: SITE } }));
+    expect(passesThrough(res)).toBe(true);
+    expect(res.headers.get("cache-control")).toBeNull();
+  });
+
+  it("serves public pages to anyone, without asking for credentials", async () => {
+    const res = await proxy(request({ path: "/privacy" }));
+    expect(passesThrough(res)).toBe(true);
+    expect(res.headers.get("x-robots-tag")).toBeNull();
+  });
+
+  it("still asks for credentials on a path under /metrics", async () => {
+    expect((await proxy(request({ path: "/metrics/opt-outs" }))).status).toBe(401);
   });
 });

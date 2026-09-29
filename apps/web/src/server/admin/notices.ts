@@ -11,6 +11,12 @@ export const ADMIN_NOTICES = {
   tag_retired: "A retired tag already uses that name. Restore it under Tags, then merge into it.",
   label_invalid: "That label has no letters a–z to make the tag's id from. Use Latin letters.",
   tag_not_found: "That tag isn't in the vocabulary, or has been retired.",
+  blocked: "Blocked. That phone's tags no longer count, on this meeting or any other.",
+  block_unfinished:
+    "Something went wrong part-way: the phone may be blocked while its tags still count. Choose Block again to finish.",
+  not_in_review: "That phone isn't behind this flag (any more), so nothing was blocked.",
+  closed: "Flag closed.",
+  flag_not_found: "That flag is already closed or no longer exists.",
 } as const;
 
 export type AdminNotice = keyof typeof ADMIN_NOTICES;

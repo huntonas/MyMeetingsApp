@@ -18,6 +18,7 @@ export default function MetricsLayout({ children }: { children: ReactNode }) {
         <nav aria-label="Admin">
           <a href="/metrics">Overview</a>
           <a href="/metrics/suggestions">Suggestions</a>
+          <a href="/metrics/swings">Swing flags</a>
         </nav>
       </header>
       <main className="page admin">{children}</main>

@@ -132,6 +132,8 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 ### Blocking a device
 
+Normally, block from `/metrics/swings`: open the flag, then choose Block next to each phone behind it. The CLI below does the same thing and stays for when the site is down.
+
 Find the device's hash in `tag_audit` for the flagged meeting (Neon SQL editor on production; rows last 7 days). Move `apps/web/.env.local` aside, then from `apps/web`:
 
 ```bash

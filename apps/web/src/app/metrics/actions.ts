@@ -9,6 +9,7 @@ import {
   rejectSuggestion,
   RejectSuggestionForm,
 } from "@/server/admin/suggestions";
+import { blockSwingDevice, BlockSwingDeviceForm, closeSwing, CloseSwingForm } from "@/server/admin/swings";
 
 // Every admin Server Action. Each one is adminAction(page to return to, form, change).
 export const approveSuggestionAction = adminAction(
@@ -26,3 +27,9 @@ export const rejectSuggestionAction = adminAction(
   RejectSuggestionForm,
   rejectSuggestion,
 );
+export const blockSwingDeviceAction = adminAction(
+  (input) => `/metrics/swings/${String(input.swingId)}`,
+  BlockSwingDeviceForm,
+  blockSwingDevice,
+);
+export const closeSwingAction = adminAction("/metrics/swings", CloseSwingForm, closeSwing);

@@ -32,26 +32,43 @@ function isOlder(version: string, minimum: string): boolean {
   return false;
 }
 
-// Spec §7: every write carries X-Device-Id, X-Platform, X-App-Version and (when required) X-Attestation. The raw
-// id is hashed here and goes nowhere else: not into the database, the response or a log.
-export function readWriteRequest(req: Request): WriteDevice {
-  const headers = parseInput(WriteHeaders, {
+function readDeviceHeaders(req: Request) {
+  return parseInput(WriteHeaders, {
     deviceId: req.headers.get("x-device-id") ?? undefined,
     platform: req.headers.get("x-platform") ?? undefined,
     appVersion: req.headers.get("x-app-version") ?? undefined,
     attestation: req.headers.get("x-attestation") ?? undefined,
   });
-  if (isOlder(headers.appVersion, readAppConfig().minSupportedVersion[headers.platform])) {
-    throw new ApiError("upgrade_required");
-  }
+}
+
+// The raw id is hashed here and goes nowhere else: not into the database, the response or a log.
+function verifiedDevice(headers: z.infer<typeof WriteHeaders>): WriteDevice {
   const device = { platform: headers.platform, deviceHash: deviceHash(headers.platform, headers.deviceId) };
   verifyAttestation({ ...device, attestation: headers.attestation });
   return device;
 }
 
+// Spec §7: every write carries X-Device-Id, X-Platform, X-App-Version and (when required) X-Attestation, and an
+// app below the platform's minimum version must upgrade first.
+export function readWriteRequest(req: Request): WriteDevice {
+  const headers = readDeviceHeaders(req);
+  if (isOlder(headers.appVersion, readAppConfig().minSupportedVersion[headers.platform])) {
+    throw new ApiError("upgrade_required");
+  }
+  return verifiedDevice(headers);
+}
+
+// A write that only deletes the device's own data. Spec §5 allows deletes at any time and §2 puts privacy over
+// convenience, so no app version is too old to delete. The device is identified and attested exactly as for any
+// write, so a forged id can't delete another device's data. Pair it with lockDevice, not recordDevice.
+export function readDeletionRequest(req: Request): WriteDevice {
+  return verifiedDevice(readDeviceHeaders(req));
+}
+
 // Serializes one device's writes for the rest of the transaction, so the 7-day rule and daily cap hold under
-// concurrent requests. A transaction-level lock works through Neon's transaction-mode pooler.
-async function lockDevice(hash: string, executor: Executor): Promise<void> {
+// concurrent requests. A transaction-level lock works through Neon's transaction-mode pooler. recordDevice takes
+// it first; a deletion takes it alone, since it must work for a blocked device and records nothing about it.
+export async function lockDevice(hash: string, executor: Executor): Promise<void> {
   await executor.execute(sql`select pg_advisory_xact_lock(hashtextextended(${hash}, 0))`);
 }
 

@@ -38,8 +38,8 @@ async function lockedMeeting(meetingId: string, executor: Executor) {
 }
 
 // The meeting a tag write names, after following a merge, locked for the write (above). Every tag write calls it
-// right after recordDevice, which takes the device lock. Archived meetings are returned too: edits and deletes
-// work on them at any time, and new submissions check `archived`.
+// right after taking the device lock: through recordDevice, or lockDevice for a deletion. Archived meetings are
+// returned too: edits and deletes work on them at any time, and new submissions check `archived`.
 export async function findTaggableMeeting(requestedId: string, executor: Executor) {
   const [meeting] = await lockedMeeting(await resolveMeetingId(requestedId, executor), executor);
   if (meeting !== undefined) return meeting;

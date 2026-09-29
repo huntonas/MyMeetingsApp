@@ -23,6 +23,9 @@ export const TagSubmissionRequest = z.object({
 });
 export type TagSubmissionRequest = z.infer<typeof TagSubmissionRequest>;
 
+export const TagEditRequest = z.object({ tags: TagList });
+export type TagEditRequest = z.infer<typeof TagEditRequest>;
+
 // meetingId is the meeting the tags landed on: the one requested, or the meeting it merged into.
 export const TagWriteResponse = z.object({ meetingId: z.uuid(), tags: z.array(TagCount) });
 export type TagWriteResponse = z.infer<typeof TagWriteResponse>;

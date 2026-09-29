@@ -15,6 +15,7 @@ const ERROR_CODES = [
   "already_tagged",
   "window_closed",
   "rate_limited",
+  "not_tagged",
 ] as const;
 
 export const ErrorCode = z.enum(ERROR_CODES);
@@ -35,6 +36,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   already_tagged: "You've already tagged this meeting in the last 7 days. You can edit your tags instead.",
   window_closed: "New tags can be added from the start of the meeting until 36 hours after.",
   rate_limited: "You've reached today's limit. Please try again tomorrow.",
+  not_tagged: "You haven't tagged this meeting.",
 };
 
 export const ApiErrorBody = z.object({

@@ -28,6 +28,7 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   window_closed: 403,
   already_tagged: 409,
   rate_limited: 429,
+  not_tagged: 404,
 };
 
 // The data is parsed through its contract, so fields the contract doesn't name never leave the server.

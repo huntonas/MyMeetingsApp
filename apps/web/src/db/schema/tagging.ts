@@ -9,8 +9,10 @@ import {
   integer,
   pgTable,
   primaryKey,
+  serial,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -126,5 +128,28 @@ export const rateLimits = pgTable(
   (table) => [
     primaryKey({ name: "rate_limits_pkey", columns: [table.deviceHash, table.bucket, table.windowStart] }),
     check("rate_limits_bucket_check", sql`${table.bucket} in (${sqlStringList(RATE_LIMIT_BUCKETS)})`),
+  ],
+);
+
+// Spec §6: a flag for the admin to review, never an automatic block. One open flag per meeting and tag.
+export const tagSwings = pgTable(
+  "tag_swings",
+  {
+    id: serial("id").primaryKey(),
+    meetingId: uuid("meeting_id")
+      .notNull()
+      .references(() => meetings.id),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id),
+    newDevices: integer("new_devices").notNull(),
+    priorDevices: integer("prior_devices").notNull(),
+    flaggedAt: timestamp("flagged_at", { withTimezone: true }).notNull().defaultNow(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("tag_swings_open_idx")
+      .on(table.meetingId, table.tagId)
+      .where(sql`${table.reviewedAt} is null`),
   ],
 );

@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/respond";
 import { lockDevice, recordDevice, type WriteDevice } from "@/server/devices/write-request";
 import { meetingTagCounts, recountTags } from "@/server/tags/counts";
 import { findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
+import { flagTagSwings } from "@/server/tags/swings";
 import { findTaggableMeeting } from "@/server/tags/taggable-meeting";
 import { validTagIds } from "@/server/tags/tag-ids";
 
@@ -37,6 +38,7 @@ export async function editTags(
       .insert(tagAudit)
       .values({ deviceHash: device.deviceHash, meetingId: meeting.id, action: "edit" });
     await recountTags([meeting.id], tx);
+    await flagTagSwings(meeting.id, tx);
     return { meetingId: meeting.id, tags: await meetingTagCounts(meeting.id, tx) };
   });
 }

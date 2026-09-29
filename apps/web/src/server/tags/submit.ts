@@ -8,6 +8,7 @@ import { consumeDailyLimit } from "@/server/devices/rate-limit";
 import { recordDevice, type WriteDevice } from "@/server/devices/write-request";
 import { meetingTagCounts, recountTags } from "@/server/tags/counts";
 import { findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
+import { flagTagSwings } from "@/server/tags/swings";
 import { findTaggableMeeting } from "@/server/tags/taggable-meeting";
 import { validTagIds } from "@/server/tags/tag-ids";
 
@@ -41,6 +42,7 @@ export async function submitTags(
       .insert(tagAudit)
       .values({ deviceHash: device.deviceHash, meetingId: meeting.id, action: "submit" });
     await recountTags([meeting.id], tx);
+    await flagTagSwings(meeting.id, tx);
     return { meetingId: meeting.id, tags: await meetingTagCounts(meeting.id, tx) };
   });
 }

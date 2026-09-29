@@ -9,6 +9,7 @@ const APP_TABLES = [
   "tag_audit",
   "tag_counts",
   "tag_submissions",
+  "tag_swings",
   "meeting_aliases",
   "feed_meetings",
   "meetings",

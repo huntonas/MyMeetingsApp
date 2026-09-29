@@ -10,6 +10,7 @@ import { recountTags } from "@/server/tags/counts";
 // - the loser's submissions move over with submitter ids and scopes unchanged, so a device still finds its row
 //   by computing its id for the survivor and each alias;
 // - its audit rows move too, and a group's opt-out on either meeting stays on the survivor;
+// - and its swing flags (one open flag per tag survives);
 // - losers and survivors are recounted, which clears the losers' counts now their submissions have moved.
 export async function carryTagsOnMerge(
   pairs: { loser: string; survivor: string }[],
@@ -42,5 +43,14 @@ export async function carryTagsOnMerge(
     from ${merged} join meetings loser on loser.id = merged.loser
     where survivor.id = merged.survivor and loser.tags_disabled
   `);
+  // A loser's open flag moves unless the survivor already has one open for that tag; a duplicate is dropped.
+  await executor.execute(sql`
+    update tag_swings w set meeting_id = merged.survivor from ${merged}
+    where w.meeting_id = merged.loser and (w.reviewed_at is not null or not exists (
+      select 1 from tag_swings open_flag
+      where open_flag.meeting_id = merged.survivor and open_flag.tag_id = w.tag_id and open_flag.reviewed_at is null
+    ))
+  `);
+  await executor.execute(sql`delete from tag_swings where meeting_id = any(${sqlArray(losers, "uuid")})`);
   await recountTags([...new Set([...losers, ...survivors])], executor);
 }

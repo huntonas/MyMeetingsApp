@@ -17,6 +17,11 @@ export const DEVICE_A = "6F9619FF-8B86-D011-B42D-00C04FC964FF";
 export const DEVICE_A_HASH = "843ff89c9bc545aa6c2c749daa73a089752171a990aa930ce3aeb18c06ebffc4";
 export const DEVICE_B = "3f2a9c8e1b7d4065";
 
+// A distinct raw device id for the nth device in a test that needs many, valid under WriteHeaders' regex.
+export function testDevice(n: number): string {
+  return `test-device-${n.toString().padStart(6, "0")}`;
+}
+
 export function deviceHeaders(rawId = DEVICE_A, platform: Platform = "ios"): Record<string, string> {
   return { "X-Device-Id": rawId, "X-Platform": platform, "X-App-Version": "1.0.0" };
 }

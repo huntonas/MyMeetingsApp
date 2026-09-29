@@ -1,5 +1,6 @@
 import { setFeedOptOutAction, setMeetingTagsAction } from "@/app/metrics/actions";
 import { Notice, type SearchParams } from "@/app/metrics/notice";
+import { searchQuery } from "@/app/metrics/search-query";
 import {
   type FeedMatch,
   findFeeds,
@@ -97,8 +98,8 @@ function FeedRows({ feeds }: { feeds: FeedMatch[] }) {
 
 export default async function OptOutsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const meetingQuery = typeof params.q === "string" ? params.q.trim() : "";
-  const feedQuery = typeof params.feed === "string" ? params.feed.trim() : "";
+  const meetingQuery = searchQuery(params.q);
+  const feedQuery = searchQuery(params.feed);
   const [meetingsFound, tagsOff, feedsFound, feedsOut] = await Promise.all([
     meetingQuery.length >= MIN_QUERY ? findMeetings(meetingQuery) : [],
     listTagOptOuts(),

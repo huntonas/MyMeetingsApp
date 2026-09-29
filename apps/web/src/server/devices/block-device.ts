@@ -20,10 +20,14 @@ export async function blockDevice(deviceHash: string): Promise<{ excludedTags: n
     .where(eq(devices.deviceHash, deviceHash))
     .returning({ deviceHash: devices.deviceHash });
   if (blocked.length === 0) throw new Error("No device has that hash");
-  return db.transaction(async (tx) => {
+  const excludedTags = await db.transaction(async (tx) => {
     await lockDevice(deviceHash, tx);
     const excluded = await changeEverySubmission(deviceHash, "exclude", tx);
     await recountTags(excluded.meetingIds, tx);
-    return { excludedTags: excluded.changed };
+    return excluded.changed;
   });
+  // The block committed at the transaction id just before the exclusion's, so the devices row is rewritten once
+  // more to move its xmin off that neighbour.
+  await db.update(devices).set({ blocked: true }).where(eq(devices.deviceHash, deviceHash));
+  return { excludedTags };
 }

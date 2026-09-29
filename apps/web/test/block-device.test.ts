@@ -73,9 +73,11 @@ describe("blockDevice", () => {
   it("leaves no transaction id linking the blocked device's record to its excluded rows (spec §2)", async () => {
     await tag(await seedMeetingStarted(1));
     await blockDevice(DEVICE_A_HASH);
-    const { rows } = await db.execute<{ linked: number }>(
-      sql`select count(*)::int as linked from devices d join tag_submissions s on s.xmin = d.xmin`,
-    );
+    // Nor one transaction apart: the block and the exclusion commit one after the other.
+    const { rows } = await db.execute<{ linked: number }>(sql`
+      select count(*)::int as linked from devices d join tag_submissions s
+        on s.xmin::text::bigint - d.xmin::text::bigint in (0, 1)
+    `);
     expect(rows).toEqual([{ linked: 0 }]);
   });
 

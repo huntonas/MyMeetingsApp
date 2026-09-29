@@ -9,7 +9,7 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 - Project `mymeetingapp` in team `huntonas-projects`: root directory `apps/web`, framework Next.js, Node.js 24.x (`vercel project add`, then `vercel api -X PATCH /v9/projects/mymeetingapp`).
 - GitHub repository `huntonas/MyMeetingsApp` connected, with `main` as the production branch.
 - `apps/web` linked to it (`vercel link --yes --team huntonas-projects --project mymeetingapp`; `.vercel/` is git-ignored).
-- Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, connected to Production, Preview and Development. Command: `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`.
+- Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, created with `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`. Since 2026-09-29 it is connected to **Production only** (reconnected with no per-deployment branching, no prefix, Sensitive off so `vercel env run` can read the URLs); Preview has its own variables (see "Preview databases").
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
   - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
 
@@ -28,7 +28,7 @@ Done on 2026-09-26: `seed` and `main` are migrated and hold the 26 starter tags.
 
 ## Preview databases
 
-Previews share one Neon branch, `preview`, whose parent is `seed`. `seed` was created from `main` on YYYY-MM-DD (write the real date Task 1's owner steps ran) while `main` held reference data only (vocabulary, feeds, meetings), before any device table existed. Every preview build runs `pnpm run db:reset-preview` first. It restores `preview` from `seed` through the Neon API (`POST /projects/{project}/branches/{preview}/restore` with `source_branch_id` = seed), waits for Neon to finish, and then migrates. Production and local builds skip the reset. The script refuses any branch whose parent isn't named `seed`.
+Previews share one Neon branch, `preview`, whose parent is `seed`. `seed` was created from `main` on 2026-09-29 while `main` held reference data only (vocabulary, feeds, meetings), before any device table existed. Every preview build runs `pnpm run db:reset-preview` first. It restores `preview` from `seed` through the Neon API (`POST /projects/{project}/branches/{preview}/restore` with `source_branch_id` = seed), waits for Neon to finish, and then migrates. Production and local builds skip the reset. The script refuses any branch whose parent isn't named `seed`.
 
 - **Production device data never reaches `seed` or `preview`.** `seed` is never branched from `main` again, never restored from `main`, and never gets device tables except through a preview's own migrations. Refresh `seed`'s reference data only with `DATABASE_URL="<seed pooled URL>" pnpm --filter web db:seed` (and `db:seed-feeds`), never by copying from `main`.
 - **Tags on a preview live until the next preview build,** because every build resets `preview`. Two preview builds at once reset each other.
@@ -120,7 +120,7 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 ### Variables
 
-- `DEVICE_ID_PEPPER`: sensitive, different in every environment (generate each with `openssl rand -hex 32`). Back up the production value in the password manager. It can never be rotated: every device hash and submitter id derives from it, and `db:block-device` needs it.
+- `DEVICE_ID_PEPPER`: sensitive, different in every environment (generate each with `openssl rand -hex 32`). The production and preview values live in `apps/web/.env.secrets` (see "Local secrets file"), because Vercel won't show a sensitive value again. It can never be rotated: every device hash and submitter id derives from it, and `db:block-device` needs it.
 - `REQUIRE_ATTESTATION=off` in Production and Preview until Phase 6. Any other value refuses every write, because no platform verifier exists yet.
 - `SUGGESTION_MODEL`: a model the AI Gateway lists with `zdr: "all"` (currently `anthropic/claude-haiku-4.5`). Check with `curl -fsSL https://ai-gateway.vercel.sh/v1/models | jq '.data[] | select(.id=="anthropic/claude-haiku-4.5") | .zdr'`. Per-request zero data retention needs Pro. Without the variable, suggestions stay pending and each request logs a warning.
 - The AI Gateway authenticates with Vercel OIDC; no API key is set on Vercel.
@@ -134,11 +134,15 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 Find the device's hash in `tag_audit` for the flagged meeting (Neon SQL editor on production; rows last 7 days). Move `apps/web/.env.local` aside, then from `apps/web`:
 
 ```bash
-read -s DEVICE_ID_PEPPER && export DEVICE_ID_PEPPER
-DATABASE_URL="<production pooled URL>" pnpm db:block-device --device-hash <hash>
+vercel env run -e production -- sh -c 'DEVICE_ID_PEPPER="$0" pnpm db:block-device --device-hash <hash>' \
+  "$(sed -n 's/^DEVICE_ID_PEPPER_PRODUCTION=//p' .env.secrets)"
 ```
 
-`vercel env run` can't read the sensitive pepper, hence `read -s`. Restore `.env.local` afterwards. Blocking excludes the device's tags on every meeting and refuses its future writes; the `devices` row is kept, even through delete-mine and the 13-month purge.
+`vercel env run` supplies the production `DATABASE_URL` but can't read the sensitive pepper, so it comes from `.env.secrets`. Restore `.env.local` afterwards. Blocking excludes the device's tags on every meeting and refuses its future writes; the `devices` row is kept, even through delete-mine and the 13-month purge.
+
+### Local secrets file
+
+`apps/web/.env.secrets` (git-ignored, mode 600, never loaded automatically) holds the values Vercel stores as sensitive and can't show again: `DEVICE_ID_PEPPER_PRODUCTION`, `DEVICE_ID_PEPPER_PREVIEW` and `NEON_API_KEY`. It is the only readable copy of the production pepper, so keep an encrypted backup. Losing it doesn't stop production, but nothing could then block a device, and a deleted Vercel variable couldn't be restored. Local development uses its own pepper in `.env.local`.
 
 ### Privacy
 

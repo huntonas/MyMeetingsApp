@@ -21,14 +21,16 @@ function cacheControl(policy: CachePolicy): string {
   return `public, s-maxage=${String(lifetimes.sMaxAge)}, stale-while-revalidate=${String(lifetimes.staleWhileRevalidate)}`;
 }
 
+const staleSeconds = (lifetimes: { sMaxAge: number; staleWhileRevalidate: number }) =>
+  lifetimes.sMaxAge + lifetimes.staleWhileRevalidate;
+
 // The longest the CDN can go on serving a meeting response (its details, or the online list with its tag counts)
 // after the data behind it changed. The site's and admin notices' "the app catches up" promises are built from it.
 export const MEETING_CACHE_MINUTES =
-  Math.max(
-    ...[CACHE_POLICIES.meetingDetail, CACHE_POLICIES.onlineMeetings].map(
-      (lifetimes) => lifetimes.sMaxAge + lifetimes.staleWhileRevalidate,
-    ),
-  ) / 60;
+  Math.max(...[CACHE_POLICIES.meetingDetail, CACHE_POLICIES.onlineMeetings].map(staleSeconds)) / 60;
+
+// The same for the tag list (vocabulary), which the admin notices about new, retired and restored tags promise.
+export const VOCABULARY_CACHE_HOURS = staleSeconds(CACHE_POLICIES.vocabulary) / 3600;
 
 const ERROR_STATUS: Record<ErrorCode, number> = {
   invalid_request: 400,

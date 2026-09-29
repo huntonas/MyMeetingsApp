@@ -188,6 +188,7 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 - When `SUGGESTION_MODEL` changes, update the suggestion-screening entry in `THIRD_PARTIES`.
 - The policy and terms say "Draft, pending legal review" until the §16 legal review is done.
 - **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 30 days (owner decision 3). Keep the production project's restore window at 30 days or less. Configured window: _not yet recorded_ (see "Restore history" under "One-time setup" above; the owner records the actual value there once checked in the Neon console). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
+- **Support email, every quarter:** the policy says we delete support email within 90 days after it's resolved, and that deleted mail can remain in Google's trash and recovery for up to about 55 days after that. Each quarter, never more than 90 days after the last pass, delete every resolved support thread in the Google Workspace mailbox for `admin@goodersoftwarellc.com`, then empty Trash. (Deleting only threads resolved more than 90 days ago, once a quarter, would let a thread wait up to about 180 days.) Never copy an email address or message anywhere else, or link it to a device or tags.
 
 ### Connecting mymeetingapp.com later (not done in Phase 4)
 

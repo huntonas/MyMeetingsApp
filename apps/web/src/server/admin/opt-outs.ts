@@ -31,7 +31,7 @@ export interface FeedMatch {
 
 // What the owner typed, matched anywhere, with LIKE's own wildcards taken literally.
 function containing(query: string): string {
-  return `%${query.trim().replace(/[\\%_]/g, "\\$&")}%`;
+  return `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 }
 
 const meetingColumns = {

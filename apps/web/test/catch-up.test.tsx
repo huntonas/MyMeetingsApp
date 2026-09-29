@@ -15,7 +15,7 @@ import { renderText } from "./render";
 // headers meeting responses are sent with, and the sync cron in vercel.ts. Changing either fails these tests until
 // the promises match again.
 
-function header(policy: "meetingDetail" | "onlineMeetings"): string {
+function header(policy: "meetingDetail" | "onlineMeetings" | "vocabulary"): string {
   return jsonResponse(OnlineMeetingsResponse, { meetings: [] }, policy).headers.get("cache-control") ?? "";
 }
 
@@ -33,6 +33,10 @@ const appMinutes =
       return seconds(cacheControl, "s-maxage") + seconds(cacheControl, "stale-while-revalidate");
     }),
   ) / 60;
+
+const vocabulary = header("vocabulary");
+const vocabularyHours =
+  (seconds(vocabulary, "s-maxage") + seconds(vocabulary, "stale-while-revalidate")) / 3600;
 
 const vercelConfig = readFileSync(path.resolve(import.meta.dirname, "../vercel.ts"), "utf8");
 const syncSchedule = /path: "\/api\/cron\/sync-feeds", schedule: "\*\/(\d+) \* \* \* \*"/.exec(
@@ -79,4 +83,13 @@ describe("the opt-out timings the admin notices promise", () => {
       `right away on our server; the app catches up within ${String(appMinutes)} minutes`,
     );
   });
+});
+
+describe("the vocabulary timings the admin notices promise", () => {
+  it.each(["approved", "tag_retired", "tag_restored"] as const)(
+    "%s says when the app's cached tag list catches up",
+    (notice) => {
+      expect(ADMIN_NOTICES[notice]).toContain(`within ${String(vocabularyHours)} hours`);
+    },
+  );
 });

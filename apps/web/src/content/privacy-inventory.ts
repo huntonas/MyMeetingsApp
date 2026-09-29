@@ -196,20 +196,21 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
 ];
 
 // Spec §13's support-email row. The privacy policy gives it its own section, since the mailbox isn't our server.
-// Owner decision: we delete a message within 90 days after it's resolved; no code enforces that, so RETENTION
-// doesn't hold it.
+// Owner decision: we delete a message within 90 days after it's resolved (a quarterly owner step in docs/deploy.md);
+// no code enforces that, so RETENTION doesn't hold it. Gmail keeps deleted mail in Trash for 30 days, and a
+// Workspace admin can recover it for about 25 more.
 export const SUPPORT_EMAIL: InventoryEntry = {
   specRow: "Support email",
   specCells: {
     contents: "sender's email address, message (in Google Workspace); kept only to answer and act on it",
     linkedTo: "nothing else (never tags)",
-    retention: "until resolved, then deleted within 90 days",
+    retention: "until resolved, then deleted within 90 days; Google trash and recovery ≤ 55 days more",
   },
   table: null,
   title: "When you email us",
   what: `Email to ${BRAND.contactEmail} goes through Google Workspace, so your email address and message are held on Google's mail servers.`,
   linkedTo: "We never link it to anyone's tags.",
-  kept: "We keep it only to answer you and act on it, and delete it within 90 days after it's resolved.",
+  kept: "We keep it only to answer you and act on it, and delete it within 90 days after it's resolved. Deleted mail can remain in Google's trash and recovery for up to about 55 days after that.",
 };
 
 // Spec §13's "Stays on the phone" list, in the same order.

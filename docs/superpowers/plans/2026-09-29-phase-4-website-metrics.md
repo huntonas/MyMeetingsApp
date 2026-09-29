@@ -79,7 +79,7 @@ Each item has a recommendation, and the plan is written to follow it so work isn
     - A feed opt-out takes effect at the next sync (the sync's existing `archiveOptedOutFeeds`), and the app catches up within `CATCH_UP_MINUTES.feedOptOut` (90). Meetings other feeds also publish stay, from those feeds (`recomputeMeetings`).
     - `catch-up.test.tsx` derives both from the Cache-Control headers and `vercel.ts`, so the promises can't drift from them.
     - Opting a feed back in clears `last_success_at` and `last_attempt_at`, so it's fetched on the next sync.
-15. **Vocabulary.** Retire and restore only; nothing is ever deleted (§5). New tags arrive through suggestion approval. The app's cached vocabulary catches up within an hour.
+15. **Vocabulary.** Retire and restore only; nothing is ever deleted (§5). New tags arrive through suggestion approval. The app's cached vocabulary catches up within `VOCABULARY_CACHE_HOURS` (25: s-maxage plus stale-while-revalidate), which the notices state and `catch-up.test.tsx` checks.
 16. **Metric definitions.**
     - "Active in 7/30 days": `last_seen_date` within the last 7/30 UTC days, today included.
     - "Tag submissions this week": non-excluded rows confirmed in the last 7 days, re-confirmations included.

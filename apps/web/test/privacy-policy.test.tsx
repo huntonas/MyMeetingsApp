@@ -227,6 +227,9 @@ describe("the privacy policy page", () => {
     expect(text).toContain("goes through Google Workspace");
     expect(text).toContain("only to answer you and act on it");
     expect(text).toContain("delete it within 90 days after it's resolved");
+    expect(text).toContain(
+      "Deleted mail can remain in Google's trash and recovery for up to about 55 days after that.",
+    );
     expect(text).toContain("never link it to anyone's tags");
   });
 

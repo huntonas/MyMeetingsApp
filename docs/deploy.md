@@ -116,6 +116,34 @@ The next sync will apply the new count.
 
 The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of every HTTP request to feed sources. This mailbox must exist and be monitored, as feed maintainers may contact it with questions about the app.
 
+## Phase 3: tagging
+
+### Variables
+
+- `DEVICE_ID_PEPPER`: sensitive, different in every environment (generate each with `openssl rand -hex 32`). Back up the production value in the password manager. It can never be rotated: every device hash and submitter id derives from it, and `db:block-device` needs it.
+- `REQUIRE_ATTESTATION=off` in Production and Preview until Phase 6. Any other value refuses every write, because no platform verifier exists yet.
+- `SUGGESTION_MODEL`: a model the AI Gateway lists with `zdr: "all"` (currently `anthropic/claude-haiku-4.5`). Check with `curl -fsSL https://ai-gateway.vercel.sh/v1/models | jq '.data[] | select(.id=="anthropic/claude-haiku-4.5") | .zdr'`. Per-request zero data retention needs Pro. Without the variable, suggestions stay pending and each request logs a warning.
+- The AI Gateway authenticates with Vercel OIDC; no API key is set on Vercel.
+
+### Maintenance cron
+
+`/api/cron/maintenance` runs nightly at 08:00 UTC: it purges `tag_audit` rows older than 7 days, `rate_limits` rows older than yesterday (UTC), suggestion device links older than 30 days and devices inactive for 13 months (blocked devices are kept), then recounts every meeting's tags. Run it by hand from Settings → Cron Jobs → Run. The response is counts only.
+
+### Blocking a device
+
+Find the device's hash in `tag_audit` for the flagged meeting (Neon SQL editor on production; rows last 7 days). Move `apps/web/.env.local` aside, then from `apps/web`:
+
+```bash
+read -s DEVICE_ID_PEPPER && export DEVICE_ID_PEPPER
+DATABASE_URL="<production pooled URL>" pnpm db:block-device --device-hash <hash>
+```
+
+`vercel env run` can't read the sensitive pepper, hence `read -s`. Restore `.env.local` afterwards. Blocking excludes the device's tags on every meeting and refuses its future writes; the `devices` row is kept, even through delete-mine and the 13-month purge.
+
+### Privacy
+
+Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, `rate_limits`, `suggestions`, `ai_decisions`, `tag_swings`, `meeting_aliases`) hold production data only on `main`. **Production device data never reaches `seed` or `preview`:** `seed` is never refreshed from `main`, and `preview` is restored from `seed` on every preview build.
+
 ## Rules
 
 - Previews never use the production branch's data: they restore from `seed`, which holds no device data (see Preview databases).

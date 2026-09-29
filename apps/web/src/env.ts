@@ -21,7 +21,9 @@ type EnvName =
   | "NEON_API_KEY"
   | "NEON_PROJECT_ID"
   | "NEON_PREVIEW_BRANCH_ID"
-  | "SITE_URL";
+  | "SITE_URL"
+  | "METRICS_USER"
+  | "METRICS_PASSWORD";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

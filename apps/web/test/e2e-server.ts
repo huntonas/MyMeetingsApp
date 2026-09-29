@@ -8,6 +8,9 @@ import type { TestProject } from "vitest/node";
 // static pages as built.
 const PORT = 3107;
 export const E2E_URL = `http://localhost:${String(PORT)}`;
+// The server's admin credentials. The password is at least 16 characters, as isAdminAuthorization requires.
+const E2E_ADMIN = { user: "e2e-admin", password: "e2e-password-not-a-secret-0123" };
+export const ADMIN_AUTHORIZATION = `Basic ${Buffer.from(`${E2E_ADMIN.user}:${E2E_ADMIN.password}`).toString("base64")}`;
 const WEB_ROOT = path.resolve(import.meta.dirname, "..");
 
 async function serving(): Promise<boolean> {
@@ -38,7 +41,13 @@ export default async function setup(project: TestProject): Promise<() => void> {
     {
       cwd: WEB_ROOT,
       // Vitest sets NODE_ENV=test; next start must run as production.
-      env: { ...process.env, ...project.config.env, NODE_ENV: "production" },
+      env: {
+        ...process.env,
+        ...project.config.env,
+        METRICS_USER: E2E_ADMIN.user,
+        METRICS_PASSWORD: E2E_ADMIN.password,
+        NODE_ENV: "production",
+      },
       stdio: ["ignore", "ignore", "inherit"],
     },
   );

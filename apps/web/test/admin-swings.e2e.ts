@@ -62,7 +62,24 @@ describe("swing review in the built app", () => {
     expect(row?.reviewedAt).toBeInstanceOf(Date);
   });
 
-  it("answers 404 for a flag that doesn't exist", async () => {
+  it("answers 404 for a flag that doesn't exist, even past Postgres's integer range", async () => {
     expect((await adminGet("/metrics/swings/999")).status).toBe(404);
+    expect((await adminGet("/metrics/swings/9999999999")).status).toBe(404);
+  });
+
+  it("sends a tampered form back to the overview, having blocked nothing", async () => {
+    const swingId = await seedSwing();
+    const path = `/metrics/swings/${String(swingId)}`;
+    const fields = formContaining(
+      await (await adminGet(path)).text(),
+      `Block phone ${DEVICE_A_HASH.slice(0, 12)}`,
+    );
+    const res = await submitForm(path, { ...fields, deviceHash: "not-a-hash" });
+    expect(res.headers.get("location")).toMatch(/\/metrics\?notice=invalid_form$/);
+    const [row] = await db
+      .select({ blocked: devices.blocked })
+      .from(devices)
+      .where(eq(devices.deviceHash, DEVICE_A_HASH));
+    expect(row).toEqual({ blocked: false });
   });
 });

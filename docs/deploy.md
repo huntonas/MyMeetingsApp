@@ -143,6 +143,8 @@ vercel env run -e production -- sh -c 'DEVICE_ID_PEPPER="$0" pnpm db:block-devic
 
 `vercel env run` supplies the production `DATABASE_URL` but can't read the sensitive pepper, so it comes from `.env.secrets`. Restore `.env.local` afterwards. Blocking excludes the device's tags on every meeting and refuses its future writes; the `devices` row is kept, even through delete-mine and the 13-month purge.
 
+If the page answers that a block stopped part-way, choose Block again. If the phone already shows as blocked there, its tags were excluded but the last step (rewriting the `devices` row so it shares no transaction id with the excluded rows) didn't run: finish it with the CLI above, using the full hash from `tag_audit` whose first 12 characters the page shows. Running a block again is safe; it repeats every step.
+
 ### Local secrets file
 
 `apps/web/.env.secrets` (git-ignored, mode 600, never loaded automatically) holds the values Vercel stores as sensitive and can't show again: `DEVICE_ID_PEPPER_PRODUCTION`, `DEVICE_ID_PEPPER_PREVIEW` and `NEON_API_KEY`. It is the only readable copy of the production pepper, so keep an encrypted backup. Losing it doesn't stop production, but nothing could then block a device, and a deleted Vercel variable couldn't be restored. Local development uses its own pepper in `.env.local`.

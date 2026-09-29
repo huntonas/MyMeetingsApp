@@ -2,7 +2,7 @@
 export const ADMIN_NOTICES = {
   failed: "Something went wrong; nothing was changed. Try again.",
   invalid_form:
-    "Something in that form wasn't valid. A label is 2–40 letters, digits, spaces, apostrophes, hyphens or &.",
+    "That form wasn't valid, so nothing was changed. (A tag label is 2–40 letters, digits, spaces, apostrophes, hyphens or &.)",
   approved: "Added the new tag. The app's tag list usually picks it up within an hour.",
   merged: "Merged into the existing tag.",
   rejected: "Rejected.",
@@ -13,7 +13,7 @@ export const ADMIN_NOTICES = {
   tag_not_found: "That tag isn't in the vocabulary, or has been retired.",
   blocked: "Blocked. That phone's tags no longer count, on this meeting or any other.",
   block_unfinished:
-    "Something went wrong part-way: the phone may be blocked while its tags still count. Choose Block again to finish.",
+    "Something went wrong part-way: the phone may be blocked while its tags still count. Choose Block again to finish. If it already shows as blocked, finish with pnpm db:block-device (see docs/deploy.md).",
   not_in_review: "That phone isn't behind this flag (any more), so nothing was blocked.",
   closed: "Flag closed.",
   flag_not_found: "That flag is already closed or no longer exists.",

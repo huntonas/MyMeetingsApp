@@ -3,12 +3,14 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 
 import { POST as deleteMineRoute } from "@/app/api/v1/tags/delete-mine/route";
 import { POST } from "@/app/api/v1/tags/route";
+import { eq } from "drizzle-orm";
+
 import { db, pool } from "@/db/client";
 import { devices, rateLimits, suggestions, tagAudit, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
-import { resetDb } from "./db";
+import { resetDb, untilWaitingOnLock } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -18,6 +20,7 @@ import {
   elsewhere,
   seedDuplicateCopies,
   seedMeetingStarted,
+  whileTagWriteHolds,
 } from "./tag-fixtures";
 
 beforeEach(async () => {
@@ -97,5 +100,40 @@ describe("POST /api/v1/tags/delete-mine", () => {
 
   it("needs the device headers", async () => {
     expect((await deleteMine({})).status).toBe(400);
+  });
+
+  describe("racing other tag writes", () => {
+    it("waits for another device's write to a meeting it shares, then recounts it", async () => {
+      const meetingId = await seedMeetingStarted(1);
+      await tag(meetingId);
+      await tag(meetingId, deviceHeaders(DEVICE_B, "android"));
+      const res = await whileTagWriteHolds(meetingId, () => deleteMine());
+      expect(res.status).toBe(200);
+      expect(await countsOf(meetingId)).toEqual([["quiet", 1, 0]]);
+    });
+
+    it("takes turns with the sync's merge of a meeting it holds a row on", async () => {
+      const { older, newer } = await seedDuplicateCopies();
+      await tag(newer);
+      await tag(newer, deviceHeaders(DEVICE_B, "android"));
+      // Stalls delete-mine at its recount, after it has deleted its row, until the merge is waiting too.
+      const holder = await pool.connect();
+      await holder.query("begin");
+      await holder.query("select 1 from tag_counts where meeting_id = $1 for update", [newer]);
+      let settled = 0;
+      const deleting = deleteMine().finally(() => (settled += 1));
+      await untilWaitingOnLock(() => settled > 0);
+      const merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled += 1));
+      await untilWaitingOnLock(() => settled > 0, 2);
+      await holder.query("commit");
+      holder.release();
+      const [res] = await Promise.all([deleting, merge]);
+      expect(res.status).toBe(200);
+      expect(DeleteMineResponse.parse(await res.json())).toEqual({ deletedTags: 1 });
+      const rows = await db.select().from(tagSubmissions);
+      expect(rows.map((row) => row.meetingId)).toEqual([older]);
+      expect(await countsOf(older)).toEqual([["quiet", 1, 0]]);
+      expect(await db.select().from(tagSubmissions).where(eq(tagSubmissions.meetingId, newer))).toEqual([]);
+    });
   });
 });

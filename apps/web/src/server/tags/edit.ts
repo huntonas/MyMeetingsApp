@@ -1,12 +1,12 @@
 import type { TagEditRequest, TagWriteResponse } from "@mymeetingapp/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { tagAudit, tagSubmissions } from "@/db/schema";
+import { tagAudit } from "@/db/schema";
 import { ApiError } from "@/lib/api/respond";
 import { lockDevice, recordDevice, type WriteDevice } from "@/server/devices/write-request";
 import { meetingTagCounts, recountTags } from "@/server/tags/counts";
-import { findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
+import { deleteOwnSubmissions, findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
 import { flagTagSwings } from "@/server/tags/swings";
 import { findTaggableMeeting } from "@/server/tags/taggable-meeting";
 import { validTagIds } from "@/server/tags/tag-ids";
@@ -51,15 +51,7 @@ export async function deleteTags(device: WriteDevice, requestedId: string): Prom
     const meeting = await findTaggableMeeting(requestedId, tx);
     const own = await findOwnSubmissions(device.deviceHash, meeting.id, tx);
     if (own.length === 0) throw new ApiError("not_tagged");
-    await tx.delete(tagSubmissions).where(
-      and(
-        eq(tagSubmissions.meetingId, meeting.id),
-        inArray(
-          tagSubmissions.submitterId,
-          own.map((row) => row.submitterId),
-        ),
-      ),
-    );
+    await deleteOwnSubmissions(meeting.id, own, tx);
     await tx
       .delete(tagAudit)
       .where(and(eq(tagAudit.deviceHash, device.deviceHash), eq(tagAudit.meetingId, meeting.id)));

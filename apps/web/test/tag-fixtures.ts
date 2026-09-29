@@ -6,7 +6,10 @@ import { feedMeetings, meetings, tagCounts, tagSubmissions, tags } from "@/db/sc
 import type { FeedMeeting } from "@/server/feeds/normalize";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { recomputeMeetings } from "@/server/meetings/recompute";
+import { recountTags } from "@/server/tags/counts";
+import { findTaggableMeeting } from "@/server/tags/taggable-meeting";
 
+import { untilWaitingOnLock } from "./db";
 import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
 
 let nextSubmitter = 1;
@@ -127,4 +130,26 @@ export function elsewhere(n: number): Partial<FeedMeeting> {
     latitude: 30 + n * 0.1,
     longitude: -90,
   };
+}
+
+// Runs `during` while another tag write on the meeting sits uncommitted just after its recount, as POST /tags
+// leaves it before committing, and lets that write commit once `during` waits on one of its locks.
+export async function whileTagWriteHolds<T>(meetingId: string, during: () => Promise<T>): Promise<T> {
+  let release: () => void = () => undefined;
+  const hold = new Promise<void>((resolve) => (release = resolve));
+  let ready: () => void = () => undefined;
+  const writeReady = new Promise<void>((resolve) => (ready = resolve));
+  const write = db.transaction(async (tx) => {
+    await findTaggableMeeting(meetingId, tx);
+    await recountTags([meetingId], tx);
+    ready();
+    await hold;
+  });
+  await writeReady;
+  let settled = false;
+  const pending = during().finally(() => (settled = true));
+  await untilWaitingOnLock(() => settled);
+  release();
+  await write;
+  return pending;
 }

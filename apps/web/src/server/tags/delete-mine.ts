@@ -1,11 +1,10 @@
 import type { DeleteMineResponse } from "@mymeetingapp/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { devices, rateLimits, suggestions, tagAudit, tagSubmissions } from "@/db/schema";
+import { devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
 import { lockDevice, type WriteDevice } from "@/server/devices/write-request";
-import { recountTags } from "@/server/tags/counts";
-import { everySubmitterIdBatch } from "@/server/tags/own-submissions";
+import { changeEverySubmission } from "@/server/tags/own-submissions";
 
 // Spec §7: every tag, suggestion link, rate-limit, audit and device row for this device, and counts updated. Works
 // even while tagging is switched off. A blocked device keeps only its hash and block (owner decision), so
@@ -13,16 +12,7 @@ import { everySubmitterIdBatch } from "@/server/tags/own-submissions";
 export async function deleteMine(device: WriteDevice): Promise<DeleteMineResponse> {
   return db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);
-    const touched = new Set<string>();
-    let deletedTags = 0;
-    for (const batch of await everySubmitterIdBatch(device.deviceHash, tx)) {
-      const deleted = await tx
-        .delete(tagSubmissions)
-        .where(inArray(tagSubmissions.submitterId, batch))
-        .returning({ meetingId: tagSubmissions.meetingId });
-      deletedTags += deleted.length;
-      for (const row of deleted) touched.add(row.meetingId);
-    }
+    const deletedTags = await changeEverySubmission(device.deviceHash, "delete", tx);
     await tx.delete(tagAudit).where(eq(tagAudit.deviceHash, device.deviceHash));
     await tx.delete(rateLimits).where(eq(rateLimits.deviceHash, device.deviceHash));
     await tx
@@ -32,7 +22,6 @@ export async function deleteMine(device: WriteDevice): Promise<DeleteMineRespons
     await tx
       .delete(devices)
       .where(and(eq(devices.deviceHash, device.deviceHash), eq(devices.blocked, false)));
-    await recountTags([...touched], tx);
     return { deletedTags };
   });
 }

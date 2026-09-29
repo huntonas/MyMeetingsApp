@@ -16,6 +16,7 @@ import {
   elsewhere,
   seedDuplicateCopies,
   seedMeetingStarted,
+  whileTagWriteHolds,
 } from "./tag-fixtures";
 
 beforeEach(async () => {
@@ -56,6 +57,16 @@ describe("blockDevice", () => {
     const res = await tag(third);
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ error: { code: "device_blocked" } });
+  });
+
+  it("waits for another device's write to a meeting it shares, then recounts it", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    await tag(meetingId);
+    await tag(meetingId, deviceHeaders(DEVICE_B, "android"));
+    expect(await whileTagWriteHolds(meetingId, () => blockDevice(DEVICE_A_HASH))).toEqual({
+      excludedTags: 1,
+    });
+    expect(await countsOf(meetingId)).toEqual([["quiet", 1, 0]]);
   });
 
   it("refuses a hash no device has", async () => {

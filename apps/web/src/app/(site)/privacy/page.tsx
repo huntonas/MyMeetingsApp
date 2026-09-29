@@ -18,7 +18,8 @@ export default function PrivacyPage() {
       <DraftNotice />
       <p>
         {BRAND.appName} is made by {BRAND.publisher}, a Tennessee company. This policy covers the app for
-        iPhone and Android and this website. It lists everything our server stores. Nothing is left out.
+        iPhone and Android and this website. It describes each kind of data our server stores, why, and for
+        how long.
       </p>
 
       <h2>In short</h2>
@@ -26,14 +27,17 @@ export default function PrivacyPage() {
         <li>No accounts. We never ask for your name, email or phone number.</li>
         <li>We know your phone only by a keyed hash of the app&apos;s ID for it, never the ID itself.</li>
         <li>
-          Your tags on each meeting are stored under an ID made for that meeting alone, so we can&apos;t list
-          the meetings one phone has tagged, except in a {RETENTION.auditDays}-day abuse-review log.
+          Our database doesn&apos;t record which meetings one phone has tagged. The only stored link between a
+          phone and a meeting is a {RETENTION.auditDays}-day abuse-review log. Your tags on each meeting are
+          stored under an ID made for that meeting alone, so someone with only a copy of our database
+          can&apos;t connect your tags on different meetings. We work out one phone&apos;s tags only when you
+          delete your tags, or when we block a phone for spam.
         </li>
         <li>No ads, analytics, tracking or cookies, in the app or on this website.</li>
       </ul>
 
       <h2>What stays on your phone</h2>
-      <p>These never leave your phone:</p>
+      <p>These stay on your phone and never reach our server:</p>
       <ul>
         {ON_PHONE.map((item) => (
           <li key={item.specItem}>{item.text}</li>
@@ -100,7 +104,7 @@ export default function PrivacyPage() {
       <h2>Children</h2>
       <p>
         The app isn&apos;t meant for children under 13, and we don&apos;t knowingly collect anything from
-        them. We collect nothing that identifies anyone.
+        them. We don&apos;t collect names, contact details or exact locations from anyone.
       </p>
 
       <h2>Changes and contact</h2>

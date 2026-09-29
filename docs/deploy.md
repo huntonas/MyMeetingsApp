@@ -12,6 +12,7 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 - Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, created with `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`. Since 2026-09-29 it is connected to **Production only** (reconnected with no per-deployment branching, no prefix, Sensitive off so `vercel env run` can read the URLs); Preview has its own variables (see "Preview databases").
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
   - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
+- **Restore history:** the privacy policy says deleted data can remain in Neon's restore history for at most 30 days (owner decision 3). Keep the production project's restore window at 30 days or less, and record the configured window here: _not yet recorded_.
 
 Needs the dashboard (no CLI or API for these): see "Preview databases" below.
 
@@ -122,7 +123,7 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 - `DEVICE_ID_PEPPER`: sensitive, different in every environment (generate each with `openssl rand -hex 32`). The production and preview values live in `apps/web/.env.secrets` (see "Local secrets file"), because Vercel won't show a sensitive value again. It can never be rotated: every device hash and submitter id derives from it, and `db:block-device` needs it.
 - `REQUIRE_ATTESTATION=off` in Production and Preview until Phase 6. Any other value refuses every write, because no platform verifier exists yet.
-- `SUGGESTION_MODEL`: a model the AI Gateway lists with `zdr: "all"`, currently `openai/gpt-5-nano` (owner decision 2026-09-29: the gateway's free tier doesn't include `anthropic/claude-haiku-4.5`; switching back needs paid gateway credits and only this variable). Check a model with `curl -fsSL https://ai-gateway.vercel.sh/v1/models | jq '.data[] | select(.id=="openai/gpt-5-nano") | .zdr'`. The AI Gateway needs a card on the Vercel team. Without the variable, suggestions stay pending and each request logs a warning.
+- `SUGGESTION_MODEL`: a model the AI Gateway lists with `zdr: "all"`, currently `openai/gpt-5-nano` (owner decision 2026-09-29: the gateway's free tier doesn't include `anthropic/claude-haiku-4.5`; switching back needs paid gateway credits and only this variable). Check a model with `curl -fsSL https://ai-gateway.vercel.sh/v1/models | jq '.data[] | select(.id=="openai/gpt-5-nano") | .zdr'`. The AI Gateway needs a card on the Vercel team. Without the variable, suggestions stay pending and each request logs a warning. The privacy policy names the current model (`THIRD_PARTIES` in `apps/web/src/content/privacy-inventory.ts`), so changing `SUGGESTION_MODEL` means updating that entry in the same change.
 - The AI Gateway authenticates with Vercel OIDC; no API key is set on Vercel.
 
 ### Maintenance cron

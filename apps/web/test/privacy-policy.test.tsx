@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { getTableName, is } from "drizzle-orm";
-import { PgTable } from "drizzle-orm/pg-core";
+import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import PrivacyPage from "@/app/(site)/privacy/page";
@@ -15,8 +15,82 @@ import { renderText } from "./render";
 // fail when SPEC.md, the database schema or the policy changes without the others.
 const SPEC = readFileSync(path.resolve(import.meta.dirname, "../../../SPEC.md"), "utf8");
 
-// Public meeting data, about no one. The policy describes it in prose ("Meeting listings"), not in the inventory.
-const REFERENCE_TABLES = ["address_geocodes", "feed_meetings", "feeds", "meetings", "tags"];
+// Public meeting data, about no one. The policy describes it in prose ("Meeting listings"), not in the inventory, so
+// its columns are pinned here: a new one (a contact email, say) fails until the policy has been reviewed.
+const REFERENCE_TABLES: Record<string, string[]> = {
+  address_geocodes: ["address_key", "status", "latitude", "longitude", "attempted_at"],
+  feed_meetings: [
+    "id",
+    "feed_id",
+    "meeting_id",
+    "source_slug",
+    "day",
+    "time",
+    "end_time",
+    "timezone",
+    "name",
+    "types",
+    "attendance",
+    "location_name",
+    "formatted_address",
+    "address_key",
+    "latitude",
+    "longitude",
+    "location_notes",
+    "notes",
+    "group_name",
+    "conference_url",
+    "conference_key",
+    "conference_url_notes",
+    "conference_phone",
+    "conference_phone_notes",
+    "source_url",
+    "seen_at",
+    "archived_at",
+  ],
+  feeds: [
+    "id",
+    "slug",
+    "name",
+    "entity_type",
+    "state",
+    "url",
+    "priority",
+    "opted_out",
+    "etag",
+    "last_modified",
+    "last_attempt_at",
+    "last_success_at",
+    "last_error",
+    "meeting_count",
+    "created_at",
+  ],
+  meetings: [
+    "id",
+    "primary_feed_meeting_id",
+    "day",
+    "time",
+    "latitude",
+    "longitude",
+    "timezone",
+    "tags_disabled",
+    "archived_at",
+    "created_at",
+    "updated_at",
+  ],
+  tags: ["id", "slug", "label", "category", "sort_order", "status", "created_at"],
+};
+
+const SCHEMA_TABLES = Object.values(schema).filter((value) => is(value, PgTable));
+
+// Every column of a table in the schema, by its database name.
+function schemaColumns(name: string): string[] {
+  const table = SCHEMA_TABLES.find((candidate) => getTableName(candidate) === name);
+  if (table === undefined) throw new Error(`no table ${name} in the schema`);
+  return getTableConfig(table)
+    .columns.map((column) => column.name)
+    .sort();
+}
 
 function section(heading: string): string {
   const start = SPEC.indexOf(`\n## ${heading}\n`);
@@ -62,15 +136,32 @@ describe("the privacy policy matches SPEC.md §13", () => {
     }
   });
 
+  it("repeats each row's cells, so any edit to the table forces a review of the policy", () => {
+    for (const [name, contents, linkedTo, retention] of storedRows) {
+      const entry = DATA_INVENTORY.find((candidate) => candidate.specRow === name);
+      expect(entry?.specCells, String(name)).toEqual({ contents, linkedTo, retention });
+    }
+  });
+
   it("names a real table for every stored row, and covers every table in the schema", () => {
-    const schemaTables = Object.values(schema)
-      .filter((value) => is(value, PgTable))
-      .map((table) => getTableName(table))
-      .sort();
-    const inventoryTables = DATA_INVENTORY.flatMap((entry) => (entry.table === null ? [] : [entry.table]));
-    expect([...inventoryTables, ...REFERENCE_TABLES].sort()).toEqual(schemaTables);
+    const schemaTables = SCHEMA_TABLES.map((table) => getTableName(table)).sort();
+    const inventoryTables = DATA_INVENTORY.flatMap((entry) =>
+      entry.table === null ? [] : [entry.table.name],
+    );
+    expect([...inventoryTables, ...Object.keys(REFERENCE_TABLES)].sort()).toEqual(schemaTables);
     for (const entry of DATA_INVENTORY) {
-      if (entry.table !== null) expect(entry.table).toBe(entry.specRow);
+      if (entry.table !== null) expect(entry.table.name).toBe(entry.specRow);
+    }
+  });
+
+  it("lists every column of every table, so a new column forces a review of the policy", () => {
+    for (const entry of DATA_INVENTORY) {
+      if (entry.table !== null) {
+        expect([...entry.table.columns].sort(), entry.table.name).toEqual(schemaColumns(entry.table.name));
+      }
+    }
+    for (const [name, columns] of Object.entries(REFERENCE_TABLES)) {
+      expect([...columns].sort(), name).toEqual(schemaColumns(name));
     }
   });
 

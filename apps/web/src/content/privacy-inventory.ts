@@ -3,8 +3,12 @@ import { RETENTION } from "@/server/retention";
 interface InventoryEntry {
   // The row's name in SPEC.md §13's stored-data table, without backticks.
   specRow: string;
-  // The table that holds it, or null for data we never store.
-  table: string | null;
+  // The row's other cells exactly as SPEC.md has them, without backticks. Any edit to the row fails
+  // privacy-policy.test.tsx until this copy is updated, which is the prompt to review the wording below.
+  specCells: { contents: string; linkedTo: string; retention: string };
+  // The table that holds it and every one of its columns (a new column fails the test until the policy covers
+  // it), or null for data we never store.
+  table: { name: string; columns: readonly string[] } | null;
   title: string;
   what: string;
   linkedTo: string;
@@ -13,26 +17,58 @@ interface InventoryEntry {
 
 // Spec §13 in plain words, one entry per row. The privacy policy renders this, and privacy-policy.test.tsx fails when
 // it drifts from SPEC.md or the database schema. Periods come from RETENTION, which the code enforcing them reads.
+// Every purge runs in the nightly maintenance job, so data can outlast its period by up to a day.
 export const DATA_INVENTORY: readonly InventoryEntry[] = [
   {
     specRow: "devices",
-    table: "devices",
+    specCells: {
+      contents: "device hash, platform, first/last seen date, blocked flag, attestation key",
+      linkedTo: "nothing else",
+      retention: "until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6)",
+    },
+    table: {
+      name: "devices",
+      columns: ["device_hash", "platform", "first_seen_date", "last_seen_date", "blocked"],
+    },
     title: "Your phone's record",
-    what: "A keyed hash of the app's ID for your phone (never the ID itself), whether it's an iPhone or an Android phone, the first and last day the app contacted us (dates only), whether we've blocked it for spam and, once app checks are switched on, the app's attestation key.",
+    what: "A keyed hash of the app's ID for your phone (never the ID itself), whether it's an iPhone or an Android phone, the first and last day the app sent us tags or a suggestion (dates only), whether we've blocked it for spam and, once app checks are switched on, the app's attestation key.",
     linkedTo: "Nothing else. It doesn't mention any meeting.",
-    kept: `Until you use “Delete all my tags”, or ${String(RETENTION.inactiveDeviceMonths)} months after the app last contacted us. If we blocked your phone for spam, we keep its hash, platform, dates and blocked flag even after “Delete all my tags”, so the block stays in place. That record still isn't linked to any meeting.`,
+    kept: `Until you use “Delete all my tags”, or until the first nightly cleanup ${String(RETENTION.inactiveDeviceMonths)} months after the app last sent us tags or a suggestion. If we blocked your phone for spam, we keep its hash, platform, dates and blocked flag for as long as the block stands, even after “Delete all my tags” or ${String(RETENTION.inactiveDeviceMonths)} months without contact. That record still isn't linked to any meeting.`,
   },
   {
     specRow: "tag_submissions",
-    table: "tag_submissions",
+    specCells: {
+      contents: "per-meeting submitter ID, tags, nearMeeting, dates",
+      linkedTo: "one meeting only",
+      retention: "until edited/deleted; counts only use 180 days",
+    },
+    table: {
+      name: "tag_submissions",
+      columns: [
+        "meeting_id",
+        "submitter_id",
+        "scope_meeting_id",
+        "tag_ids",
+        "near_meeting",
+        "confirmed_at",
+        "updated_at",
+        "excluded",
+      ],
+    },
     title: "Your tags on a meeting",
-    what: "The tags you chose for one meeting, whether the app confirmed you were near it (yes or no, never where you were) and the dates. They're stored under an ID made for that meeting alone, so your tags on two meetings can't be connected to each other.",
-    linkedTo: "That one meeting.",
+    what: "The tags you chose for one meeting, whether the app confirmed you were near it (yes or no, never where you were), the dates, and whether we've set them aside because we blocked the phone for spam. They're stored under an ID made for that meeting alone, so someone with only a copy of our database can't connect your tags on two meetings.",
+    linkedTo:
+      "That one meeting. Our server works out which rows are one phone's only when you use “Delete all my tags” or when we block a phone for spam.",
     kept: `Until you change or remove them. The counts in the app only include tags confirmed in the last ${String(RETENTION.countWindowDays)} days.`,
   },
   {
     specRow: "tag_counts",
-    table: "tag_counts",
+    specCells: {
+      contents: "meeting, tag, device count, near-meeting count",
+      linkedTo: "one meeting only",
+      retention: "rebuilt on every tag write and nightly",
+    },
+    table: { name: "tag_counts", columns: ["meeting_id", "tag_id", "device_count", "verified_count"] },
     title: "Tag counts",
     what: "For each meeting and tag, how many phones chose it and how many of those were near the meeting.",
     linkedTo: "One meeting.",
@@ -40,16 +76,29 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   },
   {
     specRow: "tag_audit",
-    table: "tag_audit",
+    specCells: {
+      contents: "device hash, meeting, action, time",
+      linkedTo: "device + meeting",
+      retention: "7 days",
+    },
+    table: { name: "tag_audit", columns: ["id", "device_hash", "meeting_id", "action", "at"] },
     title: "Abuse-review log",
     what: "Your phone's hash, a meeting, whether you added or changed tags, and when.",
     linkedTo:
-      "Your phone and one meeting. This is the only place we connect a phone to a meeting, so we can find and block spam.",
-    kept: `${String(RETENTION.auditDays)} days, then deleted.`,
+      "Your phone and one meeting. This is the only stored link between a phone and a meeting, kept so we can find and block spam.",
+    kept: `${String(RETENTION.auditDays)} days, then deleted in the next nightly cleanup.`,
   },
   {
     specRow: "tag_swings",
-    table: "tag_swings",
+    specCells: {
+      contents: "meeting, tag, new and prior device counts, flagged/reviewed time",
+      linkedTo: "one meeting only",
+      retention: "kept",
+    },
+    table: {
+      name: "tag_swings",
+      columns: ["id", "meeting_id", "tag_id", "new_devices", "prior_devices", "flagged_at", "reviewed_at"],
+    },
     title: "Spam flags",
     what: "When one tag suddenly gains many new phones on a meeting: the meeting, the tag, how many new and earlier phones, and when we flagged and reviewed it.",
     linkedTo: "One meeting. No phone.",
@@ -57,7 +106,12 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   },
   {
     specRow: "meeting_aliases",
-    table: "meeting_aliases",
+    specCells: {
+      contents: "merged-away meeting id, surviving meeting id",
+      linkedTo: "meetings only",
+      retention: "kept",
+    },
+    table: { name: "meeting_aliases", columns: ["old_meeting_id", "meeting_id"] },
     title: "Merged meetings",
     what: "When two listings turn out to be the same meeting, the old meeting ID and the one it became.",
     linkedTo: "Meetings only.",
@@ -65,30 +119,53 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   },
   {
     specRow: "rate_limits",
-    table: "rate_limits",
+    specCells: { contents: "device hash, bucket, count", linkedTo: "device only", retention: "2 days" },
+    table: { name: "rate_limits", columns: ["device_hash", "bucket", "window_start", "count"] },
     title: "Daily limits",
     what: "Your phone's hash, which daily limit it counts (new tags or suggestions), the day (UTC) and how many you've used that day.",
     linkedTo: "Your phone only.",
-    kept: `${String(RETENTION.rateLimitDays)} days: today's and yesterday's counts (UTC) are kept, older ones deleted.`,
+    kept: `${String(RETENTION.rateLimitDays)} days: today's and yesterday's counts (UTC) are kept, and older ones are deleted in the next nightly cleanup.`,
   },
   {
     specRow: "suggestions",
-    table: "suggestions",
+    specCells: {
+      contents: "text, status, merged tag; device hash until reviewed",
+      linkedTo: "device (temporary)",
+      retention: "text kept; device link ≤ 30 days; deleted by delete-mine while still linked",
+    },
+    table: {
+      name: "suggestions",
+      columns: ["id", "text", "status", "merged_tag_id", "device_hash", "created_at", "reviewed_at"],
+    },
     title: "Suggested tags",
     what: "The word or phrase you suggested, and whether we added it, merged it into an existing tag or turned it down. Until we review it, it's also linked to your phone's hash.",
     linkedTo: "Your phone, but only until review.",
-    kept: `The text is kept. The link to your phone goes when we review the suggestion or after ${String(RETENTION.suggestionLinkDays)} days, whichever comes first. “Delete all my tags” deletes any suggestion still linked to you.`,
+    kept: `The text is kept. The link to your phone goes when we review the suggestion, or in the first nightly cleanup after ${String(RETENTION.suggestionLinkDays)} days, whichever comes first. “Delete all my tags” deletes any suggestion still linked to you.`,
   },
   {
     specRow: "ai_decisions",
-    table: "ai_decisions",
+    specCells: {
+      contents: "suggestion text, AI decision, reason, model, time",
+      linkedTo: "a suggestion (device link via the suggestion ≤ 30 days)",
+      retention: "kept; deleted with its suggestion by delete-mine",
+    },
+    table: {
+      name: "ai_decisions",
+      columns: ["id", "suggestion_id", "input", "decision", "tag_slug", "reason", "model", "decided_at"],
+    },
     title: "Suggestion screening log",
     what: "The suggested text, what the screening model decided (merge it into an existing tag, reject it or leave it for a person), which tag it named for a merge, its reason, the model's name and the time.",
-    linkedTo: `One suggestion, and through it your phone for at most ${String(RETENTION.suggestionLinkDays)} days.`,
+    linkedTo:
+      "One suggestion, and through it your phone for as long as that suggestion stays linked to it (see “Suggested tags”).",
     kept: "Kept, including the suggestion's text. “Delete all my tags” deletes it together with a suggestion still linked to you.",
   },
   {
     specRow: "Search request",
+    specCells: {
+      contents: "rounded lat/lng (~1 km)",
+      linkedTo: "nothing",
+      retention: "not stored; used for one query",
+    },
     table: null,
     title: "Search location",
     what: "When you search, the app rounds the location to about 1 km (two decimal places) and sends it in the body of the request, never in a web address.",
@@ -97,6 +174,11 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   },
   {
     specRow: "Vercel request logs",
+    specCells: {
+      contents: "IP, path, time",
+      linkedTo: "nothing we control",
+      retention: "Vercel plan retention",
+    },
     table: null,
     title: "Hosting request logs",
     what: "Our host, Vercel, records each request's IP address, the page or API path, and the time.",
@@ -108,7 +190,10 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
 // Spec §13's "Stays on the phone" list, in the same order.
 export const ON_PHONE: readonly { specItem: string; text: string }[] = [
   { specItem: "exact location", text: "your exact location" },
-  { specItem: "search box text", text: "what you type in the search box" },
+  {
+    specItem: "search box text",
+    text: "what you type in the search box (to find the place, your phone asks Apple or Google, not us)",
+  },
   { specItem: "recent searches", text: "your recent searches" },
   { specItem: "favorites", text: "your favorite meetings" },
   { specItem: "sobriety date", text: "your sobriety date" },

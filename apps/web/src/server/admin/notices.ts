@@ -8,10 +8,9 @@ export const ADMIN_NOTICES = {
   rejected: "Rejected.",
   already_reviewed: "That suggestion was already reviewed.",
   tag_exists: "A tag with that name already exists. Merge into it instead.",
-  tag_retired:
-    "Retired. The app stops offering it within an hour, and its counts are kept. If a suggestion needs " +
-    "this name, restore it under Vocabulary, then merge into it.",
+  tag_retired: "Retired. The app usually stops offering it within an hour, and its counts are kept.",
   tag_restored: "Restored. The app offers it again within an hour.",
+  tag_name_retired: "A retired tag already uses that name. Restore it under Vocabulary, then merge into it.",
   label_invalid: "That label has no letters a–z to make the tag's id from. Use Latin letters.",
   tag_not_found: "That tag isn't in the vocabulary, or has been retired.",
   blocked: "Blocked. That phone's tags no longer count, on this meeting or any other.",

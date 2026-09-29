@@ -135,7 +135,7 @@ describe("approveSuggestion (spec §5)", () => {
     await db.update(tags).set({ status: "retired" }).where(eq(tags.slug, "laid-back"));
     const id = await pendingSuggestion("Laid-back");
     expect(await approveSuggestion({ suggestionId: id, label: "Laid-back", category: "format" })).toBe(
-      "tag_retired",
+      "tag_name_retired",
     );
     expect(await suggestionRow(id)).toMatchObject({ status: "pending", deviceHash: DEVICE_A_HASH });
   });

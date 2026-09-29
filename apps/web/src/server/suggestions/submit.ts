@@ -5,7 +5,7 @@ import { aiDecisions, suggestions, tags } from "@/db/schema";
 import { readEnv } from "@/env";
 import { logError } from "@/lib/log";
 import { consumeDailyLimit } from "@/server/devices/rate-limit";
-import { recordDevice, type WriteDevice } from "@/server/devices/write-request";
+import { writeAsDevice, type WriteDevice } from "@/server/devices/write-request";
 import { screenSuggestion } from "@/server/suggestions/screen";
 import { getActiveVocabulary } from "@/server/vocabulary";
 
@@ -58,8 +58,7 @@ async function screenAndApply(id: number, text: string): Promise<void> {
 
 // The suggestion is committed before screening, so the AI call never holds a database transaction open.
 export async function submitSuggestion(device: WriteDevice, text: string): Promise<void> {
-  const id = await db.transaction(async (tx) => {
-    await recordDevice(device, tx);
+  const id = await writeAsDevice(device, async (tx) => {
     await consumeDailyLimit(device.deviceHash, "suggestion", tx);
     const [row] = await tx
       .insert(suggestions)

@@ -1,11 +1,10 @@
 import type { TagSubmissionRequest, TagWriteResponse } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 
-import { db } from "@/db/client";
 import { tagAudit } from "@/db/schema";
 import { ApiError } from "@/lib/api/respond";
 import { consumeDailyLimit } from "@/server/devices/rate-limit";
-import { recordDevice, type WriteDevice } from "@/server/devices/write-request";
+import { writeAsDevice, type WriteDevice } from "@/server/devices/write-request";
 import { meetingTagCounts, recountTags } from "@/server/tags/counts";
 import { findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
 import { flagTagSwings } from "@/server/tags/swings";
@@ -19,8 +18,7 @@ export async function submitTags(
   device: WriteDevice,
   request: TagSubmissionRequest,
 ): Promise<TagWriteResponse> {
-  return db.transaction(async (tx) => {
-    await recordDevice(device, tx);
+  return writeAsDevice(device, async (tx) => {
     const meeting = await findTaggableMeeting(request.meetingId, tx);
     if (meeting.archived) throw new ApiError("meeting_not_found");
     if (meeting.tagsDisabled) throw new ApiError("tags_disabled");

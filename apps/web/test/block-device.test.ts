@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST } from "@/app/api/v1/tags/route";
@@ -67,6 +68,15 @@ describe("blockDevice", () => {
       excludedTags: 1,
     });
     expect(await countsOf(meetingId)).toEqual([["quiet", 1, 0]]);
+  });
+
+  it("leaves no transaction id linking the blocked device's record to its excluded rows (spec §2)", async () => {
+    await tag(await seedMeetingStarted(1));
+    await blockDevice(DEVICE_A_HASH);
+    const { rows } = await db.execute<{ linked: number }>(
+      sql`select count(*)::int as linked from devices d join tag_submissions s on s.xmin = d.xmin`,
+    );
+    expect(rows).toEqual([{ linked: 0 }]);
   });
 
   it("refuses a hash no device has", async () => {

@@ -1,5 +1,5 @@
 import { TagWriteResponse } from "@mymeetingapp/shared";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/v1/tags/route";
@@ -198,6 +198,32 @@ describe("POST /api/v1/tags", () => {
   it("refuses a write without device headers", async () => {
     const meetingId = await seedMeetingStarted(1);
     await expectError(await post({ meetingId, tags: ["quiet"] }, {}), 400, "invalid_request");
+  });
+
+  it("leaves no transaction id linking the device's record to its tag or audit rows (spec §2)", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    expect((await post({ meetingId, tags: ["quiet"] })).status).toBe(201);
+    const { rows } = await db.execute<{ linked: number }>(sql`
+      select (select count(*) from devices d join tag_submissions s on s.xmin = d.xmin)::int
+        + (select count(*) from devices d join tag_audit a on a.xmin = d.xmin)::int as linked
+    `);
+    expect(rows).toEqual([{ linked: 0 }]);
+  });
+
+  it("refuses a device blocked after it was recorded but before its write took the device lock", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    await post({ meetingId: await seedMeetingStarted(1, elsewhere(1)), tags: ["quiet"] });
+    const admin = await pool.connect();
+    await admin.query("begin");
+    await admin.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [DEVICE_A_HASH]);
+    let settled = false;
+    const write = post({ meetingId, tags: ["quiet"] }).finally(() => (settled = true));
+    await untilWaitingOnLock(() => settled);
+    await admin.query("update devices set blocked = true where device_hash = $1", [DEVICE_A_HASH]);
+    await admin.query("commit");
+    admin.release();
+    await expectError(await write, 403, "device_blocked");
+    expect(await rowsOn(meetingId)).toEqual([]);
   });
 
   it("serializes one device's concurrent submissions", async () => {

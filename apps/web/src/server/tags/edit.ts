@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { tagAudit } from "@/db/schema";
 import { ApiError } from "@/lib/api/respond";
-import { lockDevice, recordDevice, type WriteDevice } from "@/server/devices/write-request";
+import { lockDevice, writeAsDevice, type WriteDevice } from "@/server/devices/write-request";
 import { meetingTagCounts, recountTags } from "@/server/tags/counts";
 import { deleteOwnSubmissions, findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
 import { flagTagSwings } from "@/server/tags/swings";
@@ -19,8 +19,7 @@ export async function editTags(
   requestedId: string,
   request: TagEditRequest,
 ): Promise<TagWriteResponse> {
-  return db.transaction(async (tx) => {
-    await recordDevice(device, tx);
+  return writeAsDevice(device, async (tx) => {
     const meeting = await findTaggableMeeting(requestedId, tx);
     if (meeting.tagsDisabled) throw new ApiError("tags_disabled");
     const tagIds = await validTagIds(request.tags, tx);

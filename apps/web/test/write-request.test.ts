@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { db, pool } from "@/db/client";
 import { devices } from "@/db/schema";
 import { jsonResponse, withErrors } from "@/lib/api/respond";
-import { readWriteRequest, recordDevice } from "@/server/devices/write-request";
+import { readWriteRequest, writeAsDevice } from "@/server/devices/write-request";
 
 import { resetDb } from "./db";
 import { DEVICE_A, DEVICE_A_HASH, deviceHeaders } from "./tag-fixtures";
@@ -22,7 +22,7 @@ afterAll(() => pool.end());
 // A write route reduced to its header handling.
 const write = withErrors(async (req: Request) => {
   const device = readWriteRequest(req);
-  await db.transaction((tx) => recordDevice(device, tx));
+  await writeAsDevice(device, () => Promise.resolve());
   return jsonResponse(z.object({ deviceHash: z.string() }), device, "none");
 });
 
@@ -63,6 +63,14 @@ describe("write request headers", () => {
     await call(deviceHeaders());
     const [row] = await db.select().from(devices);
     expect([row?.firstSeenDate, row?.lastSeenDate]).toEqual(["2026-01-01", utcToday()]);
+  });
+
+  it("leaves the device's record untouched on a later write the same UTC day", async () => {
+    await call(deviceHeaders());
+    const xmin = () => db.execute<{ xmin: string }>(sql`select xmin::text from devices`);
+    const before = (await xmin()).rows;
+    await call(deviceHeaders());
+    expect((await xmin()).rows).toEqual(before);
   });
 
   it.each<[string, Record<string, string>]>([

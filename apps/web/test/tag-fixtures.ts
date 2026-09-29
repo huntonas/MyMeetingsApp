@@ -16,6 +16,8 @@ let nextSubmitter = 1;
 export const DEVICE_A = "6F9619FF-8B86-D011-B42D-00C04FC964FF";
 export const DEVICE_A_HASH = "843ff89c9bc545aa6c2c749daa73a089752171a990aa930ce3aeb18c06ebffc4";
 export const DEVICE_B = "3f2a9c8e1b7d4065";
+// deviceHash("android", DEVICE_B) under the test pepper, computed independently.
+export const DEVICE_B_HASH = "42d4e1645508213ac46e5e98a42c91c6b6336162a21b3afcd8112f6e7f5050ea";
 
 // A distinct raw device id for the nth device in a test that needs many, valid under WriteHeaders' regex.
 export function testDevice(n: number): string {

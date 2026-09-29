@@ -5,6 +5,8 @@ import { tagSubmissions } from "@/db/schema";
 import { submitterId, submitterIds } from "@/server/devices/ids";
 import { submitterScopes } from "@/server/meetings/aliases";
 
+const SUBMITTER_ID_BATCH = 5_000;
+
 interface OwnSubmission {
   submitterId: string;
   nearMeeting: boolean;
@@ -62,4 +64,21 @@ export async function saveOwnSubmission(
     ...row,
     updatedAt: sql`now()`,
   });
+}
+
+// Spec §6: a device's rows anywhere, found by computing its submitter id for every meeting and every merged-away
+// id (about 60k HMACs). Batched so each statement stays well under Postgres's 65,535 bind parameters.
+export async function everySubmitterIdBatch(deviceHash: string, executor: Executor): Promise<string[][]> {
+  const scopes = await executor.execute<{ id: string }>(
+    sql`select id from meetings union all select old_meeting_id from meeting_aliases`,
+  );
+  const ids = submitterIds(
+    deviceHash,
+    scopes.rows.map((row) => row.id),
+  );
+  const batches: string[][] = [];
+  for (let start = 0; start < ids.length; start += SUBMITTER_ID_BATCH) {
+    batches.push(ids.slice(start, start + SUBMITTER_ID_BATCH));
+  }
+  return batches;
 }

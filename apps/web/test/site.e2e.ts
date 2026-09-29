@@ -24,3 +24,25 @@ describe("the public site", () => {
     expect(html).toContain('"url":"https://mymeetingapp.test"');
   });
 });
+
+describe("search engine files and links", () => {
+  it("serves robots.txt and the sitemap built with SITE_URL", async () => {
+    const robotsTxt = await (await fetch(`${E2E_URL}/robots.txt`)).text();
+    expect(robotsTxt).toContain("Disallow: /metrics");
+    expect(robotsTxt).toContain("Disallow: /api/");
+    expect(robotsTxt).toContain("Sitemap: https://mymeetingapp.test/sitemap.xml");
+    const sitemapXml = await (await fetch(`${E2E_URL}/sitemap.xml`)).text();
+    expect(sitemapXml).toContain("<loc>https://mymeetingapp.test/privacy</loc>");
+  });
+
+  it.each(["/", "/privacy", "/terms", "/support"])(
+    "gives %s its canonical link and Open Graph URL",
+    async (path) => {
+      const html = await (await fetch(`${E2E_URL}${path}`)).text();
+      const url = `https://mymeetingapp.test${path === "/" ? "" : path}`;
+      expect(html).toContain(`<link rel="canonical" href="${url}"/>`);
+      expect(html).toContain(`<meta property="og:url" content="${url}"/>`);
+      expect(html).toContain('<meta property="og:site_name" content="mymeetingapp"/>');
+    },
+  );
+});

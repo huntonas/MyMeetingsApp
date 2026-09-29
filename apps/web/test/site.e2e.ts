@@ -14,11 +14,16 @@ describe("the public site", () => {
     expect(html).not.toContain("fonts.googleapis.com");
   });
 
-  it("sets no cookies and loads no script from another site (spec §2)", async () => {
-    const res = await fetch(`${E2E_URL}/`);
-    expect(res.headers.get("set-cookie")).toBeNull();
-    expect(await res.text()).not.toMatch(/<script[^>]+src="https?:\/\//);
-  });
+  // Links the visitor follows (<a href>) and the canonical URL name another site without loading anything from it.
+  it.each(["/", "/privacy", "/terms", "/support"])(
+    "%s sets no cookies and loads nothing from another site (spec §2)",
+    async (path) => {
+      const res = await fetch(`${E2E_URL}${path}`);
+      expect(res.headers.get("set-cookie")).toBeNull();
+      const loads = (await res.text()).replace(/<a\s[^>]*>/g, "").replace(/<link rel="canonical"[^>]*>/g, "");
+      expect(loads).not.toMatch(/(src|href)="(https?:)?\/\//);
+    },
+  );
 
   it("builds the structured data with the site URL", async () => {
     const html = await (await fetch(`${E2E_URL}/`)).text();

@@ -1,19 +1,11 @@
+import { formData } from "./admin-fixtures";
 import { ADMIN_AUTHORIZATION, E2E_URL } from "./e2e-server";
+import { decodeEntities } from "./render";
 
 // A signed-in page load, as the owner's browser makes it.
 export function adminGet(path: string): Promise<Response> {
   return fetch(`${E2E_URL}${path}`, { headers: { authorization: ADMIN_AUTHORIZATION }, redirect: "manual" });
 }
-
-const ENTITIES: Record<string, string> = {
-  "&amp;": "&",
-  "&quot;": '"',
-  "&#x27;": "'",
-  "&lt;": "<",
-  "&gt;": ">",
-};
-const decode = (value: string) =>
-  value.replace(/&(?:amp|quot|#x27|lt|gt);/g, (entity) => ENTITIES[entity] ?? entity);
 
 // The fields of the server-rendered <form> whose markup contains `marker` (its aria-label, say), with the values a
 // browser would send: inputs as rendered and each select's selected option, or its first. Next.js renders a Server
@@ -27,14 +19,15 @@ export function formContaining(html: string, marker: string): Record<string, str
   const fields: Record<string, string> = {};
   for (const [input] of form.matchAll(/<input[^>]*>/g)) {
     const name = /name="([^"]*)"/.exec(input)?.[1];
-    if (name !== undefined) fields[decode(name)] = decode(/value="([^"]*)"/.exec(input)?.[1] ?? "");
+    if (name !== undefined)
+      fields[decodeEntities(name)] = decodeEntities(/value="([^"]*)"/.exec(input)?.[1] ?? "");
   }
   for (const [, name = "", options = ""] of form.matchAll(
     /<select[^>]*name="([^"]*)"[^>]*>([\s\S]*?)<\/select>/g,
   )) {
     const optionTags = [...options.matchAll(/<option([^>]*)>/g)].map((match) => match[1] ?? "");
     const chosen = optionTags.find((attributes) => attributes.includes('selected=""')) ?? optionTags[0] ?? "";
-    fields[name] = decode(/value="([^"]*)"/.exec(chosen)?.[1] ?? "");
+    fields[name] = decodeEntities(/value="([^"]*)"/.exec(chosen)?.[1] ?? "");
   }
   return fields;
 }
@@ -45,11 +38,9 @@ export function submitForm(
   fields: Record<string, string>,
   origin = E2E_URL,
 ): Promise<Response> {
-  const body = new FormData();
-  for (const [name, value] of Object.entries(fields)) body.append(name, value);
   return fetch(`${E2E_URL}${path}`, {
     method: "POST",
-    body,
+    body: formData(fields),
     redirect: "manual",
     headers: { authorization: ADMIN_AUTHORIZATION, origin },
   });

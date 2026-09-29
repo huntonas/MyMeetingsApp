@@ -1,14 +1,14 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { POST as tagMeeting } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
 import { devices, tagSwings } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 
+import { seedSwing } from "./admin-fixtures";
 import { resetDb } from "./db";
 import { adminGet, formContaining, submitForm } from "./e2e-forms";
-import { DEVICE_A_HASH, deviceHeaders, seedMeetingStarted, testDevice } from "./tag-fixtures";
+import { DEVICE_A_HASH } from "./tag-fixtures";
 
 beforeEach(async () => {
   await resetDb();
@@ -16,25 +16,9 @@ beforeEach(async () => {
 });
 afterAll(() => pool.end());
 
-async function seedSwing(): Promise<number> {
-  const meetingId = await seedMeetingStarted(1);
-  for (const headers of [deviceHeaders(), ...[1, 2, 3, 4].map((n) => deviceHeaders(testDevice(n)))]) {
-    await tagMeeting(
-      new Request("http://test/api/v1/tags", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ meetingId, tags: ["serious-tone"] }),
-      }),
-    );
-  }
-  const [swing] = await db.select({ id: tagSwings.id }).from(tagSwings);
-  if (swing === undefined) throw new Error("no swing was flagged");
-  return swing.id;
-}
-
 describe("swing review in the built app", () => {
   it("blocks a phone from the flag's review page and returns to it", async () => {
-    const swingId = await seedSwing();
+    const { swingId } = await seedSwing();
     expect(await (await adminGet("/metrics/swings")).text()).toContain(
       `href="/metrics/swings/${String(swingId)}"`,
     );
@@ -51,7 +35,7 @@ describe("swing review in the built app", () => {
   });
 
   it("closes the flag", async () => {
-    const swingId = await seedSwing();
+    const { swingId } = await seedSwing();
     const path = `/metrics/swings/${String(swingId)}`;
     const res = await submitForm(
       path,
@@ -68,7 +52,7 @@ describe("swing review in the built app", () => {
   });
 
   it("sends a tampered form back to the overview, having blocked nothing", async () => {
-    const swingId = await seedSwing();
+    const { swingId } = await seedSwing();
     const path = `/metrics/swings/${String(swingId)}`;
     const fields = formContaining(
       await (await adminGet(path)).text(),

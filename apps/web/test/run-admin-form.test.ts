@@ -6,12 +6,11 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 
 import { runAdminForm } from "@/app/metrics/run-admin-form";
 import { db, pool } from "@/db/client";
-import { suggestions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { ApproveSuggestionForm, approveSuggestion, RejectSuggestionForm } from "@/server/admin/suggestions";
 
+import { formData, pendingSuggestion } from "./admin-fixtures";
 import { resetDb } from "./db";
-import { DEVICE_A_HASH } from "./tag-fixtures";
 
 beforeEach(async () => {
   await resetDb();
@@ -22,25 +21,12 @@ afterEach(() => {
 });
 afterAll(() => pool.end());
 
-function form(fields: Record<string, string>): FormData {
-  const data = new FormData();
-  for (const [name, value] of Object.entries(fields)) data.append(name, value);
-  return data;
-}
-
-async function pendingSuggestion(text: string): Promise<number> {
-  const [row] = await db
-    .insert(suggestions)
-    .values({ text, deviceHash: DEVICE_A_HASH })
-    .returning({ id: suggestions.id });
-  if (row === undefined) throw new Error("the suggestion was not saved");
-  return row.id;
-}
-
 describe("runAdminForm", () => {
   it("answers invalid_form for a form the schema refuses, without running the change", async () => {
     const run = vi.fn(() => Promise.resolve("rejected" as const));
-    expect(await runAdminForm(RejectSuggestionForm, run, form({ suggestionId: "x" }))).toBe("invalid_form");
+    expect(await runAdminForm(RejectSuggestionForm, run, formData({ suggestionId: "x" }))).toBe(
+      "invalid_form",
+    );
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -53,7 +39,7 @@ describe("runAdminForm", () => {
       const notice = await runAdminForm(
         ApproveSuggestionForm,
         approveSuggestion,
-        form({ suggestionId: String(id), label: "Secret words xyz", category: "feel" }),
+        formData({ suggestionId: String(id), label: "Secret words xyz", category: "feel" }),
       );
       expect(notice).toBe("failed");
     } finally {
@@ -67,7 +53,7 @@ describe("runAdminForm", () => {
   it("lets a Next.js redirect through rather than reporting a failure", async () => {
     const redirecting = () => redirect("/metrics");
     await expect(
-      runAdminForm(RejectSuggestionForm, redirecting, form({ suggestionId: "1" })),
+      runAdminForm(RejectSuggestionForm, redirecting, formData({ suggestionId: "1" })),
     ).rejects.toThrow("NEXT_REDIRECT");
   });
 });

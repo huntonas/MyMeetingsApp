@@ -13,6 +13,7 @@ import {
   rejectSuggestion,
 } from "@/server/admin/suggestions";
 
+import { pendingSuggestion, suggestionRow } from "./admin-fixtures";
 import { resetDb } from "./db";
 import { DEVICE_A_HASH } from "./tag-fixtures";
 
@@ -21,28 +22,6 @@ beforeEach(async () => {
   await seedVocabulary();
 });
 afterAll(() => pool.end());
-
-async function pendingSuggestion(text: string): Promise<number> {
-  const [row] = await db
-    .insert(suggestions)
-    .values({ text, deviceHash: DEVICE_A_HASH })
-    .returning({ id: suggestions.id });
-  if (row === undefined) throw new Error("the suggestion was not saved");
-  return row.id;
-}
-
-async function suggestionRow(id: number) {
-  const [row] = await db
-    .select({
-      status: suggestions.status,
-      mergedTagId: suggestions.mergedTagId,
-      deviceHash: suggestions.deviceHash,
-      reviewedAt: suggestions.reviewedAt,
-    })
-    .from(suggestions)
-    .where(eq(suggestions.id, id));
-  return row;
-}
 
 async function tagBySlug(slug: string) {
   const [row] = await db.select().from(tags).where(eq(tags.slug, slug));

@@ -4,22 +4,14 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as deleteMine } from "@/app/api/v1/tags/delete-mine/route";
-import { POST as tagMeeting } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
-import { devices, tagAudit, tagSwings } from "@/db/schema";
+import { devices, tagAudit } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { blockSwingDevice, closeSwing, listOpenSwings, readSwingReview } from "@/server/admin/swings";
 
+import { seedSwing } from "./admin-fixtures";
 import { resetDb } from "./db";
-import {
-  countsOf,
-  DEVICE_A_HASH,
-  DEVICE_B,
-  DEVICE_B_HASH,
-  deviceHeaders,
-  seedMeetingStarted,
-  testDevice,
-} from "./tag-fixtures";
+import { countsOf, DEVICE_A_HASH, DEVICE_B_HASH, deviceHeaders } from "./tag-fixtures";
 
 beforeEach(async () => {
   await resetDb();
@@ -29,29 +21,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 afterAll(() => pool.end());
-
-async function tag(meetingId: string, slugs: string[], headers: Record<string, string>) {
-  const res = await tagMeeting(
-    new Request("http://test/api/v1/tags", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ meetingId, tags: slugs }),
-    }),
-  );
-  expect(res.status).toBe(201);
-}
-
-// A flag on "serious-tone": DEVICE_A and four more phones add it within the hour. DEVICE_B, also in the audit log,
-// adds only "quiet".
-async function seedSwing(): Promise<{ meetingId: string; swingId: number }> {
-  const meetingId = await seedMeetingStarted(1);
-  await tag(meetingId, ["serious-tone"], deviceHeaders());
-  for (let n = 1; n <= 4; n++) await tag(meetingId, ["serious-tone"], deviceHeaders(testDevice(n)));
-  await tag(meetingId, ["quiet"], deviceHeaders(DEVICE_B, "android"));
-  const [swing] = await db.select({ id: tagSwings.id }).from(tagSwings);
-  if (swing === undefined) throw new Error("no swing was flagged");
-  return { meetingId, swingId: swing.id };
-}
 
 async function blocked(deviceHash: string) {
   const [row] = await db

@@ -7,9 +7,11 @@ import { db, pool } from "@/db/client";
 import { meetingAliases, meetings, tagAudit, tagSubmissions, tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
+import { recomputeMeetings } from "@/server/meetings/recompute";
 
 import { resetDb, untilWaitingOnLock } from "./db";
 import {
+  countsOf,
   DEVICE_A_HASH,
   DEVICE_B,
   deviceHeaders,
@@ -205,6 +207,39 @@ describe("POST /api/v1/tags", () => {
       post({ meetingId, tags: ["lively"] }),
     ]);
     expect(results.map((res) => res.status).sort()).toEqual([201, 409]);
+  });
+
+  it("serializes two devices' submissions to one meeting, so both count", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    // Hold the meeting row so both writes queue behind it, then let them go at the same moment.
+    const holder = await pool.connect();
+    await holder.query("begin");
+    await holder.query("select 1 from meetings where id = $1 for update", [meetingId]);
+    let settled = 0;
+    const writes = Promise.all(
+      [
+        post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }),
+        post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }, deviceHeaders(DEVICE_B, "android")),
+      ].map((write) => write.finally(() => (settled += 1))),
+    );
+    await untilWaitingOnLock(() => settled === 2, 2);
+    await holder.query("commit");
+    holder.release();
+    const results = await writes;
+    expect(results.map((res) => res.status)).toEqual([201, 201]);
+    expect(await countsOf(meetingId)).toEqual([
+      ["coffee", 2, 0],
+      ["laid-back", 2, 0],
+      ["quiet", 2, 0],
+    ]);
+  });
+
+  it("doesn't wait for a sync that is updating the meeting", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    await db.transaction(async (tx) => {
+      await recomputeMeetings([meetingId], tx);
+      expect((await post({ meetingId, tags: ["quiet"] })).status).toBe(201);
+    });
   });
 
   describe("racing the sync's merge", () => {

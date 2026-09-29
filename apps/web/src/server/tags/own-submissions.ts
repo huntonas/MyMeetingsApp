@@ -9,6 +9,9 @@ interface OwnSubmission {
   submitterId: string;
   nearMeeting: boolean;
   confirmedAt: Date;
+  // Spec §5: confirmed less than 7 days ago by the database clock (the one the daily cap uses), so a new
+  // submission would be too soon to count as a re-confirmation.
+  confirmedThisWeek: boolean;
 }
 
 // Spec §2: a device's row is keyed by an HMAC of a meeting id. After merges that id may be any meeting merged into
@@ -25,6 +28,7 @@ export async function findOwnSubmissions(
       submitterId: tagSubmissions.submitterId,
       nearMeeting: tagSubmissions.nearMeeting,
       confirmedAt: tagSubmissions.confirmedAt,
+      confirmedThisWeek: sql<boolean>`${tagSubmissions.confirmedAt} > now() - interval '7 days'`,
     })
     .from(tagSubmissions)
     .where(and(eq(tagSubmissions.meetingId, meetingId), inArray(tagSubmissions.submitterId, ids)))

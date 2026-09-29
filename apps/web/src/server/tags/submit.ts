@@ -11,8 +11,6 @@ import { findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submiss
 import { findTaggableMeeting } from "@/server/tags/taggable-meeting";
 import { validTagIds } from "@/server/tags/tag-ids";
 
-const RECONFIRM_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
-
 // Spec §5: a new submission, or a re-confirmation at least 7 days after the device's last one, inside the tagging
 // window and within the daily cap. One transaction covers the row, the audit row and the recount, so the response
 // already includes this submission.
@@ -27,10 +25,7 @@ export async function submitTags(
     if (meeting.tagsDisabled) throw new ApiError("tags_disabled");
     const tagIds = await validTagIds(request.tags, tx);
     const own = await findOwnSubmissions(device.deviceHash, meeting.id, tx);
-    const latest = own[0];
-    if (latest !== undefined && Date.now() - latest.confirmedAt.getTime() < RECONFIRM_AFTER_MS) {
-      throw new ApiError("already_tagged");
-    }
+    if (own[0]?.confirmedThisWeek === true) throw new ApiError("already_tagged");
     if (!meeting.windowOpen) throw new ApiError("window_closed");
     await consumeDailyLimit(device.deviceHash, "tag_submission", tx);
     // Spec §5: nearMeeting is always false for online attendance.

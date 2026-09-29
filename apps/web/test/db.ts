@@ -21,14 +21,18 @@ export async function resetDb(): Promise<void> {
   await db.execute(sql.raw(`truncate table ${APP_TABLES.join(", ")} restart identity cascade`));
 }
 
-// Returns once some query is waiting on a row or table lock, or once `settled` says the racing work already
-// finished without waiting (its assertions then catch that).
-export async function untilWaitingOnLock(settled: () => boolean): Promise<void> {
+// Returns once `waiters` queries are waiting on a lock (row, table or advisory), or once `settled` says the
+// racing work already finished without waiting (its assertions then catch that). Gives up after 5 seconds.
+export async function untilWaitingOnLock(settled: () => boolean, waiters = 1): Promise<void> {
+  const deadline = Date.now() + 5000;
   while (!settled()) {
     const result = await db.execute<{ waiting: number }>(sql`
       select count(*)::int waiting from pg_stat_activity
       where datname = current_database() and wait_event_type = 'Lock'
     `);
-    if ((result.rows[0]?.waiting ?? 0) > 0) return;
+    if ((result.rows[0]?.waiting ?? 0) >= waiters) return;
+    if (Date.now() > deadline)
+      throw new Error(`fewer than ${String(waiters)} queries waited on a lock within 5s`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }

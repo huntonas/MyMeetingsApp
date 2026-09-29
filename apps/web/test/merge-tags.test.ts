@@ -143,7 +143,7 @@ describe("mergeDuplicateMeetings racing a tag write", () => {
     // Stands in for POST /tags, which holds its meeting row (findTaggableMeeting) until it commits.
     const write = await pool.connect();
     await write.query("begin");
-    await write.query("select 1 from meetings where id = $1 for share", [newer]);
+    await write.query("select 1 from meetings where id = $1 for key share", [newer]);
     let settled = false;
     const merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled = true));
     await untilWaitingOnLock(() => settled);

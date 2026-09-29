@@ -27,14 +27,20 @@ describe("the support page", () => {
     expect(renderToStaticMarkup(<SupportPage />)).toContain('href="mailto:admin@goodersoftwarellc.com"');
   });
 
-  it("explains how an intergroup or other service entity stops the app using its list", () => {
+  it("explains how an intergroup or other service entity stops the app using its list, and how long it takes", () => {
     expect(text).toContain("For intergroups and other service entities");
-    expect(text).toContain("we'll stop using it");
+    expect(text).toContain("we'll act on it within a few days");
+    expect(text).toContain(
+      "Once we do, its meetings leave the app at the next sync, within about 15 minutes",
+    );
   });
 
-  it("explains how a group turns tags off", () => {
+  it("explains how a group turns tags off, and how long it takes", () => {
     expect(text).toContain("For groups");
-    expect(text).toContain("We'll turn tags off for it");
+    expect(text).toContain("we'll act on it within a few days");
+    expect(text).toContain(
+      "Once we turn tags off, the app stops accepting new tags right away and stops showing them",
+    );
   });
 
   it("lists crisis help", () => {

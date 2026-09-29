@@ -126,8 +126,8 @@ describe("POST /api/v1/suggestions", () => {
       MODEL,
     ]);
     expect(JSON.parse(request?.body ?? "{}")).toMatchObject({
-      maxOutputTokens: 200,
-      providerOptions: { gateway: { zeroDataRetention: true } },
+      maxOutputTokens: 1000,
+      providerOptions: { gateway: { zeroDataRetention: true }, openai: { reasoningEffort: "minimal" } },
     });
   });
 

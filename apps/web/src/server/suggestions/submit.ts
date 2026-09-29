@@ -9,23 +9,12 @@ import { writeAsDevice, type WriteDevice } from "@/server/devices/write-request"
 import { screenSuggestion } from "@/server/suggestions/screen";
 import { getActiveVocabulary } from "@/server/vocabulary";
 
-// Spec §5: clear synonyms merge into their tag, and names, judgments or identifying text are rejected. Both count
-// as reviewed, so the device link goes. Everything else waits for the weekly human review. Every decision is
-// logged as the AI gave it. A failed or unconfigured screening leaves the suggestion pending.
-async function screenAndApply(id: number, text: string): Promise<void> {
-  const model = readEnv("SUGGESTION_MODEL");
-  if (model === undefined) {
-    console.warn("[suggestions] SUGGESTION_MODEL is not set; leaving the suggestion for review");
-    return;
-  }
-  let screened: Awaited<ReturnType<typeof screenSuggestion>>;
-  try {
-    screened = await screenSuggestion(text, await getActiveVocabulary(), model);
-  } catch (error) {
-    // An AI SDK error can quote the request, which holds the suggestion's text, so only its type is logged.
-    logError("[suggestions] AI screening failed", error instanceof Error ? error.name : "unknown error");
-    return;
-  }
+async function applyScreening(
+  id: number,
+  text: string,
+  model: string,
+  screened: Awaited<ReturnType<typeof screenSuggestion>>,
+): Promise<void> {
   const [mergedTag] =
     screened.decision === "merge" && screened.tagSlug !== null
       ? await db
@@ -54,6 +43,32 @@ async function screenAndApply(id: number, text: string): Promise<void> {
         .where(eq(suggestions.id, id));
     }
   });
+}
+
+// Spec §5: clear synonyms merge into their tag, and names, judgments or identifying text are rejected. Both count
+// as reviewed, so the device link goes. Everything else waits for the weekly human review. Every decision is
+// logged as the AI gave it. A failed or unconfigured screening, or a failure recording it, leaves the suggestion
+// pending: the suggestion is already saved, so the request still succeeds.
+async function screenAndApply(id: number, text: string): Promise<void> {
+  const model = readEnv("SUGGESTION_MODEL");
+  if (model === undefined) {
+    console.warn("[suggestions] SUGGESTION_MODEL is not set; leaving the suggestion for review");
+    return;
+  }
+  let screened: Awaited<ReturnType<typeof screenSuggestion>>;
+  try {
+    screened = await screenSuggestion(text, await getActiveVocabulary(), model);
+  } catch (error) {
+    // An AI SDK error can quote the request, which holds the suggestion's text, so only its type is logged.
+    logError("[suggestions] AI screening failed", error instanceof Error ? error.name : "unknown error");
+    return;
+  }
+  try {
+    await applyScreening(id, text, model, screened);
+  } catch (error) {
+    // logError keeps only a database error's SQL text and structured fields, so the suggestion's text isn't logged.
+    logError("[suggestions] recording the AI screening failed", error);
+  }
 }
 
 // The suggestion is committed before screening, so the AI call never holds a database transaction open.

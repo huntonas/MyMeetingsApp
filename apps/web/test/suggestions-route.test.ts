@@ -126,6 +126,7 @@ describe("POST /api/v1/suggestions", () => {
       MODEL,
     ]);
     expect(JSON.parse(request?.body ?? "{}")).toMatchObject({
+      maxOutputTokens: 200,
       providerOptions: { gateway: { zeroDataRetention: true } },
     });
   });
@@ -154,6 +155,29 @@ describe("POST /api/v1/suggestions", () => {
     expect(await db.select({ tagSlug: aiDecisions.tagSlug }).from(aiDecisions)).toEqual([
       { tagSlug: "made-up" },
     ]);
+  });
+
+  it("leaves the suggestion pending, recording no decision, when the AI's tag slug isn't a tag slug", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await gateway({ decision: "merge", tagSlug: "a".repeat(41), reason: "Synonym." });
+    expect((await suggest("Relaxed")).status).toBe(202);
+    expect((await onlySuggestion())?.status).toBe("pending");
+    expect(await db.select().from(aiDecisions)).toEqual([]);
+    expect(log.mock.calls.map((args) => format(...args)).join("\n")).toContain(
+      "[suggestions] AI screening failed",
+    );
+  });
+
+  it("leaves the suggestion pending, answering 202 and logging no text, when recording the decision fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // Postgres text can't hold a NUL character, so recording this reason fails in the database.
+    await gateway({ decision: "reject", tagSlug: null, reason: "Names a\u0000 person." });
+    expect((await suggest("Relaxed")).status).toBe(202);
+    const row = await onlySuggestion();
+    expect([row?.status, row?.deviceHash]).toEqual(["pending", DEVICE_A_HASH]);
+    const logged = log.mock.calls.map((args) => format(...args)).join("\n");
+    expect(logged).toContain("[suggestions] recording the AI screening failed");
+    expect(logged).not.toContain("Relaxed");
   });
 
   it("leaves the suggestion pending and logs no text when the gateway fails", async () => {

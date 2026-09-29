@@ -1,3 +1,4 @@
+import { TagSlug } from "@mymeetingapp/shared";
 import { createGateway, generateText, Output } from "ai";
 import { z } from "zod";
 
@@ -6,12 +7,14 @@ import { readEnv } from "@/env";
 
 const Screening = z.object({
   decision: z.enum(AI_DECISIONS),
-  tagSlug: z.string().nullable(),
+  tagSlug: TagSlug.max(40).nullable(),
   reason: z.string().max(300),
 });
 type Screening = z.infer<typeof Screening>;
 
 const TIMEOUT_MS = 10_000;
+// A decision, a slug and one sentence fit well inside this; it caps the cost of a runaway reply.
+const MAX_OUTPUT_TOKENS = 200;
 
 function instructions(vocabulary: readonly { slug: string; label: string }[]): string {
   return [
@@ -42,6 +45,7 @@ export async function screenSuggestion(
     prompt: text,
     output: Output.object({ schema: Screening }),
     providerOptions: { gateway: { zeroDataRetention: true } },
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(TIMEOUT_MS),
   });

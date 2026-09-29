@@ -13,7 +13,8 @@ export const ADMIN_NOTICES = {
   tag_retired: "Retired. The app usually stops offering it within an hour, and its counts are kept.",
   tag_restored: "Restored. The app offers it again within an hour.",
   tag_name_retired: "A retired tag already uses that name. Restore it under Vocabulary, then merge into it.",
-  label_invalid: "That label has no letters a–z to make the tag's id from. Use Latin letters.",
+  label_invalid:
+    "That label has no letters or digits a–z/0–9 to make the tag's id from. Use Latin letters or digits.",
   tag_not_found: "That tag isn't in the vocabulary, or has been retired.",
   blocked: "Blocked. That phone's tags no longer count, on this meeting or any other.",
   block_unfinished:

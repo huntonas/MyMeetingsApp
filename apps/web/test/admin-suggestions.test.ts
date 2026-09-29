@@ -140,7 +140,15 @@ describe("approveSuggestion (spec §5)", () => {
     expect(await suggestionRow(id)).toMatchObject({ status: "pending", deviceHash: DEVICE_A_HASH });
   });
 
-  it("refuses a label with no letters a–z", async () => {
+  it("makes the id of a digits-only label from its digits", async () => {
+    const id = await pendingSuggestion("12 12");
+    expect(await approveSuggestion({ suggestionId: id, label: "12 12", category: "format" })).toBe(
+      "approved",
+    );
+    expect(await tagBySlug("12-12")).toMatchObject({ label: "12 12" });
+  });
+
+  it("refuses a label with no letters or digits a–z/0–9", async () => {
     const id = await pendingSuggestion("静か");
     expect(await approveSuggestion({ suggestionId: id, label: "静か", category: "feel" })).toBe(
       "label_invalid",

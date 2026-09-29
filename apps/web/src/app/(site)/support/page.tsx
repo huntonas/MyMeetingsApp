@@ -1,6 +1,7 @@
 import { BRAND } from "@mymeetingapp/shared";
 
 import { HelpResources } from "@/components/help-resources";
+import { CATCH_UP_MINUTES } from "@/lib/catch-up";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
@@ -46,15 +47,16 @@ export default function SupportPage() {
       <h3>For intergroups and other service entities</h3>
       <p>
         If you publish a meeting list and don&apos;t want {BRAND.appName} to use it, email {email} with your
-        website or list address, and we&apos;ll act on it within a few days. Once we do, its meetings leave
-        the app at the next sync, within about 15 minutes. You never need to give a reason.
+        website or list address, and we&apos;ll act on it within a few days. Once we do, we stop using your
+        list at the next sync; meetings that other lists also publish keep appearing from those lists. The app
+        catches up within {CATCH_UP_MINUTES.feedOptOut} minutes. You never need to give a reason.
       </p>
       <h3>For groups</h3>
       <p>
         If your group doesn&apos;t want to be tagged, email {email} with the meeting&apos;s name, day, time
-        and address, and we&apos;ll act on it within a few days. Once we turn tags off, the app stops
-        accepting new tags right away and stops showing them, with any cached copy catching up within 5
-        minutes.
+        and address, and we&apos;ll act on it within a few days. Once we turn tags off, no new tags are
+        accepted and none are shown. That takes effect right away on our server; the app catches up within{" "}
+        {CATCH_UP_MINUTES.app} minutes.
       </p>
 
       <HelpResources />

@@ -1,3 +1,5 @@
+import { CATCH_UP_MINUTES } from "@/lib/catch-up";
+
 // The outcome of an admin action, shown on the page it returns to (?notice=<code>). Each admin view adds its own.
 export const ADMIN_NOTICES = {
   failed: "Something went wrong; nothing was changed. Try again.",
@@ -19,11 +21,10 @@ export const ADMIN_NOTICES = {
   not_in_review: "That phone isn't behind this flag (any more), so nothing was blocked.",
   closed: "Flag closed.",
   flag_not_found: "That flag is already closed or no longer exists.",
-  tags_turned_off:
-    "Tags are off for that meeting: none are accepted or shown. The app catches up within 5 minutes.",
+  tags_turned_off: `Tags are off for that meeting: none are accepted or shown, right away on our server; the app catches up within ${String(CATCH_UP_MINUTES.app)} minutes.`,
   tags_turned_on: "Tags are back on for that meeting.",
   meeting_not_found: "That meeting no longer exists. Search for it again.",
-  feed_opted_out: "Feed opted out. Its meetings leave the app at the next sync, within 15 minutes.",
+  feed_opted_out: `Feed opted out. We stop using it at the next sync; meetings that other feeds also publish keep appearing from those feeds. The app catches up within ${String(CATCH_UP_MINUTES.feedOptOut)} minutes.`,
   feed_opted_in: "Feed opted back in. It's fetched at the next sync.",
   feed_not_found: "That feed no longer exists.",
 } as const;

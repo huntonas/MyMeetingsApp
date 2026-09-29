@@ -2,6 +2,7 @@ import { BRAND } from "@mymeetingapp/shared";
 
 import { DraftNotice } from "@/components/draft-notice";
 import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
+import { CATCH_UP_MINUTES } from "@/lib/catch-up";
 import { pageMetadata } from "@/lib/page-metadata";
 import { RETENTION } from "@/server/retention";
 
@@ -101,7 +102,8 @@ export default function PrivacyPage() {
           “Delete all my tags” in the app&apos;s Settings deletes every tag, daily limit, abuse-log entry and
           phone record we hold for your phone, and any suggestion still linked to it (one we haven&apos;t
           reviewed, from the last {RETENTION.suggestionLinkDays} days) with its screening log. Tag counts
-          update at once. A phone we blocked for spam keeps its blocked record.
+          update at once on our server; the app catches up within {CATCH_UP_MINUTES.app} minutes. A phone we
+          blocked for spam keeps its blocked record.
         </li>
         <li>Location permission is optional. Without it, search by city, zip code or address.</li>
       </ul>

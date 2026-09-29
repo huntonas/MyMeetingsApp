@@ -74,8 +74,9 @@ Each item has a recommendation, and the plan is written to follow it so work isn
     - The page shows each hash's first 12 characters. Blocking re-checks that the hash is one of these devices, then calls `blockDevice`.
     - This is the only admin page that shows anything per device, and only for one meeting (§6).
 14. **Opt-outs.**
-    - A group opt-out takes effect at once. Cached meeting responses catch up within 5 minutes.
-    - A feed opt-out takes effect at the next sync, within 15 minutes (the sync's existing `archiveOptedOutFeeds`).
+    - A group opt-out takes effect at once on our server. The app catches up within `CATCH_UP_MINUTES.app` (75): the online list carries tag counts and is cached for s-maxage plus stale-while-revalidate.
+    - A feed opt-out takes effect at the next sync (the sync's existing `archiveOptedOutFeeds`), and the app catches up within `CATCH_UP_MINUTES.feedOptOut` (90). Meetings other feeds also publish stay, from those feeds (`recomputeMeetings`).
+    - `catch-up.test.tsx` derives both from the Cache-Control headers and `vercel.ts`, so the promises can't drift from them.
     - Opting a feed back in clears `last_success_at` and `last_attempt_at`, so it's fetched on the next sync.
 15. **Vocabulary.** Retire and restore only; nothing is ever deleted (§5). New tags arrive through suggestion approval. The app's cached vocabulary catches up within an hour.
 16. **Metric definitions.**

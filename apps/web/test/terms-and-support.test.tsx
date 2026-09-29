@@ -27,20 +27,15 @@ describe("the support page", () => {
     expect(renderToStaticMarkup(<SupportPage />)).toContain('href="mailto:admin@goodersoftwarellc.com"');
   });
 
-  it("explains how an intergroup or other service entity stops the app using its list, and how long it takes", () => {
+  // catch-up.test.tsx checks how long each takes to reach the app.
+  it("explains how an intergroup or other service entity stops the app using its list", () => {
     expect(text).toContain("For intergroups and other service entities");
     expect(text).toContain("we'll act on it within a few days");
-    expect(text).toContain(
-      "Once we do, its meetings leave the app at the next sync, within about 15 minutes",
-    );
   });
 
-  it("explains how a group turns tags off, and how long it takes", () => {
+  it("explains how a group turns tags off", () => {
     expect(text).toContain("For groups");
-    expect(text).toContain("we'll act on it within a few days");
-    expect(text).toContain(
-      "Once we turn tags off, the app stops accepting new tags right away and stops showing them",
-    );
+    expect(text).toContain("Once we turn tags off, no new tags are accepted and none are shown");
   });
 
   it("says only the exact location stays on the phone, since a search sends a rounded point", () => {

@@ -196,7 +196,7 @@ Mobile headers on write requests: `X-Device-Id`, `X-Platform` (`ios` | `android`
 | POST   | `/api/v1/tags`             | New submission: `{ meetingId, tags: string[], nearMeeting?: boolean }`. Returns updated counts.                                                                                                                                                                      |
 | PUT    | `/api/v1/tags/:meetingId`  | Edit this device's tags on a meeting, any time: `{ tags: string[] }`. Returns updated counts.                                                                                                                                                                        |
 | DELETE | `/api/v1/tags/:meetingId`  | Delete this device's tags on a meeting. Returns updated counts.                                                                                                                                                                                                      |
-| POST   | `/api/v1/tags/delete-mine` | Delete all tags, suggestions, rate-limit rows, audit rows and attestation data for this device (server computes `submitter_id` for every meeting).                                                                                                                   |
+| POST   | `/api/v1/tags/delete-mine` | Delete all tags, suggestions still linked to this device (with their AI decisions), rate-limit rows, audit rows and attestation data for this device (server computes `submitter_id` for every meeting).                                                             |
 | POST   | `/api/v1/suggestions`      | `{ text }`                                                                                                                                                                                                                                                           |
 | POST   | `/api/v1/attest/challenge` | Single-use attestation challenge.                                                                                                                                                                                                                                    |
 | POST   | `/api/v1/attest/register`  | Register an App Attest key (iOS).                                                                                                                                                                                                                                    |
@@ -291,15 +291,19 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 ## 13. Data inventory (source of truth for the privacy policy)
 
-| Stored on server    | Contents                                                                   | Linked to          | Retention                                                                      |
-| ------------------- | -------------------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------ |
-| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else       | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6) |
-| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                         | one meeting only   | until edited/deleted; counts only use 180 days                                 |
-| `tag_audit`         | device hash, meeting, action, time                                         | device + meeting   | 7 days                                                                         |
-| `rate_limits`       | device hash, bucket, count                                                 | device only        | 2 days                                                                         |
-| `suggestions`       | text, AI decision; device hash until reviewed                              | device (temporary) | text kept; device link ≤ 30 days                                               |
-| Search request      | rounded lat/lng (~1 km)                                                    | nothing            | not stored; used for one query                                                 |
-| Vercel request logs | IP, path, time                                                             | nothing we control | Vercel plan retention                                                          |
+| Stored on server    | Contents                                                                   | Linked to                                               | Retention                                                                      |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else                                            | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6) |
+| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                         | one meeting only                                        | until edited/deleted; counts only use 180 days                                 |
+| `tag_counts`        | meeting, tag, device count, near-meeting count                             | one meeting only                                        | rebuilt on every tag write and nightly                                         |
+| `tag_audit`         | device hash, meeting, action, time                                         | device + meeting                                        | 7 days                                                                         |
+| `tag_swings`        | meeting, tag, new and prior device counts, flagged/reviewed time           | one meeting only                                        | kept                                                                           |
+| `meeting_aliases`   | merged-away meeting id, surviving meeting id                               | meetings only                                           | kept                                                                           |
+| `rate_limits`       | device hash, bucket, count                                                 | device only                                             | 2 days                                                                         |
+| `suggestions`       | text, status, merged tag; device hash until reviewed                       | device (temporary)                                      | text kept; device link ≤ 30 days; deleted by delete-mine while still linked    |
+| `ai_decisions`      | suggestion text, AI decision, reason, model, time                          | a suggestion (device link via the suggestion ≤ 30 days) | kept; deleted with its suggestion by delete-mine                               |
+| Search request      | rounded lat/lng (~1 km)                                                    | nothing                                                 | not stored; used for one query                                                 |
+| Vercel request logs | IP, path, time                                                             | nothing we control                                      | Vercel plan retention                                                          |
 
 | Stays on the phone                                                                                                                                                                        |     |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
@@ -313,7 +317,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - [ ] Editing and deleting tags works any time after the window closes, and counts update in the response.
 - [ ] A new tag appears on a meeting immediately with a count of 1, and the count increases once per distinct device.
 - [ ] Tag rows for two meetings tagged by the same device have different submitter IDs; after 7 days, no table links that device to either meeting.
-- [ ] `delete-mine` removes every tag, suggestion link, rate-limit, audit and attestation row for the device, and counts update.
+- [ ] `delete-mine` removes every tag, still-linked suggestion (with its AI decisions), rate-limit, audit and attestation row for the device, and counts update.
 - [ ] Sobriety date, favorites, the local tag record, and any later personal features never appear in network traffic.
 - [ ] `/metrics` returns 401 without credentials, shows totals only, and admin actions reject cross-origin requests.
 - [ ] Feed discovery produces a registry and per-state coverage report, with restricted feeds recorded and skipped.

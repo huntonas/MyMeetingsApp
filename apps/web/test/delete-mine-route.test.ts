@@ -6,7 +6,7 @@ import { POST } from "@/app/api/v1/tags/route";
 import { eq } from "drizzle-orm";
 
 import { db, pool } from "@/db/client";
-import { devices, rateLimits, suggestions, tagAudit, tagSubmissions } from "@/db/schema";
+import { aiDecisions, devices, rateLimits, suggestions, tagAudit, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
@@ -47,16 +47,29 @@ function deleteMine(headers = deviceHeaders()) {
 }
 
 describe("POST /api/v1/tags/delete-mine", () => {
-  it("removes every tag, audit row, rate-limit row, suggestion link and device record for the device", async () => {
+  it("removes every tag, audit row, rate-limit row, linked suggestion and device record for the device", async () => {
     const first = await seedMeetingStarted(1, elsewhere(1));
     const second = await seedMeetingStarted(1, elsewhere(2));
     await tag(first);
     await tag(second);
     await tag(first, deviceHeaders(DEVICE_B, "android"));
-    await db.insert(suggestions).values([
-      { text: "Candlelight", deviceHash: DEVICE_A_HASH },
-      { text: "Big print", deviceHash: DEVICE_B_HASH },
-    ]);
+    const suggested = await db
+      .insert(suggestions)
+      .values([
+        { text: "Candlelight", deviceHash: DEVICE_A_HASH },
+        { text: "Big print", deviceHash: DEVICE_B_HASH },
+        { text: "Reviewed", deviceHash: null },
+      ])
+      .returning({ id: suggestions.id });
+    await db.insert(aiDecisions).values(
+      suggested.map(({ id }) => ({
+        suggestionId: id,
+        input: "x",
+        decision: "pending" as const,
+        reason: "x",
+        model: "m",
+      })),
+    );
 
     const res = await deleteMine();
     expect(res.status).toBe(200);
@@ -67,10 +80,12 @@ describe("POST /api/v1/tags/delete-mine", () => {
     expect(await countsOf(second)).toEqual([]);
     expect((await db.select().from(tagAudit)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
     expect((await db.select().from(rateLimits)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
+    // Spec §7: the device's still-linked suggestions go, with their AI decisions.
     expect((await db.select().from(suggestions)).map((row) => [row.text, row.deviceHash]).sort()).toEqual([
       ["Big print", DEVICE_B_HASH],
-      ["Candlelight", null],
+      ["Reviewed", null],
     ]);
+    expect(await db.select({ id: aiDecisions.suggestionId }).from(aiDecisions)).toHaveLength(2);
     expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
   });
 
@@ -100,6 +115,28 @@ describe("POST /api/v1/tags/delete-mine", () => {
 
   it("needs the device headers", async () => {
     expect((await deleteMine({})).status).toBe(400);
+  });
+
+  it("waits for a screening recording its decision on the device's suggestion, then deletes both", async () => {
+    const [suggestion] = await db
+      .insert(suggestions)
+      .values({ text: "Candlelight", deviceHash: DEVICE_A_HASH })
+      .returning({ id: suggestions.id });
+    // Stands in for screenAndApply, which records the AI's decision outside the device lock.
+    const screening = await pool.connect();
+    await screening.query("begin");
+    await screening.query(
+      "insert into ai_decisions (suggestion_id, input, decision, reason, model) values ($1, 'x', 'pending', 'x', 'm')",
+      [suggestion?.id],
+    );
+    let settled = false;
+    const deleting = deleteMine().finally(() => (settled = true));
+    await untilWaitingOnLock(() => settled);
+    await screening.query("commit");
+    screening.release();
+    expect((await deleting).status).toBe(200);
+    expect(await db.select().from(suggestions)).toEqual([]);
+    expect(await db.select().from(aiDecisions)).toEqual([]);
   });
 
   describe("racing other tag writes", () => {

@@ -6,6 +6,7 @@ import {
   occurrenceEnd,
   type Scheduled,
   shortWhen,
+  yourTime,
 } from "@/meetings/schedule";
 
 import { meeting } from "./fixtures";
@@ -114,6 +115,37 @@ describe("occurrences in the meeting's own zone", () => {
     [6, "00:00", "Sat 12:00 AM"],
   ])("lists day %d at %s as %s on a card", (day, time, label) => {
     expect(shortWhen({ day, time })).toBe(label);
+  });
+});
+
+describe("yourTime", () => {
+  // The phone runs in Chicago (the test script sets TZ). 2026-10-05 is a Monday and 2026-10-20 a Tuesday.
+  it.each([
+    ["an hour ahead", "America/New_York", 1, "19:30", "2026-10-05T12:00:00Z", "Monday at 6:30 PM"],
+    [
+      "on the phone's previous day",
+      "America/New_York",
+      2,
+      "00:30",
+      "2026-10-05T12:00:00Z",
+      "Monday at 11:30 PM",
+    ],
+    // By the next Monday the UK has fallen back and the US hasn't, so the gap is 5 hours, not today's 6.
+    [
+      "after only one zone has changed its clocks",
+      "Europe/London",
+      1,
+      "19:00",
+      "2026-10-20T12:00:00Z",
+      "Monday at 2:00 PM",
+    ],
+  ])("says when a meeting %s is on the phone's clock", (_case, timezone, day, time, now, said) => {
+    expect(yourTime({ day, time, endTime: null, timezone }, new Date(now))).toBe(`That's ${said} your time.`);
+  });
+
+  it("says nothing when the phone keeps the meeting's time", () => {
+    const central = { day: 1, time: "19:30", endTime: null, timezone: "America/Chicago" };
+    expect(yourTime(central, new Date("2026-10-05T12:00:00Z"))).toBeNull();
   });
 });
 

@@ -169,13 +169,15 @@ describe("the Online tab", () => {
     expect(screen.queryByText("Lively 2", shown)).toBeNull();
   });
 
-  // The meeting page arrives in Task 10, which pins the exact path; until then a tap reaches expo-router's
-  // unmatched-route screen, which proves the card navigates away from the tab.
   it("leaves the tab for the meeting's page when its card is tapped", async () => {
     replyDays([EARLY_EVENING]);
-    await renderApp("/online");
+    api.reply(`/api/v1/meetings/${EARLY_EVENING.id}`, { meeting: EARLY_EVENING });
+    const app = await renderApp("/online");
     await fireEvent.press(await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`));
-    expect(await screen.findByText("Unmatched Route")).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(app.getPathname()).toBe("/meeting/11111111-1111-4111-8111-111111111111");
+    });
+    expect(await screen.findByText("Mondays, 6:00 PM to 7:00 PM")).toBeOnTheScreen();
   });
 
   it("says so when nothing is on", async () => {

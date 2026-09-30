@@ -35,6 +35,7 @@ export default function RootLayout() {
               options={{ presentation: "modal", title: "Help now", headerRight: () => null }}
             />
             <Stack.Screen name="filters" options={{ presentation: "modal", title: "Filters" }} />
+            <Stack.Screen name="meeting/[id]" options={{ title: "Meeting" }} />
           </Stack>
         </FiltersProvider>
       </VocabularyProvider>

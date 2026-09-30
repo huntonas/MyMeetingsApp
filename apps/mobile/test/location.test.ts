@@ -1,6 +1,6 @@
 import { MeetingSearchRequest } from "@mymeetingapp/shared";
 
-import { currentPosition, locationAlreadyAllowed } from "@/location/current-position";
+import { currentPosition } from "@/location/current-position";
 import { findPlace } from "@/location/find-place";
 import { distanceKm, radiusForRegion, roundForSearch } from "@/location/geo";
 import { forgetRecentPlaces, recentPlaces, rememberPlace } from "@/location/recent-places";
@@ -142,21 +142,12 @@ describe("currentPosition at launch", () => {
     expect(permissionRequests()).toBe(0);
     expect(positionOptions()).toEqual([{ accuracy: 3, mayShowUserSettingsDialog: false }]);
   });
-});
-
-describe("locationAlreadyAllowed", () => {
-  it("checks an earlier grant without asking", async () => {
-    expect(await locationAlreadyAllowed()).toBe(false);
-    setLocationPermission("granted");
-    expect(await locationAlreadyAllowed()).toBe(true);
-    expect(permissionRequests()).toBe(0);
-    expect(positionReads()).toBe(0);
-  });
 
   it("isn't fooled by a permanent refusal", async () => {
     setLocationPermission("denied");
     setCanAskAgain(false);
-    expect(await locationAlreadyAllowed()).toBe(false);
+    expect(await currentPosition("launch")).toEqual({ status: "denied" });
+    expect(positionReads()).toBe(0);
   });
 });
 

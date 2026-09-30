@@ -123,3 +123,12 @@ const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as cons
 export function shortWhen(meeting: Pick<MeetingSummary, "day" | "time">): string {
   return `${WEEKDAYS_SHORT[meeting.day] ?? ""} ${listedTime(meeting.time)}`;
 }
+
+// For a meeting in another zone: when its next start is on the phone's clock, or null when the phone would show the
+// same day and time as the listing.
+export function yourTime(meeting: Scheduled, now: Date): string | null {
+  const start = nextStart(meeting, lastOccurrence(meeting, now));
+  const onPhone = `${WEEKDAYS[start.getDay()] ?? ""} at ${clockLabel(start.getHours(), start.getMinutes())}`;
+  if (onPhone === `${WEEKDAYS[meeting.day] ?? ""} at ${listedTime(meeting.time)}`) return null;
+  return `That's ${onPhone} your time.`;
+}

@@ -98,12 +98,12 @@ afterEach(async () => {
 });
 
 async function openMap() {
-  await launchNearby();
+  const app = await launchNearby();
   await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
   await fireEvent.press(screen.getByRole("button", { name: "Search" }));
   await screen.findByText("Far Group");
   await fireEvent.press(screen.getByRole("button", { name: "Map" }));
-  return screen.findByTestId("results-map");
+  return { app, map: await screen.findByTestId("results-map") };
 }
 
 type MapElement = Awaited<ReturnType<typeof screen.findByTestId>>;
@@ -149,7 +149,7 @@ describe("the results map", () => {
   });
 
   it("searches around the new center after a pan, sending only the rounded center, and keeps the view", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
     expect(await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
@@ -164,7 +164,7 @@ describe("the results map", () => {
   });
 
   it("doesn't search again when the rounded center and radius haven't changed", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
     await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
@@ -175,7 +175,7 @@ describe("the results map", () => {
 
   // Both platforms report the region they fitted to the screen when the map first appears, before anyone touches it.
   it("doesn't search or relabel when the map first appears", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     await fireEvent(map, "regionChangeComplete", {
       latitude: 35.7565,
       longitude: -83.9705,
@@ -188,7 +188,7 @@ describe("the results map", () => {
   });
 
   it("keeps the last markers on the map while a pan's search loads", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     const answerPan = api.answerLater(SEARCH);
     await moveTo(map, PAN);
     expect(await screen.findByLabelText("Searching")).toBeOnTheScreen();
@@ -199,7 +199,7 @@ describe("the results map", () => {
   });
 
   it("says plainly when a map area has no in-person meetings", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     api.reply(SEARCH, { meetings: [] });
     await moveTo(map, PAN);
     expect(
@@ -223,7 +223,7 @@ describe("the results map", () => {
   });
 
   it("keeps the map on screen while a pan's search loads, and a slower earlier search never replaces a newer one", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     const answerFirstPan = api.answerLater(SEARCH);
     await moveTo(map, PAN);
     expect(await screen.findByLabelText("Searching")).toBeOnTheScreen();
@@ -245,7 +245,7 @@ describe("the results map", () => {
   });
 
   it("reopens where the person left it after switching to the list and back", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
     await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
@@ -270,17 +270,20 @@ describe("the results map", () => {
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
 
-  // The meeting page arrives in Task 10, which checks the pathname here instead.
   it("opens a meeting from its marker", async () => {
-    await openMap();
+    api.reply(`/api/v1/meetings/${far.id}`, { meeting: far });
+    const { app } = await openMap();
     await fireEvent.press(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" }));
-    expect(await screen.findByText("Unmatched Route")).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(app.getPathname()).toBe("/meeting/11111111-1111-4111-8111-111111111111");
+    });
+    expect(await screen.findByText("Mondays, 7:00 PM to 1:00 PM")).toBeOnTheScreen();
   });
 });
 
 describe("the person's own dot", () => {
   it("isn't shown for a searched place, even after a pan", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     expect(mapProps().showsUserLocation).toBe(false);
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
@@ -305,7 +308,7 @@ describe("the person's own dot", () => {
 
 describe("the map's notices", () => {
   it("says so when a pan's search fails, and keeps the map", async () => {
-    const map = await openMap();
+    const { map } = await openMap();
     api.reply(SEARCH, { problem: "not the API's error envelope" }, 500);
     await moveTo(map, PAN);
     expect(await screen.findByRole("alert")).toHaveTextContent(

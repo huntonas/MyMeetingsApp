@@ -31,6 +31,8 @@ export function TagChips({ tags }: { tags: readonly LabelledTag[] }) {
       {tags.map((tag) => (
         <View
           key={tag.slug}
+          accessible
+          accessibilityLabel={tag.spoken}
           style={{
             backgroundColor: colors.tagBg,
             borderRadius: 999,

@@ -34,6 +34,6 @@ export async function currentPosition(when: "tap" | "launch"): Promise<PositionR
 }
 
 // Permission granted on an earlier tap: Nearby may start near the person without asking again (decision 10).
-export async function locationAlreadyAllowed(): Promise<boolean> {
+async function locationAlreadyAllowed(): Promise<boolean> {
   return (await Location.getForegroundPermissionsAsync()).granted;
 }

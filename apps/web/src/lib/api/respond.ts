@@ -1,17 +1,11 @@
-import { ApiErrorBody, ERROR_MESSAGES, type ErrorCode } from "@mymeetingapp/shared";
+import { ApiErrorBody, CDN_LIFETIMES, ERROR_MESSAGES, type ErrorCode } from "@mymeetingapp/shared";
 import type { z } from "zod";
 
 import { logError } from "@/lib/log";
 
-// How long the CDN may serve a copy (s-maxage), then keep serving it stale while it refetches, in seconds. null is
-// never cached. Add a policy here when the first route that needs it lands.
-const CACHE_POLICIES = {
-  none: null,
-  vocabulary: { sMaxAge: 3600, staleWhileRevalidate: 86_400 },
-  config: { sMaxAge: 300, staleWhileRevalidate: 600 },
-  meetingDetail: { sMaxAge: 300, staleWhileRevalidate: 600 },
-  onlineMeetings: { sMaxAge: 900, staleWhileRevalidate: 3600 },
-} as const;
+// null is never cached. The lifetimes live in packages/shared (freshness.ts), because the website's promises and the
+// app's own reuse are worked out from them. Add a policy there when the first route that needs it lands.
+const CACHE_POLICIES = { none: null, ...CDN_LIFETIMES } as const;
 
 type CachePolicy = keyof typeof CACHE_POLICIES;
 
@@ -20,17 +14,6 @@ function cacheControl(policy: CachePolicy): string {
   if (lifetimes === null) return "no-store";
   return `public, s-maxage=${String(lifetimes.sMaxAge)}, stale-while-revalidate=${String(lifetimes.staleWhileRevalidate)}`;
 }
-
-const staleSeconds = (lifetimes: { sMaxAge: number; staleWhileRevalidate: number }) =>
-  lifetimes.sMaxAge + lifetimes.staleWhileRevalidate;
-
-// The longest the CDN can go on serving a meeting response (its details, or the online list with its tag counts)
-// after the data behind it changed. The site's and admin notices' "the app catches up" promises are built from it.
-export const MEETING_CACHE_MINUTES =
-  Math.max(...[CACHE_POLICIES.meetingDetail, CACHE_POLICIES.onlineMeetings].map(staleSeconds)) / 60;
-
-// The same for the tag list (vocabulary), which the admin notices about new, retired and restored tags promise.
-export const VOCABULARY_CACHE_HOURS = staleSeconds(CACHE_POLICIES.vocabulary) / 3600;
 
 const ERROR_STATUS: Record<ErrorCode, number> = {
   invalid_request: 400,

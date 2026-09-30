@@ -1,8 +1,7 @@
-import { BRAND } from "@mymeetingapp/shared";
+import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
 import { DraftNotice } from "@/components/draft-notice";
 import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
-import { CATCH_UP_MINUTES } from "@/lib/catch-up";
 import { pageMetadata } from "@/lib/page-metadata";
 import { RETENTION } from "@/server/retention";
 

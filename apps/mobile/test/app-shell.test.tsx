@@ -28,6 +28,8 @@ const CONTEXT = {
 
 const Config = z.object({
   name: z.string(),
+  owner: z.string(),
+  extra: z.object({ eas: z.object({ projectId: z.string() }) }),
   version: z.string(),
   icon: z.string(),
   ios: z.object({
@@ -163,6 +165,14 @@ describe("the app config", () => {
     expect(config.name).toBe(BRAND.appName);
     expect(config.ios.bundleIdentifier).toBe("com.goodersoftware.mymeetingapp");
     expect(config.android.package).toBe("com.goodersoftware.mymeetingapp");
+  });
+
+  it("builds under the huntonas Expo account, whose login also belongs to another account", () => {
+    expect(Config.parse(appConfig(CONTEXT)).owner).toBe("huntonas");
+  });
+
+  it("is linked to its EAS project, @huntonas/mymeetingapp", () => {
+    expect(Config.parse(appConfig(CONTEXT)).extra.eas.projectId).toBe("14727d21-7124-463d-a886-96e058058e1a");
   });
 
   it("declares no non-exempt encryption, so TestFlight uploads skip the compliance question", () => {

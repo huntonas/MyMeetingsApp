@@ -23,6 +23,10 @@ function googleMapsAndroidKey(): string | undefined {
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  // The Expo account the app builds under. This login also belongs to another account, so EAS needs it named.
+  owner: "huntonas",
+  // Created by `eas init`, which can't write into a dynamic config.
+  extra: { eas: { projectId: "14727d21-7124-463d-a886-96e058058e1a" } },
   name: APP_NAME,
   slug: APP_NAME,
   scheme: APP_NAME,

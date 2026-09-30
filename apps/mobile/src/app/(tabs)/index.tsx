@@ -25,6 +25,7 @@ import {
   type SearchOrigin,
   searchRead,
   sortNearby,
+  startsWithinADay,
 } from "@/search/nearby";
 import { useColors } from "@/theme/colors";
 import { useNow } from "@/time/use-now";
@@ -143,7 +144,14 @@ function Results({
       : { label: asked.label, point: asked.point, radiusKm: asked.radiusKm, lastSearch: false };
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
-  const { filters, setFilters } = useFilters();
+  const { filters, setFilters, starting } = useFilters();
+  // Until the person chooses filters, the starting ones also leave out today's meetings that began over an hour ago;
+  // once they choose, their choice is final.
+  const shows = useCallback(
+    (meeting: MeetingSearchResponse["meetings"][number]) =>
+      matchesFilters(meeting, filters) && (!starting || startsWithinADay(meeting, now)),
+    [filters, starting, now],
+  );
   // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
   // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.
   const [mapRegion, setMapRegion] = useState(() => regionAround(asked.point, asked.radiusKm));
@@ -153,10 +161,7 @@ function Results({
   // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
   const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
   if (state.status === "ready" && state.data.meetings !== lastFound) setLastFound(state.data.meetings);
-  const onMap = useMemo(
-    () => lastFound.filter((meeting) => matchesFilters(meeting, filters)),
-    [lastFound, filters],
-  );
+  const onMap = useMemo(() => lastFound.filter(shows), [lastFound, shows]);
   const backButton = backTo !== null && (
     <Button
       kind="secondary"
@@ -295,7 +300,7 @@ function Results({
       </Screen>
     );
   }
-  const shown = sorted.filter((meeting) => matchesFilters(meeting, filters));
+  const shown = sorted.filter(shows);
   // Filters start chosen (today, from now on), so the count says it's filtered, and Clear filters is always at hand.
   const filtered = anyFilterChosen(filters);
   return (

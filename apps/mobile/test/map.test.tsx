@@ -319,6 +319,37 @@ describe("the results map", () => {
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
 
+  it("leaves out today's meetings that began over an hour ago, as the list does, until the person chooses", async () => {
+    const smallHours = nearbyMeeting({
+      id: "77777777-7777-4777-8777-777777777777",
+      name: "Small Hours Group",
+      day: 1,
+      time: "00:30",
+      latitude: 35.76,
+      longitude: -83.97,
+    });
+    const lateTonight = {
+      ...smallHours,
+      id: "88888888-8888-4888-8888-888888888888",
+      name: "Late Group",
+      time: "23:00",
+    };
+    // Monday 10 PM.
+    setNow("2026-10-06T03:00:00Z");
+    api.reply(SEARCH, { meetings: [smallHours, lateTonight] });
+    await launchNearby();
+    await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
+    await fireEvent.press(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText("Late Group");
+    await fireEvent.press(screen.getByRole("button", { name: "Map" }));
+    expect(await screen.findByRole("button", { name: "Late Group, Mon 11:00 PM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Type filters" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Open" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
+    expect(await screen.findByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeOnTheScreen();
+  });
+
   it("opens a meeting from its marker", async () => {
     api.reply(`/api/v1/meetings/${far.id}`, { meeting: far });
     const { app } = await openMap();

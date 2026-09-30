@@ -66,12 +66,13 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 }
 
 // Until the person changes a filter, the filters are the starting ones for this moment, so they follow the clock (a new
-// day, a later part of the day). Once they change one, Clear filters included, their choice stands while the app runs.
+// day, a later part of the day), and `starting` is true. Once they change one, Clear filters included, their choice
+// stands while the app runs.
 export function useFilters() {
   const { chosen, setFilters } = useContext(Filters);
   const now = useNow();
   const filters = useMemo(() => chosen ?? startingFilters(now), [chosen, now]);
-  return { filters, setFilters };
+  return { filters, setFilters, starting: chosen === null };
 }
 
 export function anyFilterChosen({ days, times, types, tags }: MeetingFilters): boolean {

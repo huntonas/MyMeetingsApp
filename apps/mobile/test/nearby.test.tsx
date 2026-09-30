@@ -490,7 +490,7 @@ describe("results", () => {
       id: "33333333-3333-4333-8333-333333333333",
       name: "Late Group",
       day: 1,
-      time: "21:30",
+      time: "23:00",
       latitude: 35.7567,
       longitude: -83.9707,
       distanceKm: 1.7,
@@ -564,6 +564,39 @@ describe("results", () => {
       await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
       await expectListed(ALL);
       expectNoFiltersChosen();
+    });
+
+    // Night also covers the small hours of the same day, so at 10 PM it would bring back this morning's 12:30 AM.
+    it("leaves out today's meetings that began over an hour ago, until the person chooses", async () => {
+      const smallHours = nearbyMeeting({
+        id: "55555555-5555-4555-8555-555555555555",
+        name: "Small Hours Group",
+        day: 1,
+        time: "00:30",
+        latitude: 35.7567,
+        longitude: -83.9707,
+      });
+      const justBegun = nearbyMeeting({
+        id: "66666666-6666-4666-8666-666666666666",
+        name: "Just Begun Group",
+        day: 1,
+        time: "21:30",
+        latitude: 35.7567,
+        longitude: -83.9707,
+      });
+      // Monday 10 PM.
+      setNow("2026-10-06T03:00:00Z");
+      api.reply(SEARCH, { meetings: [smallHours, justBegun, late] });
+      await launchNearby();
+      await searchFor("Maryville, TN");
+      expect(await screen.findByText("Just Begun Group")).toBeOnTheScreen();
+      expect(screen.getByText("Late Group")).toBeOnTheScreen();
+      expect(screen.queryByText("Small Hours Group")).toBeNull();
+      expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
+      // Monday and Night stay chosen, but they're the person's choice now, and it's final.
+      await chooseFilters("Type filters", ["Open"]);
+      expect(await screen.findByText("Small Hours Group")).toBeOnTheScreen();
+      expect(screen.getByText("3 meetings match your filters")).toBeOnTheScreen();
     });
 
     it("moves on to the new day while the app stays open, until the person chooses", async () => {

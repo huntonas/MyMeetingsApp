@@ -1,4 +1,4 @@
-import { MeetingSearchResponse } from "@mymeetingapp/shared";
+import { MeetingSearchResponse, type MeetingSummary } from "@mymeetingapp/shared";
 import { z } from "zod";
 
 import { searchMeetings } from "@/api/reads";
@@ -76,6 +76,25 @@ export function describedOrigin(result: SearchResult, asked: SearchOrigin) {
   };
 }
 
+// When a meeting next comes up (upcomingStart), in milliseconds. Nearby meetings are almost always in the phone's own
+// zone: the best guess for one the feed gave none.
+function comesUp(meeting: Pick<MeetingSummary, "day" | "time" | "endTime" | "timezone">, now: Date): number {
+  const timezone = meeting.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return upcomingStart({ ...meeting, timezone }, now).getTime();
+}
+
+const DAY_MS = 24 * 60 * 60_000;
+
+// Coming up within a day, or begun under an hour ago. The starting filters (today, from now on) pick the parts of the
+// day by the listed time, and Night also covers the small hours, so at 10 PM they'd keep this morning's 12:30 AM
+// meeting; this leaves out such a meeting, one that began over an hour ago today.
+export function startsWithinADay(
+  meeting: Pick<MeetingSummary, "day" | "time" | "endTime" | "timezone">,
+  now: Date,
+) {
+  return comesUp(meeting, now) - now.getTime() <= DAY_MS;
+}
+
 // Soonest (the default) or nearest first: the person's choice, held in memory only.
 export type NearbyOrder = "soonest" | "nearest";
 
@@ -96,11 +115,7 @@ export function sortNearby(
           ? meeting.distanceKm
           : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude }),
     },
-    // Nearby meetings are almost always in the phone's own zone: the best guess for one the feed gave none.
-    startsAt: upcomingStart(
-      { ...meeting, timezone: meeting.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone },
-      now,
-    ).getTime(),
+    startsAt: comesUp(meeting, now),
   }));
   type Measured = (typeof measured)[number];
   const byDistance = (a: Measured, b: Measured) => a.meeting.exactKm - b.meeting.exactKm;

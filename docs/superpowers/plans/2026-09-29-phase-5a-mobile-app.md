@@ -137,7 +137,7 @@ Each item has a recommendation, and the plan is written to follow it so work isn
    - A meeting with no end time counts as in progress for 60 minutes. A meeting with no time zone isn't shown there.
 6. **Time math.** A meeting's day and time are in its own zone. `Intl.DateTimeFormat` gives the zone offset (Hermes supports `timeZone`).
    - A local time that doesn't exist (spring forward) resolves as Postgres does, one hour later.
-   - An ambiguous one (fall back) takes the earlier instant.
+   - An ambiguous one (fall back) takes the later instant, as Postgres's `AT TIME ZONE` does (owner ruling M-a, Task 6 review): the server is the authority, so the app and the server follow one rule.
    - Clock times are formatted by hand ("7:00 PM"), so output doesn't depend on the device's ICU version. The app is US English.
 7. **Search radius.**
    - Search box and location searches use 25 km (shown as 16 miles).
@@ -6724,14 +6724,14 @@ This task runs the app for real: an EAS dev build on the owner's iPhone, the iOS
   4. Map: the map shows Apple Maps with markers. Pan to a nearby town; "Near this map area" appears and the list follows. Tap a marker's callout; the meeting page opens.
   5. Meeting page: day and time, "your time" for a meeting in another zone, Directions (Apple Maps opens with the meeting as the destination), "What people say", types, "Listed by …". Tap Save; the heart fills.
   6. "Use my location": the When-In-Use prompt shows the purpose string from `app.config.ts`. Allow it; the list says "Near you".
-  7. Online tab: "Happening now" and "Starting in the next 2 hours", in local time. "Join online" opens Zoom or the browser.
+  7. Online tab: "Happening now" and "Starting in the next 2 hours", in local time. "Join online" opens Zoom or the browser. A New York meeting on a Chicago phone shows the right local time, on iOS and Android (the device's own `Intl` time-zone data, which Jest can't check).
   8. Saved tab: the saved meeting is there. Turn on Airplane Mode and relaunch: Saved still shows it with the "Showing the copy saved …" note; Nearby's last search shows with the same note after its 75 minutes; Me still works. Turn Airplane Mode off.
   9. Me tab: set a sobriety date a year and a day ago. It shows 366 days (365 plus the leap day where one falls between), the breakdown and the next milestone. "Set a new date" and "Remove the date" work.
   10. Help: tap "Help" in any header. "Call 988", "Text 988" and "Call SAMHSA" open the phone and messages apps.
   11. Forced upgrade (on a local web server): run `pnpm --filter web dev` with `MIN_VERSION_IOS=9.0.0`, and point `.env` at it. Relaunch: Nearby and Online show "Please update mymeetingapp"; Saved, Me and Help still work. Remove the variable afterwards.
 
 - [ ] **Step 5: Accessibility pass.** Record the results in `docs/mobile.md` under "Accessibility pass":
-  1. **VoiceOver** (Settings → Accessibility → VoiceOver, or triple-click the side button if set up). Swipe through every screen: each tab, the search box, both buttons, filter pills (announced as "checkbox, checked" or "not checked" in the sheet), cards (name, time, distance, place, then "button"), tag chips ("Welcoming, 14 people"), Save ("Save" or "Saved"), Help, the date picker and the About links. Nothing may be silent, be announced only as "button", or read a raw slug.
+  1. **VoiceOver** (Settings → Accessibility → VoiceOver, or triple-click the side button if set up). Swipe through every screen: each tab, the search box, both buttons, filter pills (announced as "checkbox, checked" or "not checked" in the sheet), cards (name, time, distance, place, then the top tags such as "Welcoming 14 people", then "button"; the chips themselves are not read a second time), Save ("Save" or "Saved"), Help, the date picker and the About links. Nothing may be silent, be announced only as "button", or read a raw slug.
   2. **Largest text:** Settings → Accessibility → Display & Text Size → Larger Text → turn on Larger Accessibility Sizes and drag to the maximum. Every screen must still read without clipped or overlapping text; pills and buttons grow and wrap.
   3. **Touch targets:** in the simulator, run Xcode → Open Developer Tool → Accessibility Inspector, choose the simulator, then Audit on each screen. Fix every "Hit area is too small" and "Dynamic Type font sizes are unsupported" finding in the component that owns it, with a failing test first where RNTL can see it (`toHaveStyle({ minHeight: 44 })`).
   4. **TalkBack** on the Android emulator: a quick pass of Nearby, a meeting page and Help. The full Android pass is 5b.

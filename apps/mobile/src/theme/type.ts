@@ -7,7 +7,7 @@ export const FONT = {
   bold: Platform.select({ ios: "AtkinsonHyperlegible-Bold", default: "AtkinsonHyperlegible" }),
 } as const;
 
-export type TextVariant = "title" | "heading" | "body" | "label" | "small";
+export type TextVariant = "title" | "heading" | "body" | "label" | "small" | "smallBold";
 
 const bold: TextStyle = { fontFamily: FONT.bold, fontWeight: "700" };
 const regular: TextStyle = { fontFamily: FONT.regular, fontWeight: "400" };
@@ -19,4 +19,5 @@ export const TEXT_STYLES: Record<TextVariant, TextStyle> = {
   body: { ...regular, fontSize: 17, lineHeight: 24 },
   label: { ...bold, fontSize: 17, lineHeight: 22 },
   small: { ...regular, fontSize: 15, lineHeight: 20 },
+  smallBold: { ...bold, fontSize: 15, lineHeight: 20 },
 };

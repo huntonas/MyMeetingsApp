@@ -41,7 +41,8 @@ function localParts(instant: Date, timeZone: string) {
     year: part("year"),
     month: part("month"),
     day: part("day"),
-    hour: part("hour"),
+    // Some ICU builds write midnight as hour 24 even with h23; it is the same instant as hour 0.
+    hour: part("hour") % 24,
     minute: part("minute"),
     second: part("second"),
   };
@@ -56,16 +57,16 @@ function offsetAt(instant: number, timeZone: string): number {
 const hourOf = (time: string) => Number(time.slice(0, 2));
 const minuteOf = (time: string) => Number(time.slice(3, 5));
 
-// The instant a local date and time happen in a zone. The offsets a day either side are the only two that can apply
-// (no zone changes its clocks twice in two days). A wall time that happens twice (fall back) takes the earlier
-// instant; one the clocks skip (spring forward) keeps the offset from before the change, so it lands an hour later,
-// as Postgres does. Both hold whichever side of Greenwich the zone is on.
+// The instant a local date and time happen in a zone, resolved as Postgres's AT TIME ZONE does on the server (owner
+// ruling M-a). The offsets a day either side are the only two that can apply (no zone changes its clocks twice in two
+// days). A wall time that happens twice (fall back) takes the later instant, under the offset after the change; one
+// the clocks skip (spring forward) keeps the offset from before the change, so it lands later by the jump. Both hold
+// whichever side of Greenwich the zone is on.
 function zonedInstant(date: CivilDate, time: string, timeZone: string): Date {
   const wall = Date.UTC(date.year, date.month - 1, date.day, hourOf(time), minuteOf(time));
-  const before = wall - offsetAt(wall - DAY, timeZone);
   const after = wall - offsetAt(wall + DAY, timeZone);
-  const valid = [before, after].filter((instant) => instant + offsetAt(instant, timeZone) === wall);
-  return new Date(valid.length === 0 ? before : Math.min(...valid));
+  if (after + offsetAt(after, timeZone) === wall) return new Date(after);
+  return new Date(wall - offsetAt(wall - DAY, timeZone));
 }
 
 function shiftDays(date: CivilDate, days: number): CivilDate {
@@ -86,15 +87,19 @@ export function lastOccurrence(meeting: Scheduled, now: Date): Occurrence {
   return { date: weekEarlier, start: zonedInstant(weekEarlier, meeting.time, meeting.timezone) };
 }
 
-export function nextStart(meeting: Scheduled, now: Date): Date {
-  return zonedInstant(shiftDays(lastOccurrence(meeting, now).date, 7), meeting.time, meeting.timezone);
+// The start a week after `last` (from lastOccurrence).
+export function nextStart(meeting: Scheduled, last: Occurrence): Date {
+  return zonedInstant(shiftDays(last.date, 7), meeting.time, meeting.timezone);
 }
 
-// An end time at or before the start time is on the next day (11:30 PM to 12:30 AM).
+// An end time earlier than the start time is on the next day (11:30 PM to 12:30 AM). One equal to the start says
+// nothing about the length, so it counts as missing (owner ruling M-f).
 export function occurrenceEnd(meeting: Scheduled, occurrence: Occurrence): Date {
-  if (meeting.endTime === null) return new Date(occurrence.start.getTime() + DEFAULT_MINUTES * MINUTE);
-  const date = meeting.endTime > meeting.time ? occurrence.date : shiftDays(occurrence.date, 1);
-  return zonedInstant(date, meeting.endTime, meeting.timezone);
+  const { endTime, time, timezone } = meeting;
+  if (endTime !== null && endTime > time) return zonedInstant(occurrence.date, endTime, timezone);
+  if (endTime !== null && endTime < time)
+    return zonedInstant(shiftDays(occurrence.date, 1), endTime, timezone);
+  return new Date(occurrence.start.getTime() + DEFAULT_MINUTES * MINUTE);
 }
 
 // A listed "HH:MM" as people read it.

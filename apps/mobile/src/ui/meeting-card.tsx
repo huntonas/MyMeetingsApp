@@ -1,10 +1,10 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 import { router } from "expo-router";
-import { Pressable } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
-import { TagChips } from "@/ui/tag-chips";
+import { TagChips, useLabelledTags } from "@/ui/tag-chips";
 
 // A card in any meeting list: name, when (and how far), place, and the top three tags.
 export function MeetingCard({
@@ -17,8 +17,10 @@ export function MeetingCard({
   distance?: string;
 }) {
   const colors = useColors();
+  const tags = useLabelledTags(meeting.tags).slice(0, 3);
   const meta = distance === undefined ? when : `${when} · ${distance}`;
-  const spoken = [meeting.name, when, distance, meeting.locationName]
+  // The card is one button to VoiceOver and TalkBack, so its label carries everything on it, tags included.
+  const spoken = [meeting.name, when, distance, meeting.locationName, ...tags.map((tag) => tag.spoken)]
     .filter((part) => typeof part === "string")
     .join(", ");
   return (
@@ -42,7 +44,10 @@ export function MeetingCard({
       <AppText variant="label">{meeting.name}</AppText>
       <AppText tone="muted">{meta}</AppText>
       {meeting.locationName !== null && <AppText tone="muted">{meeting.locationName}</AppText>}
-      <TagChips tags={meeting.tags.slice(0, 3)} />
+      {/* Already in the card's label; hidden so Android doesn't read the chips a second time. */}
+      <View accessible={false} importantForAccessibility="no-hide-descendants">
+        <TagChips tags={tags} />
+      </View>
     </Pressable>
   );
 }

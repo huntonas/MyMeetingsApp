@@ -1,5 +1,5 @@
 import { OnlineMeetingsResponse } from "@mymeetingapp/shared";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { fetchOnlineMeetings } from "@/api/reads";
@@ -7,6 +7,7 @@ import { useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { onlineNow, type TimedMeeting } from "@/meetings/online-now";
 import { clockLabel } from "@/time/clock";
+import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { MeetingCard } from "@/ui/meeting-card";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
@@ -33,7 +34,7 @@ function Section({
 }) {
   if (items.length === 0) return null;
   return (
-    <View accessibilityLabel={title} style={{ gap: 12 }}>
+    <View style={{ gap: 12 }}>
       <AppText variant="heading" accessibilityRole="header">
         {title}
       </AppText>
@@ -46,7 +47,8 @@ function Section({
 
 // A meeting's own weekday can differ from the phone's by one, so it reads the phone's yesterday, today and tomorrow.
 export function OnlineNowList() {
-  const today = new Date().getDay();
+  const now = useNow();
+  const today = now.getDay();
   const { state: yesterday, refresh: refreshYesterday } = useCachedRead(onlineRead((today + 6) % 7));
   const { state: current, refresh: refreshToday } = useCachedRead(onlineRead(today));
   const { state: tomorrow, refresh: refreshTomorrow } = useCachedRead(onlineRead((today + 1) % 7));
@@ -57,20 +59,25 @@ export function OnlineNowList() {
   }, [refreshYesterday, refreshToday, refreshTomorrow]);
   useRefreshOnFocus(refreshAll);
 
-  const states = [yesterday, current, tomorrow];
+  const states = useMemo(() => [yesterday, current, tomorrow], [yesterday, current, tomorrow]);
+  const ready = useMemo(() => states.flatMap((state) => (state.status === "ready" ? [state] : [])), [states]);
+  const { happening, soon } = useMemo(
+    () =>
+      onlineNow(
+        ready.flatMap((state) => state.data.meetings),
+        now,
+      ),
+    [ready, now],
+  );
+
   if (states.some((state) => state.status === "loading")) {
     return <ActivityIndicator accessibilityLabel="Loading online meetings" />;
   }
   const failure = states.flatMap((state) => (state.status === "failed" ? [state.message] : []))[0];
-  const ready = states.flatMap((state) => (state.status === "ready" ? [state] : []));
   // Several days can fall back to saved copies at once; the oldest one is the one to warn about.
   const oldest = ready
     .flatMap((state) => (state.savedAt === null ? [] : [state]))
     .sort((a, b) => a.savedAt.getTime() - b.savedAt.getTime())[0];
-  const { happening, soon } = onlineNow(
-    ready.flatMap((state) => state.data.meetings),
-    new Date(),
-  );
   return (
     <View style={{ gap: 20 }}>
       {failure !== undefined && <AppText>{failure}</AppText>}

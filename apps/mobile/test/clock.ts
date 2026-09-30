@@ -38,6 +38,14 @@ export const TIMEOUT_ONLY: FakeTimersConfig = {
   ],
 };
 
+// CLOCK_ONLY plus setInterval/clearInterval, so a test can move a screen's minute tick on with
+// jest.advanceTimersByTime while requests (built on setTimeout) and RNTL's waits stay real.
+export const CLOCK_AND_INTERVALS: FakeTimersConfig = {
+  doNotFake: (CLOCK_ONLY.doNotFake ?? []).filter(
+    (name) => name !== "setInterval" && name !== "clearInterval",
+  ),
+};
+
 // Sets "now" for a test, with only the clock faked (CLOCK_ONLY): timers, promises and sockets stay real.
 export function setNow(iso: string): void {
   jest.useFakeTimers({ now: new Date(iso), ...CLOCK_ONLY });

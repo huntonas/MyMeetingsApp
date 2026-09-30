@@ -1,30 +1,33 @@
 import { onlineNow } from "@/meetings/online-now";
-import { lastOccurrence, listedTime, nextStart, occurrenceEnd } from "@/meetings/schedule";
+import { lastOccurrence, listedTime, nextStart, occurrenceEnd, type Scheduled } from "@/meetings/schedule";
 
 import { meeting } from "./fixtures";
 
-// 2026-10-05 is a Monday. The US clocks change on 2026-03-08 and 2026-11-01, the UK's on 2026-03-29 and 2026-10-25.
+// 2026-10-05 is a Monday. The US clocks change on 2026-03-08 and 2026-11-01, the UK's on 2026-03-29 and 2026-10-25,
+// Adelaide's and Chatham's on 2026-04-05 and in late September or early October. Every expected instant with a clock
+// change was checked against Postgres (`'2026-04-05 02:30'::timestamp at time zone 'Australia/Adelaide'`).
 const chicagoMonday7pm = { day: 1, time: "19:00", endTime: null, timezone: "America/Chicago" };
 const iso = (date: Date) => date.toISOString();
+const next = (scheduled: Scheduled, now: Date) => nextStart(scheduled, lastOccurrence(scheduled, now));
 
 describe("occurrences in the meeting's own zone", () => {
   it("finds the latest start at or before now, and the next one", () => {
     const now = new Date("2026-10-05T23:30:00Z"); // Monday 6:30 PM in Chicago
     expect(iso(lastOccurrence(chicagoMonday7pm, now).start)).toBe("2026-09-29T00:00:00.000Z");
-    expect(iso(nextStart(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
+    expect(iso(next(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
   });
 
   it("counts a start at exactly now as the latest one", () => {
     const now = new Date("2026-10-06T00:00:00Z"); // Monday 7:00 PM in Chicago
     expect(iso(lastOccurrence(chicagoMonday7pm, now).start)).toBe("2026-10-06T00:00:00.000Z");
-    expect(iso(nextStart(chicagoMonday7pm, now))).toBe("2026-10-13T00:00:00.000Z");
+    expect(iso(next(chicagoMonday7pm, now))).toBe("2026-10-13T00:00:00.000Z");
   });
 
   it("looks back to last week for a weekday later in the week", () => {
     const wednesday = { ...chicagoMonday7pm, day: 3 };
     const now = new Date("2026-10-05T23:30:00Z");
     expect(iso(lastOccurrence(wednesday, now).start)).toBe("2026-10-01T00:00:00.000Z");
-    expect(iso(nextStart(wednesday, now))).toBe("2026-10-08T00:00:00.000Z");
+    expect(iso(next(wednesday, now))).toBe("2026-10-08T00:00:00.000Z");
   });
 
   it("uses the date in the meeting's zone, not the phone's", () => {
@@ -37,27 +40,38 @@ describe("occurrences in the meeting's own zone", () => {
   it("keeps the meeting's local time across a daylight-saving change", () => {
     const now = new Date("2026-10-31T12:00:00Z"); // the Saturday before clocks fall back
     expect(iso(lastOccurrence(chicagoMonday7pm, now).start)).toBe("2026-10-27T00:00:00.000Z");
-    expect(iso(nextStart(chicagoMonday7pm, now))).toBe("2026-11-03T01:00:00.000Z");
+    expect(iso(next(chicagoMonday7pm, now))).toBe("2026-11-03T01:00:00.000Z");
   });
 
-  it("takes the earlier instant for a time that happens twice when clocks fall back", () => {
-    const meetingAt = { day: 0, time: "01:30", endTime: null, timezone: "America/New_York" };
-    expect(iso(nextStart(meetingAt, new Date("2026-10-31T12:00:00Z")))).toBe("2026-11-01T05:30:00.000Z");
-  });
-
-  it("takes the earlier instant east of Greenwich too", () => {
-    const meetingAt = { day: 0, time: "01:30", endTime: null, timezone: "Europe/London" };
-    expect(iso(nextStart(meetingAt, new Date("2026-10-24T12:00:00Z")))).toBe("2026-10-25T00:30:00.000Z");
-  });
+  // Owner ruling M-a: the later instant, as Postgres's AT TIME ZONE resolves it on the server.
+  it.each([
+    ["America/New_York", "01:30", "2026-10-31T12:00:00Z", "2026-11-01T06:30:00.000Z"],
+    ["Europe/London", "01:30", "2026-10-24T12:00:00Z", "2026-10-25T01:30:00.000Z"],
+    ["Australia/Adelaide", "02:30", "2026-04-03T12:00:00Z", "2026-04-04T17:00:00.000Z"],
+    ["Pacific/Chatham", "03:30", "2026-04-03T12:00:00Z", "2026-04-04T14:45:00.000Z"],
+  ])(
+    "in %s, takes the later instant for %s, a time that happens twice when clocks fall back",
+    (zone, time, now, start) => {
+      expect(iso(next({ day: 0, time, endTime: null, timezone: zone }, new Date(now)))).toBe(start);
+    },
+  );
 
   it("moves a time the clocks skip an hour later, as the server does", () => {
     const meetingAt = { day: 0, time: "02:30", endTime: null, timezone: "America/New_York" };
-    expect(iso(nextStart(meetingAt, new Date("2026-03-07T12:00:00Z")))).toBe("2026-03-08T07:30:00.000Z");
+    expect(iso(next(meetingAt, new Date("2026-03-07T12:00:00Z")))).toBe("2026-03-08T07:30:00.000Z");
   });
 
-  it("moves a skipped time an hour later east of Greenwich too", () => {
-    const meetingAt = { day: 0, time: "01:30", endTime: null, timezone: "Europe/London" };
-    expect(iso(nextStart(meetingAt, new Date("2026-03-28T12:00:00Z")))).toBe("2026-03-29T01:30:00.000Z");
+  it.each([
+    ["Europe/London", "01:30", "2026-03-28T12:00:00Z", "2026-03-29T01:30:00.000Z"],
+    ["Australia/Adelaide", "02:30", "2026-10-02T12:00:00Z", "2026-10-03T17:00:00.000Z"],
+    ["Pacific/Chatham", "03:10", "2026-09-25T12:00:00Z", "2026-09-26T14:25:00.000Z"],
+  ])("in %s, moves %s, a time the clocks skip, later by the jump", (zone, time, now, start) => {
+    expect(iso(next({ day: 0, time, endTime: null, timezone: zone }, new Date(now)))).toBe(start);
+  });
+
+  it("places a half-hour zone with no clock changes", () => {
+    const kolkata = { day: 1, time: "19:00", endTime: null, timezone: "Asia/Kolkata" };
+    expect(iso(next(kolkata, new Date("2026-10-04T12:00:00Z")))).toBe("2026-10-05T13:30:00.000Z");
   });
 
   it("ends a meeting on the next day when its end time is earlier than its start", () => {
@@ -70,6 +84,12 @@ describe("occurrences in the meeting's own zone", () => {
     const evening = { day: 1, time: "18:00", endTime: "19:15", timezone: "America/Chicago" };
     const occurrence = lastOccurrence(evening, new Date("2026-10-05T23:30:00Z"));
     expect(iso(occurrenceEnd(evening, occurrence))).toBe("2026-10-06T00:15:00.000Z");
+  });
+
+  it("treats an end time equal to the start as no end time, an hour long", () => {
+    const sameTimes = { day: 1, time: "18:00", endTime: "18:00", timezone: "America/Chicago" };
+    const occurrence = lastOccurrence(sameTimes, new Date("2026-10-05T23:30:00Z"));
+    expect(iso(occurrenceEnd(sameTimes, occurrence))).toBe("2026-10-06T00:00:00.000Z");
   });
 
   it.each([

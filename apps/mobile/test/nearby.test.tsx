@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AppState, type AppStateStatus, Linking } from "react-native";
 
 import { readCache } from "@/cache/store";
@@ -583,6 +583,77 @@ describe("results", () => {
       await playAppState("active");
       await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
       expect(screen.getByRole("button", { name: "Day filters, 2 chosen" })).toBeOnTheScreen();
+    });
+  });
+
+  describe("the order of the list: soonest or nearest (owner decision, 2026-09-30)", () => {
+    const at = (name: string, id: string, time: string, place: "here" | "away") =>
+      nearbyMeeting({
+        id: `${id}1111111-1111-4111-8111-111111111111`,
+        name,
+        day: 1,
+        time,
+        ...(place === "here"
+          ? { latitude: 35.7566, longitude: -83.9706, distanceKm: 0.5 }
+          : { latitude: 35.77, longitude: -83.99, distanceKm: 0.4 }),
+      });
+    // In the server's order, which is by the rounded point's distance and says nothing about time.
+    const MEETINGS = [
+      at("Five Here", "1", "17:00", "here"),
+      at("Five Away", "2", "17:00", "away"),
+      at("Eight Here", "3", "20:00", "here"),
+      at("Three Away", "4", "15:00", "away"),
+      at("One Here", "5", "13:00", "here"),
+    ];
+    const listed = async () =>
+      (await screen.findAllByRole("button", { name: /(Here|Away), Mon/ })).map((card) =>
+        String(card.props.accessibilityLabel).replace(/, Mon.*/, ""),
+      );
+
+    async function searchAtLunchtime() {
+      // Monday 12:30 PM, so every meeting is still ahead today.
+      setNow("2026-10-05T17:30:00Z");
+      api.reply(SEARCH, { meetings: MEETINGS });
+      await launchNearby();
+      await searchFor("Maryville, TN");
+      await screen.findByText("One Here");
+    }
+
+    it("starts with the soonest first, the nearest first at the same time", async () => {
+      await searchAtLunchtime();
+      expect(await listed()).toEqual(["One Here", "Three Away", "Five Here", "Five Away", "Eight Here"]);
+      expect(screen.getByRole("button", { name: "Sort soonest first" })).toBeSelected();
+      expect(screen.getByRole("button", { name: "Sort nearest first" })).not.toBeSelected();
+      expect(screen.getByText("Soonest")).toBeOnTheScreen();
+      expect(screen.getByText("Nearest")).toBeOnTheScreen();
+    });
+
+    it("sorts the nearest first on Nearest, the soonest first at the same place", async () => {
+      await searchAtLunchtime();
+      await fireEvent.press(screen.getByRole("button", { name: "Sort nearest first" }));
+      await waitFor(async () => {
+        expect(await listed()).toEqual(["One Here", "Five Here", "Eight Here", "Three Away", "Five Away"]);
+      });
+      expect(screen.getByRole("button", { name: "Sort nearest first" })).toBeSelected();
+      expect(screen.getByRole("button", { name: "Sort soonest first" })).not.toBeSelected();
+    });
+
+    it("keeps the choice through a new search, but not once the app is closed", async () => {
+      await searchAtLunchtime();
+      await fireEvent.press(screen.getByRole("button", { name: "Sort nearest first" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+      await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
+      await waitFor(async () => {
+        expect(await listed()).toEqual(["One Here", "Five Here", "Eight Here", "Three Away", "Five Away"]);
+      });
+      expect(screen.getByRole("button", { name: "Sort nearest first" })).toBeSelected();
+
+      await cleanup();
+      await launchNearby();
+      await searchFor("Maryville, TN");
+      await screen.findByText("One Here");
+      expect(await listed()).toEqual(["One Here", "Three Away", "Five Here", "Five Away", "Eight Here"]);
+      expect(screen.getByRole("button", { name: "Sort soonest first" })).toBeSelected();
     });
   });
 

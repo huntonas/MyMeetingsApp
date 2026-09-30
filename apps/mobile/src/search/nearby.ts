@@ -4,6 +4,7 @@ import { z } from "zod";
 import { searchMeetings } from "@/api/reads";
 import type { CachedRead } from "@/cache/cached-read";
 import { distanceKm, type LatLng, roundForSearch } from "@/location/geo";
+import { upcomingStart } from "@/meetings/schedule";
 
 export interface SearchOrigin {
   kind: "me" | "place" | "map";
@@ -75,15 +76,38 @@ export function describedOrigin(result: SearchResult, asked: SearchOrigin) {
   };
 }
 
-// Spec §8: the server sorts by distance from the rounded point; the phone re-sorts by the exact distance.
-export function byExactDistance(meetings: MeetingSearchResponse["meetings"], from: LatLng): NearbyMeeting[] {
-  return meetings
-    .map((meeting) => ({
+// Soonest (the default) or nearest first: the person's choice, held in memory only.
+export type NearbyOrder = "soonest" | "nearest";
+
+// Spec §8: the server sorts by distance from the rounded point, which says nothing about time. The phone sorts by the
+// exact distance from the real point, or by the next start (owner decision, 2026-09-30), each breaking the other's
+// ties, so meetings at one place read in time order.
+export function sortNearby(
+  meetings: MeetingSearchResponse["meetings"],
+  from: LatLng,
+  order: NearbyOrder,
+  now: Date,
+): NearbyMeeting[] {
+  const measured = meetings.map((meeting) => ({
+    meeting: {
       ...meeting,
       exactKm:
         meeting.latitude === null || meeting.longitude === null
           ? meeting.distanceKm
           : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude }),
-    }))
-    .sort((a, b) => a.exactKm - b.exactKm);
+    },
+    // Nearby meetings are almost always in the phone's own zone: the best guess for one the feed gave none.
+    startsAt: upcomingStart(
+      { ...meeting, timezone: meeting.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone },
+      now,
+    ).getTime(),
+  }));
+  type Measured = (typeof measured)[number];
+  const byDistance = (a: Measured, b: Measured) => a.meeting.exactKm - b.meeting.exactKm;
+  const byStart = (a: Measured, b: Measured) => a.startsAt - b.startsAt;
+  return measured
+    .sort((a, b) =>
+      order === "soonest" ? byStart(a, b) || byDistance(a, b) : byDistance(a, b) || byStart(a, b),
+    )
+    .map(({ meeting }) => meeting);
 }

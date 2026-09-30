@@ -19,8 +19,15 @@ import {
   NO_FILTERS,
   useFilters,
 } from "@/search/filters";
-import { byExactDistance, describedOrigin, type SearchOrigin, searchRead } from "@/search/nearby";
+import {
+  describedOrigin,
+  type NearbyOrder,
+  type SearchOrigin,
+  searchRead,
+  sortNearby,
+} from "@/search/nearby";
 import { useColors } from "@/theme/colors";
+import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { HandOffButton } from "@/ui/hand-off-button";
@@ -71,6 +78,30 @@ function FilterPills({ filters }: { filters: MeetingFilters }) {
   );
 }
 
+const ORDERS: readonly { order: NearbyOrder; label: string }[] = [
+  { order: "soonest", label: "Soonest" },
+  { order: "nearest", label: "Nearest" },
+];
+
+function OrderPills({ order, onOrder }: { order: NearbyOrder; onOrder: (order: NearbyOrder) => void }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 8 }}>
+      {ORDERS.map(({ order: choice, label }) => (
+        <Pill
+          key={choice}
+          role="button"
+          label={label}
+          spokenLabel={`Sort ${label.toLowerCase()} first`}
+          selected={order === choice}
+          onPress={() => {
+            onOrder(choice);
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 function countLine(count: number, filtered: boolean): string {
   if (!filtered) return `${String(count)} ${count === 1 ? "meeting" : "meetings"}`;
   return `${String(count)} ${count === 1 ? "meeting matches" : "meetings match"} your filters`;
@@ -82,6 +113,8 @@ interface ResultsProps {
   origin: SearchOrigin;
   view: ResultsView;
   onView: (view: ResultsView) => void;
+  order: NearbyOrder;
+  onOrder: (order: NearbyOrder) => void;
   onMapMove: (region: MapRegion) => void;
   onChangePlace: () => void;
   // Where the search was before the person first moved the map, while the search is a map area's.
@@ -89,8 +122,19 @@ interface ResultsProps {
   onBack: (to: SearchOrigin) => void;
 }
 
-function Results({ origin: asked, view, onView, onMapMove, onChangePlace, backTo, onBack }: ResultsProps) {
+function Results({
+  origin: asked,
+  view,
+  onView,
+  order,
+  onOrder,
+  onMapMove,
+  onChangePlace,
+  backTo,
+  onBack,
+}: ResultsProps) {
   const colors = useColors();
+  const now = useNow();
   const { state, refresh } = useCachedRead(searchRead(asked));
   // Offline, the answer may be the last search standing in for this one; everything below describes where it was made.
   const origin =
@@ -236,7 +280,7 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace, backTo
         <AppText accessibilityRole="alert">{state.message}</AppText>
       </Screen>
     );
-  const sorted = byExactDistance(state.data.meetings, origin.point);
+  const sorted = sortNearby(state.data.meetings, origin.point, order, now);
   // The list offers the online meetings instead of an empty screen.
   if (sorted.length === 0) {
     return (
@@ -265,6 +309,7 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace, backTo
           {heading}
           {savedNote}
           <FilterPills filters={filters} />
+          <OrderPills order={order} onOrder={onOrder} />
           {shown.length > 0 && <AppText tone="muted">{countLine(shown.length, filtered)}</AppText>}
           {shown.length > 0 && filtered && clearFilters}
           {shown.length === 0 && noMatches}
@@ -283,6 +328,8 @@ function Nearby() {
   const [searchCount, setSearchCount] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
   const [view, setView] = useState<ResultsView>("list");
+  // Like the filters, kept in memory only: a new search keeps it, and the app starts again on Soonest.
+  const [order, setOrder] = useState<NearbyOrder>("soonest");
   // The search before the person first moved the map, which "Back to …" returns to; null unless the search is a map
   // area's. Later pans keep it, and any new search forgets it.
   const [backTo, setBackTo] = useState<SearchOrigin | null>(null);
@@ -372,6 +419,8 @@ function Nearby() {
         origin={origin}
         view={view}
         onView={setView}
+        order={order}
+        onOrder={setOrder}
         onMapMove={moveMap}
         onChangePlace={() => {
           setOrigin(null);

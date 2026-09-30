@@ -6,6 +6,7 @@ import {
   occurrenceEnd,
   type Scheduled,
   shortWhen,
+  upcomingStart,
   yourTime,
   zoneName,
 } from "@/meetings/schedule";
@@ -116,6 +117,25 @@ describe("occurrences in the meeting's own zone", () => {
     [6, "00:00", "Sat 12:00 AM"],
   ])("lists day %d at %s as %s on a card", (day, time, label) => {
     expect(shortWhen({ day, time })).toBe(label);
+  });
+});
+
+// A list sorted by what's soonest keeps a meeting that has just begun at the top for an hour, rather than sending it to
+// next week, since someone may still walk in late.
+describe("upcomingStart", () => {
+  it("is the next start once the latest one is more than an hour ago", () => {
+    const now = new Date("2026-10-06T01:01:00Z"); // Monday 8:01 PM in Chicago
+    expect(iso(upcomingStart(chicagoMonday7pm, now))).toBe("2026-10-13T00:00:00.000Z");
+  });
+
+  it("is the latest start for the first hour after it", () => {
+    const now = new Date("2026-10-06T01:00:00Z"); // Monday 8:00 PM in Chicago
+    expect(iso(upcomingStart(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
+  });
+
+  it("is the next start when that is still ahead", () => {
+    const now = new Date("2026-10-05T23:30:00Z"); // Monday 6:30 PM in Chicago
+    expect(iso(upcomingStart(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
   });
 });
 

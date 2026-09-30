@@ -1,6 +1,6 @@
 import { milesLabel, radiusMiles } from "@/meetings/units";
 import { matchesFilters, NO_FILTERS } from "@/search/filters";
-import { byExactDistance } from "@/search/nearby";
+import { sortNearby } from "@/search/nearby";
 
 import { meeting, nearbyMeeting } from "./fixtures";
 
@@ -51,28 +51,53 @@ describe("matchesFilters", () => {
   });
 });
 
-describe("byExactDistance", () => {
-  it("re-sorts the server's order by the exact distance from the real point", () => {
-    const far = nearbyMeeting({
-      id: "11111111-1111-4111-8111-111111111111",
-      latitude: 35.77,
-      longitude: -83.99,
-      distanceKm: 0.9,
+describe("sortNearby", () => {
+  const MARYVILLE = { latitude: 35.7565, longitude: -83.9705 };
+  // Monday 12:30 PM in Chicago.
+  const NOW = new Date("2026-10-05T17:30:00Z");
+  const at = (id: string, time: string, latitude: number, longitude: number, distanceKm = 1) =>
+    nearbyMeeting({
+      id: `${id}1111111-1111-4111-8111-111111111111`,
+      day: 1,
+      time,
+      latitude,
+      longitude,
+      distanceKm,
     });
-    const near = nearbyMeeting({
-      id: "22222222-2222-4222-8222-222222222222",
-      latitude: 35.7566,
-      longitude: -83.9706,
-      distanceKm: 1.6,
-    });
-    const sorted = byExactDistance([far, near], { latitude: 35.7565, longitude: -83.9705 });
-    expect(sorted.map((m) => m.id)).toEqual([near.id, far.id]);
-    expect(sorted[1]?.exactKm).toBeCloseTo(2.31, 2);
+  const near5pm = at("1", "17:00", 35.7566, -83.9706);
+  const near1pm = at("2", "13:00", 35.7566, -83.9706);
+  const far3pm = at("3", "15:00", 35.77, -83.99, 0.9);
+  const far5pm = at("4", "17:00", 35.77, -83.99, 0.9);
+  const near8pm = at("5", "20:00", 35.7566, -83.9706);
+  const all = [near5pm, far5pm, near8pm, far3pm, near1pm];
+  const ids = (meetings: { id: string }[]) => meetings.map((m) => m.id.slice(0, 1));
+
+  it("puts the soonest first, and the nearest first among meetings at the same time", () => {
+    expect(ids(sortNearby(all, MARYVILLE, "soonest", NOW))).toEqual(["2", "3", "1", "4", "5"]);
+  });
+
+  it("puts the nearest first by exact distance, and the soonest first at the same place", () => {
+    const sorted = sortNearby(all, MARYVILLE, "nearest", NOW);
+    expect(ids(sorted)).toEqual(["2", "1", "5", "3", "4"]);
+    expect(sorted[3]?.exactKm).toBeCloseTo(2.31, 2);
+  });
+
+  // Nearby meetings are almost always in the phone's own zone, so it's the best guess for one the feed gave none.
+  it("reads the listed time of a meeting without a time zone on the phone's clock", () => {
+    const zoneless2pm = { ...at("6", "14:00", 35.7566, -83.9706), timezone: null };
+    expect(ids(sortNearby([...all, zoneless2pm], MARYVILLE, "soonest", NOW))).toEqual([
+      "2",
+      "6",
+      "3",
+      "1",
+      "4",
+      "5",
+    ]);
   });
 
   it("keeps the server's distance for a meeting without coordinates", () => {
     const unplaced = nearbyMeeting({ latitude: null, longitude: null, distanceKm: 3.2 });
-    expect(byExactDistance([unplaced], { latitude: 35.7565, longitude: -83.9705 })[0]?.exactKm).toBe(3.2);
+    expect(sortNearby([unplaced], MARYVILLE, "nearest", NOW)[0]?.exactKm).toBe(3.2);
   });
 });
 

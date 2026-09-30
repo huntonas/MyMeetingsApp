@@ -83,6 +83,17 @@ export function nextStart(meeting: Scheduled, last: Occurrence): Date {
   return zonedInstant(shiftDays(last.date, 7), meeting.time, meeting.timezone);
 }
 
+// Someone may still walk in late: a meeting that began this long ago still counts as coming up.
+const LATE_ARRIVAL_MINUTES = 60;
+
+// The start a list sorted by what's soonest goes by: the latest one for an hour after it begins, so a meeting that has
+// just started stays at the top instead of dropping to next week, and the next one after that.
+export function upcomingStart(meeting: Scheduled, now: Date): Date {
+  const last = lastOccurrence(meeting, now);
+  if (now.getTime() - last.start.getTime() <= LATE_ARRIVAL_MINUTES * MINUTE) return last.start;
+  return nextStart(meeting, last);
+}
+
 // An end time earlier than the start time is on the next day (11:30 PM to 12:30 AM). One equal to the start says
 // nothing about the length, so it counts as missing (owner ruling M-f).
 export function occurrenceEnd(meeting: Scheduled, occurrence: Occurrence): Date {

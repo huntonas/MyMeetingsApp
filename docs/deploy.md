@@ -168,7 +168,7 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 ### Signing in to /metrics
 
 - Open `/metrics`; the browser asks for the user name and password.
-- **Owner step: a Vercel Firewall rate-limit rule.** In the dashboard → the project → Firewall → Rules, add a custom rule: the path starts with `/metrics`, rate-limited by IP address, a 60-second window, about 30 requests, action Deny (429). This is the per-visitor limit; the app itself stores no IP address for a sign-in attempt (spec §2).
+- **Owner step: a Vercel Firewall rate-limit rule.** In the dashboard → the project → Firewall → Rules, add a custom rule: the path starts with `/metrics`, rate-limited by IP address, a 60-second window, about 30 requests, action Deny (429). This is the per-visitor limit; the app itself stores no IP address for a sign-in attempt (spec §2). **Status (2026-09-29): not yet created — the owner deferred it.** Until it exists, only the site-wide backstop applies; if a burst locks the owner out, clear it with the SQL below.
 - Backstop: the app also keeps one site-wide count of failed sign-ins, in Postgres, with no IP, device or user name attached. After 200 failed sign-ins in a UTC day, everyone is refused (429) until midnight UTC, even with the right credentials. A test burst against a preview or production counts toward this same total. Clear it in the Neon SQL editor:
   ```sql
   delete from rate_limits where bucket = 'metrics_login';

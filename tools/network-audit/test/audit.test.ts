@@ -651,6 +651,29 @@ describe("auditHar", () => {
       expect(found).toContain("contains an exact coordinate");
     });
 
+    // R2: the dot-stripped digits collide with timestamps and ids in unrelated traffic, so off our server they're
+    // only worth a look; the dotted and comma forms stay failures everywhere.
+    it("R2: flags the dotted or comma exact-point fragment on another host", () => {
+      for (const value of ["36.162", "86,781"]) {
+        const report = auditHar(
+          har(entry("GET", `https://maps.example.com/tile?q=${value}`), VALID_SEARCH),
+          OPTIONS,
+        );
+        expect(report.findings.map((f) => f.problem)).toEqual(["contains an exact coordinate"]);
+      }
+    });
+
+    it("R2: puts the dot-stripped fragment on another host under look-at, not findings", () => {
+      const report = auditHar(
+        har(entry("GET", "https://cdn.example.com/a?t=1736162000"), VALID_SEARCH),
+        OPTIONS,
+      );
+      expect(report.findings).toEqual([]);
+      expect(report.lookAt).toEqual([
+        "GET cdn.example.com/a: has an exact coordinate's digits without the dot",
+      ]);
+    });
+
     // M4: request.cookies, HAR params' fileName/contentType, and _webSocketMessages are all scanned too.
     it("N19: flags a non-empty request.cookies entry on our server, even with no Cookie header", () => {
       const found = problems(

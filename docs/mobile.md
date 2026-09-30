@@ -62,8 +62,12 @@ this automatically against a HAR capture:
   through our own server undetected: `JSON.stringify` never re-emits a number that way, so the byte-for-byte
   comparison already catches it without needing to specifically look for that notation.
 
+The exact point's first three decimals fail the run on any host when written with a dot or a decimal comma
+(`36.162`, `36,162`). With the dot stripped (`36162`) they fail only on our own server: elsewhere those digits
+collide with timestamps and ids, so they go under "Look at these" instead.
+
 The tool's output can also print a "Look at these" section: coordinate-looking number pairs sent to another
-host, and plain `http://` to a host that isn't private or loopback (including the IPv6 loopback/unique-local/
+host, an exact point's digits without the dot sent to another host, and plain `http://` to a host that isn't private or loopback (including the IPv6 loopback/unique-local/
 link-local ranges, and IPv4 link-local `169.254.x.x`). These are informational only and never fail the run —
 a map SDK legitimately sends tile coordinates to its own host, and a local dev capture legitimately uses
 plain http — but are worth a human glance.

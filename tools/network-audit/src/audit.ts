@@ -52,10 +52,11 @@ const SEARCH_PATH = "/api/v1/meetings/search";
 const SearchBody = z.strictObject(MeetingSearchRequest.shape);
 
 // The first three decimals of an exact coordinate, truncated and rounded, without the sign: finer than
-// anything the 2-decimal rounding can produce, so a match here can only be the real, unrounded point. Also
-// tried with the dot stripped (a microdegree-style truncation) and with a comma decimal separator (some
-// locales) — a false positive from either fails closed, which is acceptable.
-function fragmentsOf(point: { latitude: number; longitude: number }): string[] {
+// anything the 2-decimal rounding can produce, so a match here can only be the real, unrounded point. `exact`
+// holds the dotted form and the comma decimal separator (some locales). `dotless` holds the dot stripped (a
+// microdegree-style truncation): those digits also turn up in timestamps and ids in unrelated traffic, so only
+// our server fails on them; anywhere else they're a look-at note.
+function fragmentsOf(point: { latitude: number; longitude: number }) {
   const truncatedAndRounded = (value: number) => {
     const abs = Math.abs(value);
     return [(Math.trunc(abs * 1000) / 1000).toFixed(3), abs.toFixed(3)];
@@ -63,9 +64,10 @@ function fragmentsOf(point: { latitude: number; longitude: number }): string[] {
   const base = [
     ...new Set([...truncatedAndRounded(point.latitude), ...truncatedAndRounded(point.longitude)]),
   ];
-  return [
-    ...new Set(base.flatMap((fragment) => [fragment, fragment.replace(".", ""), fragment.replace(".", ",")])),
-  ];
+  return {
+    exact: base.flatMap((fragment) => [fragment, fragment.replace(".", ",")]),
+    dotless: base.map((fragment) => fragment.replace(".", "")),
+  };
 }
 
 function bodyText(request: HarRequest): string {
@@ -181,9 +183,10 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
     }
     // Checked before the host branch below: the app never sends the exact point anywhere, to any host, since
     // the OS geocoder only ever receives typed text, not coordinates.
-    if (options.exactPoints.some((point) => fragmentsOf(point).some((fragment) => text.includes(fragment)))) {
-      flag("contains an exact coordinate");
-    }
+    const fragments = options.exactPoints.map(fragmentsOf);
+    const hasExact = fragments.some(({ exact }) => exact.some((fragment) => text.includes(fragment)));
+    if (hasExact) flag("contains an exact coordinate");
+    const hasDotless = fragments.some(({ dotless }) => dotless.some((fragment) => text.includes(fragment)));
     // Also checked for every host: an invisible body is unaccounted for regardless of who received it.
     if (hasUnrecordedBody(request)) flag("body not recorded, can't be scanned");
 
@@ -196,6 +199,11 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
     }
     if (hostMatch === "other") {
       otherHosts.add(url.host);
+      if (hasDotless) {
+        lookAt.push(
+          `${request.method} ${url.host}${url.pathname}: has an exact coordinate's digits without the dot`,
+        );
+      }
       if (looksLikeCoordinatePair(text)) {
         lookAt.push(`${request.method} ${url.host}${url.pathname}: looks like a coordinate pair`);
       }
@@ -205,6 +213,7 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
       continue;
     }
     serverRequests += 1;
+    if (hasDotless && !hasExact) flag("contains an exact coordinate");
 
     for (const value of options.searchText) {
       if (text.includes(value.toLowerCase())) flag(`contains the search-box text "${value}"`);

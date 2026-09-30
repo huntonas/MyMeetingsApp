@@ -12,9 +12,12 @@ export function looksLikeCoordinatePair(text: string): boolean {
 }
 
 const PRIVATE_HOST =
-  /^(?:localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|::1)$/i;
+  /^(?:localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|169\.254\.\d{1,3}\.\d{1,3})$/i;
+// ::1 (loopback), fd00::/8 (unique-local), fe80::/10 (link-local).
+const PRIVATE_HOST_V6 = /^(?:::1|fd[0-9a-f]{2}:|fe[89ab][0-9a-f]:)/i;
 
-export function isPrivateOrLoopbackHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return host.endsWith(".local") || PRIVATE_HOST.test(host);
+export function isPrivateOrLoopbackHost(hostnameRaw: string): boolean {
+  // URL.hostname keeps the brackets around an IPv6 literal ("[::1]"); strip them before matching.
+  const host = hostnameRaw.replace(/^\[|\]$/g, "").toLowerCase();
+  return host.endsWith(".local") || PRIVATE_HOST.test(host) || PRIVATE_HOST_V6.test(host);
 }

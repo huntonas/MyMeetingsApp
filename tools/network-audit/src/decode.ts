@@ -43,13 +43,16 @@ function jsonRoundTrip(text: string): string | undefined {
 }
 
 // Every view of one piece of text worth scanning: as written; percent-decoded (repeatedly, as UTF-8); with a
-// form-encoded "+" turned into a space and then percent-decoded; with HTML/XML numeric entities decoded; and
-// (for JSON, tried on both the raw and the percent-decoded text) unescaped by a parse/stringify round trip.
+// form-encoded "+" turned into a space and then percent-decoded; with HTML/XML numeric entities decoded (both
+// on the raw text, and on the percent-decoded text — an entity like "&#50;" can itself arrive percent-encoded,
+// e.g. "%26%2350%3B", which only becomes a real entity after percent-decoding); and (for JSON, tried on both
+// the raw and the percent-decoded text) unescaped by a parse/stringify round trip.
 export function views(raw: string): string[] {
   const percentDecoded = percentDecodedRepeated(raw);
   const plusThenPercent = percentDecodedRepeated(raw.replace(/\+/g, " "));
   const entityDecoded = decodeEntities(raw);
-  const result = new Set([raw, percentDecoded, plusThenPercent, entityDecoded]);
+  const percentThenEntity = decodeEntities(percentDecoded);
+  const result = new Set([raw, percentDecoded, plusThenPercent, entityDecoded, percentThenEntity]);
   for (const candidate of [raw, percentDecoded]) {
     const json = jsonRoundTrip(candidate);
     if (json !== undefined) result.add(json);

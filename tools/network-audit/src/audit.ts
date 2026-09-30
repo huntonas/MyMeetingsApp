@@ -30,6 +30,10 @@ export interface AuditReport {
   findings: Finding[];
   // Worth a human glance, but not a failure — see src/lookat.ts.
   lookAt: string[];
+  // Every distinct user-agent value seen on a request to our server, printed for a human to confirm. More
+  // than one is also a finding: the app sends exactly one, so a second means something else is talking to
+  // the server (or the capture mixes two devices/runs together).
+  userAgents: string[];
 }
 
 type HarEntry = Har["log"]["entries"][number];
@@ -127,10 +131,26 @@ function hasAnyBody(request: HarRequest): boolean {
   return request.postData !== undefined || (request.bodySize ?? 0) > 0;
 }
 
+interface UrlHistory {
+  etags: Set<string>;
+  lastModified: Set<string>;
+}
+
+function historyFor(map: Map<string, UrlHistory>, url: string): UrlHistory {
+  let found = map.get(url);
+  if (!found) {
+    found = { etags: new Set(), lastModified: new Set() };
+    map.set(url, found);
+  }
+  return found;
+}
+
 export function auditHar(har: Har, options: AuditOptions): AuditReport {
   const findings: Finding[] = [];
   const otherHosts = new Set<string>();
   const lookAt: string[] = [];
+  const userAgents = new Set<string>();
+  const urlHistory = new Map<string, UrlHistory>();
   let serverRequests = 0;
   let sawSearch = false;
   const normalizedServer = normalizeHost(options.server);
@@ -144,6 +164,17 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
     const flag = (problem: string) =>
       findings.push({ request: `${request.method} ${url.host}${url.pathname}`, problem });
     const text = requestText(entry);
+
+    // A snapshot of what earlier entries to this same URL have returned, taken before this entry's own
+    // response (below) is added — so a request can never legitimize itself with its own response.
+    const history = historyFor(urlHistory, url.href);
+    const knownEtags = new Set(history.etags);
+    const knownLastModified = new Set(history.lastModified);
+    for (const responseHeader of entry.response?.headers ?? []) {
+      const name = responseHeader.name.toLowerCase();
+      if (name === "etag") history.etags.add(responseHeader.value);
+      if (name === "last-modified") history.lastModified.add(responseHeader.value);
+    }
 
     for (const value of options.privateValues) {
       if (text.includes(value.toLowerCase())) flag("contains a private value");
@@ -179,14 +210,18 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
       if (text.includes(value.toLowerCase())) flag(`contains the search-box text "${value}"`);
     }
     for (const header of request.headers) {
+      if (header.name.toLowerCase() === "user-agent") userAgents.add(header.value);
       const problem = headerFinding(header.name, header.value, {
         method: request.method,
         server: normalizedServer,
+        bodySize: request.bodySize,
+        knownEtags,
+        knownLastModified,
       });
       if (problem) flag(problem);
     }
     if ((request.cookies ?? []).some((cookie) => cookie.value !== "")) flag("sends a Cookie header");
-    if (request.method !== "POST" && hasAnyBody(request)) flag("sends a body on a GET request");
+    if (request.method !== "POST" && hasAnyBody(request)) flag(`sends a body on a ${request.method} request`);
 
     if (request.method === "POST" && matchPath === SEARCH_PATH) {
       sawSearch = true;
@@ -200,6 +235,17 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
   // A capture that never exercised a search can't prove anything about search traffic — including an empty
   // capture, or one checked against the wrong --server.
   if (!sawSearch) findings.push({ request: "(capture)", problem: "the capture never exercised a search" });
+  // The app sends exactly one user-agent value; more than one means something else reached the server, or the
+  // capture mixes more than one device or run together.
+  if (userAgents.size > 1) {
+    findings.push({ request: "(capture)", problem: "sends more than one distinct user-agent value" });
+  }
 
-  return { serverRequests, otherHosts: [...otherHosts].sort(), findings, lookAt };
+  return {
+    serverRequests,
+    otherHosts: [...otherHosts].sort(),
+    findings,
+    lookAt,
+    userAgents: [...userAgents],
+  };
 }

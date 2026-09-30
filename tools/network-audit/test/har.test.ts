@@ -82,4 +82,24 @@ describe("Har", () => {
     };
     expect(Har.safeParse({ log: { entries: [entry] } }).success).toBe(true);
   });
+
+  it("accepts response.headers, ignoring the extra fields a real capture includes", () => {
+    const entry = {
+      request: { method: "GET", url: "https://mymeetingapp.vercel.app/api/v1/vocabulary", headers: [] },
+      response: {
+        status: 200,
+        statusText: "OK",
+        headers: [{ name: "etag", value: '"abc123"' }],
+        content: { size: 10, mimeType: "application/json" },
+      },
+    };
+    expect(Har.safeParse({ log: { entries: [entry] } }).success).toBe(true);
+  });
+
+  it("accepts an entry with no response at all", () => {
+    const entry = {
+      request: { method: "GET", url: "https://mymeetingapp.vercel.app/api/v1/vocabulary", headers: [] },
+    };
+    expect(Har.safeParse({ log: { entries: [entry] } }).success).toBe(true);
+  });
 });

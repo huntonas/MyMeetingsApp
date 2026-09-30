@@ -26,4 +26,22 @@ describe("isPrivateOrLoopbackHost", () => {
     expect(isPrivateOrLoopbackHost("example.com")).toBe(false);
     expect(isPrivateOrLoopbackHost("172.32.0.1")).toBe(false);
   });
+
+  it("strips IPv6 brackets before matching (URL.hostname keeps them)", () => {
+    expect(isPrivateOrLoopbackHost("[::1]")).toBe(true);
+  });
+
+  it("recognizes IPv6 loopback, unique-local and link-local ranges", () => {
+    expect(isPrivateOrLoopbackHost("::1")).toBe(true);
+    expect(isPrivateOrLoopbackHost("fd12:3456::1")).toBe(true);
+    expect(isPrivateOrLoopbackHost("fe80::1")).toBe(true);
+  });
+
+  it("doesn't treat a public IPv6 address as private", () => {
+    expect(isPrivateOrLoopbackHost("2001:db8::1")).toBe(false);
+  });
+
+  it("recognizes IPv4 link-local addresses (169.254.x.x)", () => {
+    expect(isPrivateOrLoopbackHost("169.254.1.1")).toBe(true);
+  });
 });

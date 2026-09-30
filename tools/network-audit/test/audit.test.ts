@@ -61,7 +61,17 @@ function entryWithWebSocket(base: ReturnType<typeof entry>, messages: string[]) 
   return { ...base, _webSocketMessages: messages.map((data) => ({ data })) };
 }
 
-const har = (...entries: (ReturnType<typeof entry> | ReturnType<typeof entryWithWebSocket>)[]): Har => ({
+// A HAR entry's response headers (etag, last-modified, ...), sibling to "request" — needed for an earlier
+// entry to the same URL to make a later if-none-match/if-modified-since legitimate.
+function entryWithResponse(base: ReturnType<typeof entry>, headers: [string, string][]) {
+  return { ...base, response: { headers: headers.map(([name, value]) => ({ name, value })) } };
+}
+
+const har = (
+  ...entries: (
+    ReturnType<typeof entry> | ReturnType<typeof entryWithWebSocket> | ReturnType<typeof entryWithResponse>
+  )[]
+): Har => ({
   log: { entries },
 });
 const search = (body: string) => entry("POST", `https://${SERVER}/api/v1/meetings/search`, { body });
@@ -88,6 +98,7 @@ describe("auditHar", () => {
       otherHosts: ["gsp-ssl.ls.apple.com"],
       findings: [],
       lookAt: [],
+      userAgents: [],
     });
   });
 
@@ -196,7 +207,7 @@ describe("auditHar", () => {
       ...OPTIONS,
       server: "MyMeetingApp.Vercel.App",
     });
-    expect(report).toEqual({ serverRequests: 2, otherHosts: [], findings: [], lookAt: [] });
+    expect(report).toEqual({ serverRequests: 2, otherHosts: [], findings: [], lookAt: [], userAgents: [] });
   });
 
   it("doesn't count a lookalike host as the server, even as a prefix", () => {
@@ -219,6 +230,7 @@ describe("auditHar", () => {
         otherHosts: [],
         findings: [{ request: "(capture)", problem: "the capture never exercised a search" }],
         lookAt: [],
+        userAgents: [],
       });
     });
 
@@ -419,12 +431,12 @@ describe("auditHar", () => {
       ["accept", "application/json"],
       ["accept-encoding", "gzip, deflate, br"],
       ["accept-language", "en-US,en;q=0.9"],
-      ["user-agent", "MyMeetingApp/1 CFNetwork/1408.0.4 Darwin/22.5.0"],
+      ["user-agent", "mymeetingapp/1 CFNetwork/1408.0.4 Darwin/22.5.0"],
       ["user-agent", "okhttp/4.12.0"],
       ["priority", "u=3, i"],
       ["connection", "keep-alive"],
-      ["if-none-match", '"33a64df551425fcc55e4d42a148795d9f25f89d"'],
-      ["if-modified-since", "Wed, 21 Oct 2015 07:28:00 GMT"],
+      // if-none-match/if-modified-since need a matching earlier response to be legitimate — covered by their
+      // own tests below, not this generic list.
     ])("passes a clean %s header value on a read", (name, value) => {
       expect(
         problems(
@@ -438,7 +450,6 @@ describe("auditHar", () => {
 
     it.each([
       ["content-type", "application/json"],
-      ["content-length", "41"],
       ["cache-control", "no-cache"],
       ["pragma", "no-cache"],
     ])("passes a clean %s header value on the search POST", (name, value) => {
@@ -448,6 +459,21 @@ describe("auditHar", () => {
             entry("POST", `https://${SERVER}/api/v1/meetings/search`, {
               headers: [[name, value]],
               body: '{"lat":36.16,"lng":-86.78,"radiusKm":25}',
+            }),
+          ),
+        ),
+      ).toEqual([]);
+    });
+
+    it("passes a clean content-length header value that matches the recorded bodySize", () => {
+      const body = '{"lat":36.16,"lng":-86.78,"radiusKm":25}';
+      expect(
+        problems(
+          har(
+            entry("POST", `https://${SERVER}/api/v1/meetings/search`, {
+              headers: [["content-length", String(body.length)]],
+              body,
+              bodySize: body.length,
             }),
           ),
         ),
@@ -512,7 +538,7 @@ describe("auditHar", () => {
               ["accept", "application/json"],
               ["accept-encoding", "gzip, deflate, br"],
               ["accept-language", "en-US,en;q=0.9"],
-              ["user-agent", "MyMeetingApp/1 CFNetwork/1408.0.4 Darwin/22.5.0"],
+              ["user-agent", "mymeetingapp/1 CFNetwork/1408.0.4 Darwin/22.5.0"],
               ["priority", "u=3, i"],
               ["connection", "keep-alive"],
               ["host", SERVER],
@@ -525,12 +551,13 @@ describe("auditHar", () => {
       expect(report.findings).toEqual([]);
     });
 
-    it("R2: an if-none-match ETag on a GET read passes clean", () => {
+    it("R2: an if-none-match ETag echoing an earlier response in the same capture passes clean", () => {
+      const url = `https://${SERVER}/api/v1/vocabulary`;
+      const etag = '"33a64df551425fcc55e4d42a148795d9f25f89d"';
       const report = auditHar(
         har(
-          entry("GET", `https://${SERVER}/api/v1/vocabulary`, {
-            headers: [["if-none-match", '"33a64df551425fcc55e4d42a148795d9f25f89d"']],
-          }),
+          entryWithResponse(entry("GET", url), [["etag", etag]]),
+          entry("GET", url, { headers: [["if-none-match", etag]] }),
           VALID_SEARCH,
         ),
         OPTIONS,
@@ -676,6 +703,215 @@ describe("auditHar", () => {
     it("doesn't flag plain http to a loopback/private host", () => {
       const report = auditHar(har(entry("GET", "http://192.168.1.5:3000/asset"), VALID_SEARCH), OPTIONS);
       expect(report.lookAt).toEqual([]);
+    });
+  });
+
+  describe("Fix round 3: header values are pinned, and conditional headers must echo the server", () => {
+    const IOS_UA = "mymeetingapp/1 CFNetwork/1408.0.4 Darwin/22.5.0";
+    const ANDROID_UA = "okhttp/4.12.0";
+
+    it("X1: flags a coordinate smuggled as the iOS app version", () => {
+      const found = problems(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/config`, {
+            headers: [["user-agent", "mymeetingapp/35.9614 CFNetwork/1408.0.4 Darwin/22.5.0"]],
+          }),
+          VALID_SEARCH,
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the user-agent header");
+    });
+
+    it("X2: flags a coordinate smuggled as the Android okhttp version", () => {
+      const found = problems(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/config`, { headers: [["user-agent", "okhttp/35.9614"]] }),
+          VALID_SEARCH,
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the user-agent header");
+    });
+
+    it("X3: flags more than one distinct user-agent value across the capture, and reports both", () => {
+      const report = auditHar(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/config`, { headers: [["user-agent", IOS_UA]] }),
+          entry("GET", `https://${SERVER}/api/v1/vocabulary`, { headers: [["user-agent", ANDROID_UA]] }),
+          VALID_SEARCH,
+        ),
+        OPTIONS,
+      );
+      expect(report.findings.map((f) => f.problem)).toContain(
+        "sends more than one distinct user-agent value",
+      );
+      expect(report.userAgents).toEqual([IOS_UA, ANDROID_UA]);
+    });
+
+    it("reports the single user-agent value seen, for a human to confirm", () => {
+      const report = auditHar(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/config`, { headers: [["user-agent", IOS_UA]] }),
+          VALID_SEARCH,
+        ),
+        OPTIONS,
+      );
+      expect(report.userAgents).toEqual([IOS_UA]);
+    });
+
+    it("X4: flags a coordinate fragment smuggled as a fake accept-language region subtag", () => {
+      const found = problems(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/config`, { headers: [["accept-language", "en-86781"]] }),
+          VALID_SEARCH,
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the accept-language header");
+    });
+
+    it("X7: flags a content-length that doesn't match the recorded bodySize", () => {
+      const body = '{"lat":36.16,"lng":-86.78,"radiusKm":25}';
+      const found = problems(
+        har(
+          entry("POST", `https://${SERVER}/api/v1/meetings/search`, {
+            headers: [["content-length", "999"]],
+            body,
+            bodySize: body.length,
+          }),
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the content-length header");
+    });
+
+    it("X8: flags content-length present on a bodyless read", () => {
+      const found = problems(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/vocabulary`, { headers: [["content-length", "0"]] }),
+          VALID_SEARCH,
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the content-length header");
+    });
+
+    it("X5: flags a coordinate-plus-id in if-none-match with no matching earlier etag", () => {
+      const found = problems(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/vocabulary`, {
+            headers: [["if-none-match", '"36.16-abc123"']],
+          }),
+          VALID_SEARCH,
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the if-none-match header");
+    });
+
+    it("X6: flags the sobriety date written as an HTTP-date in if-modified-since, with no matching earlier response", () => {
+      const found = problems(
+        har(
+          entry("GET", `https://${SERVER}/api/v1/vocabulary`, {
+            headers: [["if-modified-since", "Sun, 17 Apr 2011 00:00:00 GMT"]],
+          }),
+          VALID_SEARCH,
+        ),
+      );
+      expect(found).toContain("sends an unexpected value for the if-modified-since header");
+    });
+
+    it("allows if-none-match when it echoes an etag an earlier response to the same URL returned", () => {
+      const url = `https://${SERVER}/api/v1/vocabulary`;
+      const firstRead = entryWithResponse(entry("GET", url), [["etag", '"abc123"']]);
+      const repeatRead = entry("GET", url, { headers: [["if-none-match", '"abc123"']] });
+      const report = auditHar(har(firstRead, repeatRead, VALID_SEARCH), OPTIONS);
+      expect(report.findings).toEqual([]);
+    });
+
+    it("names the actual method in a non-GET body finding", () => {
+      const found = problems(
+        har(entry("PUT", `https://${SERVER}/api/v1/vocabulary`, { bodySize: 10 }), VALID_SEARCH),
+      );
+      expect(found).toContain("sends a body on a PUT request");
+    });
+
+    describe("two realistic captures pass clean (savehar.py shape)", () => {
+      const READ_HEADERS: [string, string][] = [
+        ["host", SERVER],
+        ["accept", "application/json"],
+        ["accept-encoding", "gzip, deflate, br"],
+        ["accept-language", "en-US,en;q=0.9"],
+        ["connection", "keep-alive"],
+      ];
+      const searchBody = '{"lat":36.16,"lng":-86.78,"radiusKm":25}';
+
+      it("a realistic iOS capture", () => {
+        const ua = IOS_UA;
+        const withUa = (extra: [string, string][] = []): [string, string][] => [
+          ...READ_HEADERS,
+          ["user-agent", ua],
+          ["priority", "u=3, i"],
+          ...extra,
+        ];
+        const report = auditHar(
+          har(
+            entry("GET", `https://${SERVER}/api/v1/config`, { headers: withUa() }),
+            entryWithResponse(entry("GET", `https://${SERVER}/api/v1/vocabulary`, { headers: withUa() }), [
+              ["etag", '"vocab-etag-1"'],
+            ]),
+            entry("GET", `https://${SERVER}/api/v1/meetings/online?day=1`, { headers: withUa() }),
+            entry("GET", `https://${SERVER}/api/v1/meetings/0f8fad5b-d9cb-469f-a165-70867728950e`, {
+              headers: withUa(),
+            }),
+            entry("POST", `https://${SERVER}/api/v1/meetings/search`, {
+              headers: withUa([
+                ["content-type", "application/json"],
+                ["content-length", String(searchBody.length)],
+              ]),
+              body: searchBody,
+              bodySize: searchBody.length,
+            }),
+            // The app returns to the foreground and re-reads vocabulary; the OS attaches the ETag it kept.
+            entry("GET", `https://${SERVER}/api/v1/vocabulary`, {
+              headers: withUa([["if-none-match", '"vocab-etag-1"']]),
+            }),
+          ),
+          OPTIONS,
+        );
+        expect(report.findings).toEqual([]);
+        expect(report.userAgents).toEqual([ua]);
+      });
+
+      it("a realistic Android capture", () => {
+        const ua = ANDROID_UA;
+        const withUa = (extra: [string, string][] = []): [string, string][] => [
+          ...READ_HEADERS,
+          ["user-agent", ua],
+          ...extra,
+        ];
+        const report = auditHar(
+          har(
+            entry("GET", `https://${SERVER}/api/v1/config`, { headers: withUa() }),
+            entryWithResponse(entry("GET", `https://${SERVER}/api/v1/vocabulary`, { headers: withUa() }), [
+              ["last-modified", "Wed, 21 Oct 2015 07:28:00 GMT"],
+            ]),
+            entry("GET", `https://${SERVER}/api/v1/meetings/online?day=1`, { headers: withUa() }),
+            entry("GET", `https://${SERVER}/api/v1/meetings/0f8fad5b-d9cb-469f-a165-70867728950e`, {
+              headers: withUa(),
+            }),
+            entry("POST", `https://${SERVER}/api/v1/meetings/search`, {
+              headers: withUa([
+                ["content-type", "application/json"],
+                ["content-length", String(searchBody.length)],
+              ]),
+              body: searchBody,
+              bodySize: searchBody.length,
+            }),
+            entry("GET", `https://${SERVER}/api/v1/vocabulary`, {
+              headers: withUa([["if-modified-since", "Wed, 21 Oct 2015 07:28:00 GMT"]]),
+            }),
+          ),
+          OPTIONS,
+        );
+        expect(report.findings).toEqual([]);
+        expect(report.userAgents).toEqual([ua]);
+      });
     });
   });
 });

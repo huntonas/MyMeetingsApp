@@ -31,6 +31,11 @@ const Cookie = z.object({ name: z.string(), value: z.string() });
 // strict: a real capture's frames carry other fields (type, time, fromClient, opcode, ...) this audit ignores.
 const WebSocketMessage = z.object({ data: z.string() });
 
+// Only the response headers matter here: an if-none-match/if-modified-since on a later request to the same
+// URL is only legitimate when it echoes an etag/last-modified an earlier response actually returned. Not
+// strict: a real response carries status, content, timings, ... this audit ignores.
+const Response = z.object({ headers: z.array(z.object({ name: z.string(), value: z.string() })) });
+
 // The part of a HAR capture (`mitmdump --set hardump=<file>`) the audit reads.
 export const Har = z.object({
   log: z.object({
@@ -45,6 +50,7 @@ export const Har = z.object({
           // mitmdump always writes this, for every method, even when it doesn't write postData at all.
           bodySize: z.number().optional(),
         }),
+        response: Response.optional(),
         _webSocketMessages: z.array(WebSocketMessage).optional(),
       }),
     ),

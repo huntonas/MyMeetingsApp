@@ -41,4 +41,10 @@ describe("views", () => {
     const encoded = encodeURIComponent(withEscape);
     expect(views(encoded).some((view) => view.includes("Apr 17"))).toBe(true);
   });
+
+  it("decodes an HTML entity that only appears after percent-decoding (%26%2350%3B011-04-17)", () => {
+    // %26 -> "&", %23 -> "#", then literal "50", %3B -> ";", then literal "011-04-17": percent-decoding alone
+    // gives "&#50;011-04-17"; only decoding entities *on that result* reveals "2011-04-17" (&#50; is "2").
+    expect(views("%26%2350%3B011-04-17")).toContain("2011-04-17");
+  });
 });

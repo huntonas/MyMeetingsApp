@@ -5,6 +5,7 @@ import { headerFinding } from "../src/headers";
 const SERVER = "mymeetingapp.vercel.app";
 const GET = { method: "GET", server: SERVER };
 const POST = { method: "POST", server: SERVER };
+const IOS_UA = "mymeetingapp/1 CFNetwork/1408.0.4 Darwin/22.5.0";
 
 describe("headerFinding", () => {
   it("flags any header starting with : — mitmdump never writes HTTP/2 pseudo-headers", () => {
@@ -49,11 +50,25 @@ describe("headerFinding", () => {
     );
   });
 
-  it("requires content-length to be digits", () => {
-    expect(headerFinding("content-length", "41", POST)).toBeUndefined();
-    expect(headerFinding("content-length", "41; lat=36.16", POST)).toBe(
-      "sends an unexpected value for the content-length header",
-    );
+  describe("content-length must equal the request's real bodySize", () => {
+    it("passes when it equals bodySize", () => {
+      expect(headerFinding("content-length", "41", { ...POST, bodySize: 41 })).toBeUndefined();
+    });
+
+    it("X7: flags a value that doesn't match the recorded bodySize", () => {
+      expect(headerFinding("content-length", "999", { ...POST, bodySize: 41 })).toBe(
+        "sends an unexpected value for the content-length header",
+      );
+    });
+
+    it("X8: flags content-length present when there's no body at all", () => {
+      expect(headerFinding("content-length", "0", { ...GET, bodySize: 0 })).toBe(
+        "sends an unexpected value for the content-length header",
+      );
+      expect(headerFinding("content-length", "41", GET)).toBe(
+        "sends an unexpected value for the content-length header",
+      );
+    });
   });
 
   it("requires cache-control and pragma to be no-cache", () => {
@@ -64,28 +79,80 @@ describe("headerFinding", () => {
     );
   });
 
-  it("requires accept-language to be a comma list of language tags with optional ;q=", () => {
-    expect(headerFinding("accept-language", "en-US,en;q=0.9", GET)).toBeUndefined();
-    expect(headerFinding("accept-language", "35.96,-83.92", GET)).toBe(
-      "sends an unexpected value for the accept-language header",
-    );
+  describe("accept-language", () => {
+    it("allows a real BCP47-lite value", () => {
+      expect(headerFinding("accept-language", "en-US,en;q=0.9", GET)).toBeUndefined();
+    });
+
+    it("flags a coordinate fragment", () => {
+      expect(headerFinding("accept-language", "35.96,-83.92", GET)).toBe(
+        "sends an unexpected value for the accept-language header",
+      );
+    });
+
+    it("X4: flags a coordinate fragment smuggled as a fake region subtag (the old loose regex allowed this)", () => {
+      expect(headerFinding("accept-language", "en-86781", GET)).toBe(
+        "sends an unexpected value for the accept-language header",
+      );
+    });
+
+    it("flags more than 6 parts, even if each one is individually valid", () => {
+      const sevenParts = Array.from({ length: 7 }, () => "en").join(",");
+      expect(headerFinding("accept-language", sevenParts, GET)).toBe(
+        "sends an unexpected value for the accept-language header",
+      );
+    });
   });
 
-  it("requires accept-encoding to be a comma list of tokens", () => {
-    expect(headerFinding("accept-encoding", "gzip, deflate, br", GET)).toBeUndefined();
-    expect(headerFinding("accept-encoding", "35.96,-83.92", GET)).toBe(
-      "sends an unexpected value for the accept-encoding header",
-    );
+  describe("accept-encoding", () => {
+    it("allows the real encoding tokens", () => {
+      expect(headerFinding("accept-encoding", "gzip, deflate, br", GET)).toBeUndefined();
+      expect(headerFinding("accept-encoding", "zstd", GET)).toBeUndefined();
+      expect(headerFinding("accept-encoding", "identity", GET)).toBeUndefined();
+    });
+
+    it("flags a coordinate fragment", () => {
+      expect(headerFinding("accept-encoding", "35.96,-83.92", GET)).toBe(
+        "sends an unexpected value for the accept-encoding header",
+      );
+    });
+
+    it("flags a token that isn't a real encoding (the old generic \\w-token regex allowed this)", () => {
+      expect(headerFinding("accept-encoding", "x-custom-encoding", GET)).toBe(
+        "sends an unexpected value for the accept-encoding header",
+      );
+    });
   });
 
-  it("requires user-agent to match the CFNetwork or okhttp shape", () => {
-    expect(
-      headerFinding("user-agent", "MyMeetingApp/1 CFNetwork/1408.0.4 Darwin/22.5.0", GET),
-    ).toBeUndefined();
-    expect(headerFinding("user-agent", "okhttp/4.12.0", GET)).toBeUndefined();
-    expect(headerFinding("user-agent", "35.96,-83.92", GET)).toBe(
-      "sends an unexpected value for the user-agent header",
-    );
+  describe("user-agent", () => {
+    it("allows the real iOS and Android shapes", () => {
+      expect(headerFinding("user-agent", IOS_UA, GET)).toBeUndefined();
+      expect(headerFinding("user-agent", "okhttp/4.12.0", GET)).toBeUndefined();
+    });
+
+    it("flags a coordinate pair outright", () => {
+      expect(headerFinding("user-agent", "35.96,-83.92", GET)).toBe(
+        "sends an unexpected value for the user-agent header",
+      );
+    });
+
+    it("X1: flags a coordinate smuggled as the iOS app version (the old [\\w.]+ version regex allowed this)", () => {
+      expect(headerFinding("user-agent", "mymeetingapp/35.9614 CFNetwork/1408.0.4 Darwin/22.5.0", GET)).toBe(
+        "sends an unexpected value for the user-agent header",
+      );
+    });
+
+    it("X2: flags a coordinate smuggled as the Android okhttp version (the old [\\d.]+ version regex allowed this)", () => {
+      expect(headerFinding("user-agent", "okhttp/35.9614", GET)).toBe(
+        "sends an unexpected value for the user-agent header",
+      );
+    });
+
+    it("requires the app name to be exactly mymeetingapp", () => {
+      expect(headerFinding("user-agent", "someotherapp/1 CFNetwork/1408.0.4 Darwin/22.5.0", GET)).toBe(
+        "sends an unexpected value for the user-agent header",
+      );
+    });
   });
 
   it("requires priority to match RFC 9218", () => {
@@ -101,11 +168,39 @@ describe("headerFinding", () => {
     );
   });
 
-  it("allows if-none-match and if-modified-since on GET only", () => {
-    expect(headerFinding("if-none-match", '"etag"', GET)).toBeUndefined();
-    expect(headerFinding("if-modified-since", "Wed, 21 Oct 2015 07:28:00 GMT", GET)).toBeUndefined();
-    expect(headerFinding("if-none-match", '"etag"', POST)).toBe(
-      "sends an unexpected value for the if-none-match header",
-    );
+  describe("conditional headers must echo an earlier response in this capture", () => {
+    it("allows if-none-match only when it matches a known etag, on a GET", () => {
+      expect(
+        headerFinding("if-none-match", '"abc123"', { ...GET, knownEtags: new Set(['"abc123"']) }),
+      ).toBeUndefined();
+    });
+
+    it("X5: flags an if-none-match value with no matching earlier etag, even one that looks like a coordinate plus an id", () => {
+      expect(
+        headerFinding("if-none-match", '"36.16-abc123"', { ...GET, knownEtags: new Set(['"other-etag"']) }),
+      ).toBe("sends an unexpected value for the if-none-match header");
+      expect(headerFinding("if-none-match", '"36.16-abc123"', GET)).toBe(
+        "sends an unexpected value for the if-none-match header",
+      );
+    });
+
+    it("allows if-modified-since only when it matches a known last-modified, on a GET", () => {
+      const date = "Wed, 21 Oct 2015 07:28:00 GMT";
+      expect(
+        headerFinding("if-modified-since", date, { ...GET, knownLastModified: new Set([date]) }),
+      ).toBeUndefined();
+    });
+
+    it("X6: flags an if-modified-since carrying the sobriety date as an HTTP-date, with no matching earlier response", () => {
+      expect(headerFinding("if-modified-since", "Sun, 17 Apr 2011 00:00:00 GMT", GET)).toBe(
+        "sends an unexpected value for the if-modified-since header",
+      );
+    });
+
+    it("never allows either conditional header outside a GET, even with a matching value", () => {
+      expect(headerFinding("if-none-match", '"abc123"', { ...POST, knownEtags: new Set(['"abc123"']) })).toBe(
+        "sends an unexpected value for the if-none-match header",
+      );
+    });
   });
 });

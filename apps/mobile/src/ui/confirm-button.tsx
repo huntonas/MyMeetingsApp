@@ -53,9 +53,7 @@ export function ConfirmButton({
   }
   return (
     <View style={{ gap: 8 }}>
-      <AppText variant="label" accessibilityLiveRegion="polite">
-        {question}
-      </AppText>
+      <AppText variant="label">{question}</AppText>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <Button
           label={confirmLabel}

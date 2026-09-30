@@ -1,32 +1,25 @@
-import { MeetingDetailResponse, type MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { z } from "zod";
 
-import { fetchMeeting } from "@/api/reads";
 import { useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { appPlatform } from "@/config/app-version";
+import { detailRead } from "@/meetings/detail-read";
 import { directionsUrl } from "@/meetings/directions";
 import { meetingMoved } from "@/meetings/merged";
 import { listedTime, WEEKDAYS, yourTime, zoneName } from "@/meetings/schedule";
 import { TYPE_LABELS } from "@/meetings/type-labels";
 import { AppText } from "@/ui/app-text";
 import { HandOffButton } from "@/ui/hand-off-button";
+import { SaveButton } from "@/ui/save-button";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { TagChips, useLabelledTags } from "@/ui/tag-chips";
 
 const Params = z.object({ id: z.uuid() });
-
-const detailRead = (id: string) =>
-  ({
-    kind: "meetingDetail",
-    key: `meeting:${id}`,
-    schema: MeetingDetailResponse,
-    fetch: () => fetchMeeting(id),
-  }) as const;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -82,9 +75,12 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
   const directions = directionsUrl(meeting, appPlatform());
   return (
     <>
-      <AppText variant="title" accessibilityRole="header">
-        {meeting.name}
-      </AppText>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+        <AppText variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+          {meeting.name}
+        </AppText>
+        <SaveButton meetingId={meeting.id} />
+      </View>
       <AppText>{when}</AppText>
       {phoneTime !== null && <AppText tone="muted">{phoneTime}</AppText>}
       {meeting.attendance !== "online" && (

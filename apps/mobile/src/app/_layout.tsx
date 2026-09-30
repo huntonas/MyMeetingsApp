@@ -1,6 +1,8 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 
+import { pruneCache } from "@/cache/prune";
 import { UpgradeProvider } from "@/config/upgrade";
 import { VocabularyProvider } from "@/meetings/vocabulary";
 import { FiltersProvider } from "@/search/filters";
@@ -10,6 +12,10 @@ import { HelpNowButton } from "@/ui/help-now-button";
 
 export default function RootLayout() {
   const colors = useColors();
+  useEffect(() => {
+    // Best effort, like the cache itself: a copy left behind is only a little more kept on this phone.
+    void pruneCache().catch(() => undefined);
+  }, []);
   return (
     <UpgradeProvider>
       <VocabularyProvider>

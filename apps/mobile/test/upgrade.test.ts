@@ -6,7 +6,11 @@ import { upgradeRequired } from "@/config/upgrade-required";
 import { CONFIG } from "./fixtures";
 
 const LOADING: ReadState<AppConfigResponse> = { status: "loading" };
-const FAILED = (message: string): ReadState<AppConfigResponse> => ({ status: "failed", message });
+const FAILED = (message: string): ReadState<AppConfigResponse> => ({
+  status: "failed",
+  message,
+  gone: false,
+});
 const READY = (minimum: string): ReadState<AppConfigResponse> => ({
   status: "ready",
   savedAt: null,

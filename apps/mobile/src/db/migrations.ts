@@ -4,4 +4,6 @@ export const MIGRATIONS: readonly string[] = [
   `create table cache_entries (key text primary key, body text not null, saved_at integer not null) strict;`,
   // Spec §8: recent searched places, on the phone only.
   `create table recent_places (label text primary key collate nocase, latitude real not null, longitude real not null, used_at integer not null) strict;`,
+  // Spec §8: favorites, on the phone only.
+  `create table favorites (meeting_id text primary key, saved_at integer not null) strict;`,
 ];

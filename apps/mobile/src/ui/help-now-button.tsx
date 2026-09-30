@@ -4,6 +4,8 @@ import { Pressable } from "react-native";
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
 
+// A header control, not a <Button>: it sits inline in the native header bar, at the header's own size and spacing,
+// not the screen-content button style.
 export function HelpNowButton() {
   const colors = useColors();
   return (

@@ -1,12 +1,15 @@
 import path from "node:path";
 
-import { BRAND } from "@mymeetingapp/shared";
-import { render, screen } from "@testing-library/react-native";
+import { BRAND, SemVer } from "@mymeetingapp/shared";
+import { render, screen, waitFor } from "@testing-library/react-native";
 import { z } from "zod";
 
 import { AppText } from "@/ui/app-text";
 
 import appConfig from "../app.config";
+import { startApi, type TestApi } from "./api-server";
+import { resetAppData } from "./app-data";
+import { CONFIG } from "./fixtures";
 import { renderApp } from "./render-app";
 
 jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
@@ -23,13 +26,27 @@ const CONTEXT = {
 
 const Config = z.object({
   name: z.string(),
+  version: z.string(),
   ios: z.object({ bundleIdentifier: z.string() }),
   android: z.object({ package: z.string() }),
+});
+
+let api: TestApi;
+beforeEach(async () => {
+  await resetAppData();
+  api = await startApi();
+  api.reply("/api/v1/config", CONFIG);
+});
+afterEach(async () => {
+  await api.close();
 });
 
 describe("the app shell", () => {
   it("opens on Nearby, with the four tabs", async () => {
     const app = await renderApp("/");
+    await waitFor(() => {
+      expect(api.requests).toHaveLength(1);
+    });
     for (const tab of ["Nearby", "Online", "Saved", "Me"]) {
       expect(await screen.findByLabelText(tab)).toBeOnTheScreen();
     }
@@ -39,6 +56,9 @@ describe("the app shell", () => {
 
   it("keeps timers real once the app has rendered, so a screen can wait on the network", async () => {
     await renderApp("/");
+    await waitFor(() => {
+      expect(api.requests).toHaveLength(1);
+    });
     const fired = await new Promise<boolean>((resolve) =>
       setTimeout(() => {
         resolve(true);
@@ -62,5 +82,10 @@ describe("the app config", () => {
     expect(config.name).toBe(BRAND.appName);
     expect(config.ios.bundleIdentifier).toBe("com.goodersoftware.mymeetingapp");
     expect(config.android.package).toBe("com.goodersoftware.mymeetingapp");
+  });
+
+  it("keeps its version parseable as the semantic version appVersion() expects (owner ruling M3)", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    expect(SemVer.safeParse(config.version).success).toBe(true);
   });
 });

@@ -7,18 +7,16 @@ interface ButtonProps {
   label: string;
   onPress: () => void;
   kind?: "primary" | "secondary";
-  hint?: string;
 }
 
 // Every tappable control is at least 44 × 44 points and names itself to VoiceOver and TalkBack.
-export function Button({ label, onPress, kind = "primary", hint }: ButtonProps) {
+export function Button({ label, onPress, kind = "primary" }: ButtonProps) {
   const colors = useColors();
   const primary = kind === "primary";
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint={hint}
       onPress={onPress}
       style={({ pressed }) => ({
         minHeight: 44,

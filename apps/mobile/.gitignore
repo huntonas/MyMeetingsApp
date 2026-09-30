@@ -6,5 +6,4 @@
 /modules/*/android/build/
 /modules/*/android/.gradle/
 /modules/*/android/.cxx/
-expo-env.d.ts
 *.har

@@ -9,6 +9,6 @@
     "types": ["jest", "node"],
     "paths": { "@/*": ["./src/*"], "@modules/*": ["./modules/*"] }
   },
-  "include": ["src", "test", "modules/*/index.ts", "app.config.ts", "jest.config.js", "expo-env.d.ts"],
+  "include": ["src", "test", "modules/*/index.ts", "app.config.ts", "jest.config.js"],
   "exclude": ["node_modules", "ios", "android"]
 }

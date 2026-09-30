@@ -1,4 +1,4 @@
-import { type CivilDate, shiftDays } from "@/time/civil-date";
+import { type CivilDate, daysBetween, shiftDays } from "@/time/civil-date";
 
 export interface SoberTime {
   totalDays: number;
@@ -12,10 +12,6 @@ interface Milestone {
   date: CivilDate;
 }
 
-const DAY_MS = 86_400_000;
-
-// Days since 1970 on UTC's calendar, which has no daylight saving, so two dates are always a whole number apart.
-const dayNumber = (date: CivilDate) => Date.UTC(date.year, date.month - 1, date.day) / DAY_MS;
 const daysInMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
 
 // "1 day", "5,650 days": digits grouped by hand, as the app does all its text, so ICU versions can't change it.
@@ -33,15 +29,15 @@ function addMonths(start: CivilDate, months: number): CivilDate {
 
 // Spec §8: total days, plus years, months and days. Null for a start after today, which has nothing to count yet.
 export function soberTime(start: CivilDate, today: CivilDate): SoberTime | null {
-  const totalDays = dayNumber(today) - dayNumber(start);
+  const totalDays = daysBetween(start, today);
   if (totalDays < 0) return null;
   let months = (today.year - start.year) * 12 + (today.month - start.month);
-  if (dayNumber(addMonths(start, months)) > dayNumber(today)) months -= 1;
+  if (daysBetween(today, addMonths(start, months)) > 0) months -= 1;
   return {
     totalDays,
     years: Math.floor(months / 12),
     months: months % 12,
-    days: dayNumber(today) - dayNumber(addMonths(start, months)),
+    days: daysBetween(addMonths(start, months), today),
   };
 }
 
@@ -73,7 +69,7 @@ function milestonesUntil(start: CivilDate, lastYear: number): Milestone[] {
 // The milestone that falls on `today`, if any.
 export function milestoneToday(start: CivilDate, today: CivilDate): string | null {
   const reached = milestonesUntil(start, today.year - start.year).find(
-    (milestone) => dayNumber(milestone.date) === dayNumber(today),
+    (milestone) => daysBetween(today, milestone.date) === 0,
   );
   return reached?.label ?? null;
 }
@@ -81,7 +77,7 @@ export function milestoneToday(start: CivilDate, today: CivilDate): string | nul
 // The first milestone after `today`. The list runs to next year's anniversary, so there always is one.
 export function nextMilestone(start: CivilDate, today: CivilDate): Milestone {
   const next = milestonesUntil(start, today.year - start.year + 1).find(
-    (milestone) => dayNumber(milestone.date) > dayNumber(today),
+    (milestone) => daysBetween(today, milestone.date) > 0,
   );
   if (next === undefined) throw new Error("The milestone list always runs past today");
   return next;

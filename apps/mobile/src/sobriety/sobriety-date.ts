@@ -13,7 +13,7 @@ const Stored = z.object({
 
 const pad = (value: number, width: number) => String(value).padStart(width, "0");
 
-// Spec §2: the sobriety date is the person's own. It stays on the phone, is never sent anywhere, and is never logged.
+// Spec §2: the sobriety date is the person's own. It stays on the phone, and is never sent to our server or logged.
 // It's stored as a plain calendar date, so a trip to another time zone or a clock change never moves it.
 export async function readSobrietyDate(): Promise<CivilDate | null> {
   const db = await appDatabase();

@@ -235,12 +235,13 @@ export const ON_PHONE: readonly { specItem: string; text: string }[] = [
   },
 ];
 
-// Spec §13's sentence under the "Stays on the phone" list (owner ruling): the phone's own backup can copy what the app
-// keeps on it, as for any app. Only the person's backup holds it; our server never does.
+// Spec §13's sentence under the "Stays on the phone" list (owner ruling): the phone's own backups, wherever the person
+// sends them, can copy what the app keeps on it, as for most apps. Only the person's backups hold it; our server never
+// does.
 export const PHONE_BACKUP = {
   specSentence:
-    "The phone's own iCloud or Google backup may include this data, as it does for any app; that backup is the person's, and it never reaches our server.",
-  text: "Your phone's own iCloud or Google backup may include them, as it does for any app. That backup is yours, and it never reaches our server.",
+    "The phone's own backups (to iCloud, Google, the phone maker's cloud or a computer) may include this data, as they can for most apps. Those backups are the person's, and they never reach our server.",
+  text: "Your phone's own backups (to iCloud, Google, your phone maker's cloud or a computer) may include them, as they can for most apps. Those backups are yours, and they never reach our server.",
 } as const;
 
 // Spec §2's list of third parties that receive data. specName is the name as SPEC.md writes it.

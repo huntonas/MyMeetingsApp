@@ -310,7 +310,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
 | exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features |     |
 
-The phone's own iCloud or Google backup may include this data, as it does for any app; that backup is the person's, and it never reaches our server.
+The phone's own backups (to iCloud, Google, the phone maker's cloud or a computer) may include this data, as they can for most apps. Those backups are the person's, and they never reach our server.
 
 ## 14. Acceptance criteria for MVP
 

@@ -14,8 +14,7 @@ const CONFIG_READ = { kind: "config", key: "config", schema: AppConfigResponse, 
 // phone usable. No config at all (offline on first launch) never blocks.
 export function UpgradeProvider({ children }: { children: ReactNode }) {
   const { state } = useCachedRead(CONFIG_READ);
-  // An unreadable version becomes "", which upgradeRequired fails open on, as on any other bad version.
-  const required = upgradeRequired(state, installedVersion() ?? "");
+  const required = upgradeRequired(state, installedVersion());
   return <UpgradeRequired.Provider value={required}>{children}</UpgradeRequired.Provider>;
 }
 

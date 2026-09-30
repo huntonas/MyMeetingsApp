@@ -173,7 +173,10 @@ describe("the privacy policy matches SPEC.md §13", () => {
     }
   });
 
-  it("says the phone's own iCloud or Google backup may include what stays on the phone", () => {
+  it("says the phone's own backups, wherever they go, may include what stays on the phone", () => {
+    expect(PHONE_BACKUP.specSentence).toBe(
+      "The phone's own backups (to iCloud, Google, the phone maker's cloud or a computer) may include this data, as they can for most apps. Those backups are the person's, and they never reach our server.",
+    );
     expect(inventory).toContain(PHONE_BACKUP.specSentence);
   });
 
@@ -226,11 +229,20 @@ describe("the privacy policy page", () => {
         expect(text).toContain(words);
     }
     for (const item of ON_PHONE) expect(text).toContain(item.text);
-    expect(text).toContain(PHONE_BACKUP.text);
     for (const party of THIRD_PARTIES) {
       expect(text).toContain(party.name);
       expect(text).toContain(party.role);
     }
+  });
+
+  it("says, right after what stays on the phone, that the phone's own backups may include it", () => {
+    expect(PHONE_BACKUP.text).toBe(
+      "Your phone's own backups (to iCloud, Google, your phone maker's cloud or a computer) may include them, as they can for most apps. Those backups are yours, and they never reach our server.",
+    );
+    const backup = text.indexOf(PHONE_BACKUP.text);
+    expect(backup).toBeGreaterThan(text.indexOf("What stays on your phone"));
+    expect(backup).toBeGreaterThan(text.indexOf(ON_PHONE.at(-1)?.text ?? "missing"));
+    expect(backup).toBeLessThan(text.indexOf("What our server stores"));
   });
 
   it("says who carries support email, how long we keep it, and that it's never linked to tags", () => {

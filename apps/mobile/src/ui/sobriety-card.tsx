@@ -1,6 +1,7 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { useEffect, useState } from "react";
-import { Platform, View } from "react-native";
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import { AccessibilityInfo, Platform, View } from "react-native";
 
 import { GENERIC_FAILURE } from "@/cache/use-cached-read";
 import { breakdownLabel, milestoneToday, nextMilestone, plural, soberTime } from "@/sobriety/counter";
@@ -9,6 +10,7 @@ import { type CivilDate, civilDateOf, dateLabel } from "@/time/civil-date";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
+import { ConfirmButton } from "@/ui/confirm-button";
 
 const FUTURE = "Choose today or an earlier date.";
 
@@ -20,6 +22,13 @@ const HEADING = (
 
 const asLocalDate = (date: CivilDate) => new Date(date.year, date.month - 1, date.day);
 
+// What VoiceOver and TalkBack say once a date is saved: the new count, and today's milestone if there is one.
+function savedAnnouncement(start: CivilDate, today: CivilDate): string {
+  const days = plural(soberTime(start, today)?.totalDays ?? 0, "day");
+  const reached = milestoneToday(start, today);
+  return `Sobriety date saved. ${days}.${reached === null ? "" : ` Today marks ${reached}.`}`;
+}
+
 // Spec §8: the counter. The date is kept only on the phone (spec §2), and the wording stays neutral: a new date is
 // just a new date, never a "streak broken" or a "reset".
 export function SobrietyCard() {
@@ -27,15 +36,18 @@ export function SobrietyCard() {
   const today = civilDateOf(now);
   // undefined while the phone is reading it; "unreadable" when it couldn't.
   const [start, setStart] = useState<CivilDate | null | "unreadable">();
-  // The day shown in the open picker, or null when it's closed.
+  // The day shown in the iPhone's open calendar, or null when it's closed.
   const [picking, setPicking] = useState<Date | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
-  useEffect(() => {
-    readSobrietyDate().then(setStart, () => {
-      setStart("unreadable");
-    });
-  }, []);
+  // Read each time the tab comes into view, so "Try again" after a failed read means coming back to it.
+  useFocusEffect(
+    useCallback(() => {
+      readSobrietyDate().then(setStart, () => {
+        setStart("unreadable");
+      });
+    }, []),
+  );
 
   if (start === undefined) return null;
   if (start === "unreadable") {
@@ -58,6 +70,7 @@ export function SobrietyCard() {
       () => {
         setStart(date);
         setProblem(null);
+        AccessibilityInfo.announceForAccessibility(savedAnnouncement(date, today));
       },
       () => {
         setProblem(GENERIC_FAILURE);
@@ -78,49 +91,54 @@ export function SobrietyCard() {
   const openPicker = () => {
     setProblem(null);
     // A saved date after today (the phone's clock went back) opens on today, the latest day the picker offers.
-    setPicking(start !== null && soberTime(start, today) !== null ? asLocalDate(start) : now);
+    const value = start !== null && soberTime(start, today) !== null ? asLocalDate(start) : now;
+    if (Platform.OS === "ios") {
+      setPicking(value);
+      return;
+    }
+    // Android's own dialog, opened once from the tap (the library's Android API): its OK keeps the day, and Cancel
+    // keeps nothing. Rendering the picker component instead would reopen the dialog on every re-render of this card,
+    // which the minute tick causes, snapping the dialog back to its first day.
+    DateTimePickerAndroid.open({
+      value,
+      mode: "date",
+      maximumDate: now,
+      onValueChange: (_event, chosen) => {
+        keep(chosen);
+      },
+    });
   };
 
-  // iPhone shows a calendar in the screen, where tapping a day only chooses it, so "Save this date" keeps it. Android
-  // shows its own dialog, whose OK keeps the day and whose Cancel dismisses it.
-  const ios = Platform.OS === "ios";
+  // iPhone shows a calendar in the screen, where tapping a day (or changing the month) only chooses it, so "Save this
+  // date" keeps it.
   const picker = picking !== null && (
     <View style={{ gap: 8 }}>
       <DateTimePicker
         value={picking}
         mode="date"
-        display={ios ? "inline" : "default"}
+        display="inline"
         maximumDate={now}
         onValueChange={(_event, chosen) => {
-          if (ios) {
-            setPicking(chosen);
-            return;
-          }
-          setPicking(null);
-          keep(chosen);
-        }}
-        onDismiss={() => {
-          setPicking(null);
+          setPicking(chosen);
         }}
       />
-      {ios && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <Button
-            label="Save this date"
-            onPress={() => {
-              keep(picking);
-            }}
-          />
-          <Button
-            kind="secondary"
-            label="Cancel"
-            onPress={() => {
-              setPicking(null);
-              setProblem(null);
-            }}
-          />
-        </View>
-      )}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <Button
+          label="Save this date"
+          hint="Keeps the chosen date on this phone"
+          onPress={() => {
+            keep(picking);
+          }}
+        />
+        <Button
+          kind="secondary"
+          label="Cancel"
+          onPress={() => {
+            setPicking(null);
+            setProblem(null);
+          }}
+        />
+      </View>
     </View>
   );
   const problemLine = problem !== null && <AppText accessibilityRole="alert">{problem}</AppText>;
@@ -132,7 +150,13 @@ export function SobrietyCard() {
         <AppText>
           Keep count of your sober time. The date is kept on this phone and never sent to our server.
         </AppText>
-        {picker === false && <Button label="Set my sobriety date" onPress={openPicker} />}
+        {picker === false && (
+          <Button
+            label="Set my sobriety date"
+            hint="Opens a calendar to choose the date"
+            onPress={openPicker}
+          />
+        )}
         {picker}
         {problemLine}
       </View>
@@ -142,8 +166,21 @@ export function SobrietyCard() {
   const time = soberTime(start, today);
   const changeButtons = picker === false && (
     <View style={{ gap: 8 }}>
-      <Button kind="secondary" label="Set a new date" onPress={openPicker} />
-      <Button kind="secondary" label="Remove the date" onPress={remove} />
+      <Button
+        kind="secondary"
+        label="Set a new date"
+        hint="Opens a calendar to choose another date"
+        onPress={openPicker}
+      />
+      <ConfirmButton
+        label="Remove the date"
+        hint="Asks before deleting the date from this phone"
+        question="Remove your sobriety date from this phone? You can set it again any time."
+        confirmLabel="Remove it"
+        confirmHint="Deletes the date from this phone"
+        cancelLabel="Keep it"
+        onConfirm={remove}
+      />
     </View>
   );
   if (time === null) {

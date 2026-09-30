@@ -1,3 +1,4 @@
+import { resetDatePicker } from "./native/datetimepicker";
 import { setAppVersion } from "./native/expo-application";
 import { resetLocation } from "./native/expo-location";
 import { resetPlaces } from "./native/native-location";
@@ -11,4 +12,5 @@ beforeEach(() => {
   setAppVersion("0.1.0");
   resetLocation();
   resetPlaces();
+  resetDatePicker();
 });

@@ -2,9 +2,10 @@ import { appDatabase } from "@/db/database";
 import { breakdownLabel, milestoneToday, nextMilestone, soberTime } from "@/sobriety/counter";
 import { clearSobrietyDate, readSobrietyDate, saveSobrietyDate } from "@/sobriety/sobriety-date";
 import type * as SobrietyDateModule from "@/sobriety/sobriety-date";
-import { civilDateOf, dateLabel } from "@/time/civil-date";
+import { civilDateOf, dateLabel, daysBetween } from "@/time/civil-date";
 
 import { resetAppData } from "./app-data";
+import { relaunch } from "./native/expo-sqlite";
 
 const date = (iso: string) => {
   const [year, month, day] = iso.split("-").map(Number);
@@ -117,6 +118,21 @@ describe("civilDateOf", () => {
   });
 });
 
+describe("daysBetween", () => {
+  it.each([
+    ["2026-10-05", "2026-10-05", 0],
+    ["2026-10-05", "2026-10-06", 1],
+    ["2026-10-06", "2026-10-05", -1],
+    // A 23-hour and a 25-hour day each count once.
+    ["2026-03-07", "2026-03-09", 2],
+    ["2026-10-31", "2026-11-02", 2],
+    ["2024-02-28", "2024-03-01", 2],
+    ["2025-12-31", "2026-01-01", 1],
+  ])("from %s to %s is %d", (from, to, days) => {
+    expect(daysBetween(date(from), date(to))).toBe(days);
+  });
+});
+
 describe("dateLabel", () => {
   it("reads as the month's short name, the day and the year", () => {
     expect(dateLabel(date("2027-10-05"))).toBe("Oct 5, 2027");
@@ -141,7 +157,8 @@ describe("the sobriety date on the phone", () => {
   it("is still there when the app is opened again", async () => {
     await saveSobrietyDate(date("2020-02-29"));
     let read: unknown;
-    // A relaunch: fresh modules (so nothing held in memory survives), the same database file.
+    // A relaunch: a reopened connection and fresh modules (so nothing held in memory survives), the same database file.
+    relaunch();
     await jest.isolateModulesAsync(async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports -- isolateModulesAsync needs a synchronous require.
       const relaunched = require("@/sobriety/sobriety-date") as typeof SobrietyDateModule;

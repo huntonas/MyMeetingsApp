@@ -88,3 +88,10 @@ export async function openDatabaseAsync(name: string): Promise<FakeDatabase> {
   }
   return new FakeDatabase(db);
 }
+
+// A relaunch of the app: sql.js's export() closes and reopens each database's connection, which drops what a real
+// relaunch drops (TEMP tables, connection settings) and keeps what's in the file. Tests call it before opening the
+// database again from a fresh module registry.
+export function relaunch(): void {
+  for (const db of globalThis.__mymeetingappFakeSqliteDatabases?.values() ?? []) db.export();
+}

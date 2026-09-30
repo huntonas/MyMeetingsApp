@@ -21,7 +21,7 @@ const READY = (minimum: string): ReadState<AppConfigResponse> => ({
 // launch.test.tsx's integration tests only need to cover the read genuinely settling, not this table (review
 // round 2).
 describe("upgradeRequired", () => {
-  it.each<[string, ReadState<AppConfigResponse>, string, boolean]>([
+  it.each<[string, ReadState<AppConfigResponse>, string | null, boolean]>([
     ["loading", LOADING, "0.1.0", false],
     ["failed: unreachable, no saved copy", FAILED("The server couldn't be reached"), "0.1.0", false],
     [
@@ -34,6 +34,12 @@ describe("upgradeRequired", () => {
     ["ready: equal to the minimum", READY("0.1.0"), "0.1.0", false],
     ["ready: newer than the minimum", READY("0.1.0"), "0.2.0", false],
     ["ready: an unparseable installed version", READY("0.2.0"), "1.0", false],
+    [
+      "ready: no installed version (the build's own version string didn't parse)",
+      READY("0.2.0"),
+      null,
+      false,
+    ],
   ])("%s", (_name, state, installed, required) => {
     expect(upgradeRequired(state, installed)).toBe(required);
   });

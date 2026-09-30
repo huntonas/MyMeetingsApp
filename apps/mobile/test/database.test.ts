@@ -7,6 +7,7 @@ import type * as DatabaseModule from "@/db/database";
 import type * as ExpoSqliteModule from "expo-sqlite";
 
 import { resetAppData } from "./app-data";
+import { relaunch } from "./native/expo-sqlite";
 
 beforeEach(resetAppData);
 
@@ -32,6 +33,7 @@ describe("appDatabase: reopening the same database", () => {
     ]);
 
     let second: AppDatabase | undefined;
+    relaunch();
     await jest.isolateModulesAsync(async () => {
       // A relaunched app: a fresh module registry, so @/db/database's memoized `opening` promise is gone too — but
       // the fake SQLite "file" (test/native/expo-sqlite.ts) persists outside any module registry, so re-opening by
@@ -63,6 +65,7 @@ describe("appDatabase: upgrading a phone installed before recent places", () => 
     );
 
     let upgraded: AppDatabase | undefined;
+    relaunch();
     await jest.isolateModulesAsync(async () => {
       upgraded = await freshDatabaseModule().appDatabase();
     });
@@ -94,6 +97,7 @@ describe("appDatabase: upgrading a phone installed before favorites", () => {
     await old.execAsync("drop table settings; drop table favorites; pragma user_version = 2");
 
     let upgraded: AppDatabase | undefined;
+    relaunch();
     await jest.isolateModulesAsync(async () => {
       upgraded = await freshDatabaseModule().appDatabase();
     });
@@ -129,6 +133,7 @@ describe("appDatabase: upgrading a phone installed before settings", () => {
     await old.execAsync("drop table settings; pragma user_version = 3");
 
     let upgraded: AppDatabase | undefined;
+    relaunch();
     await jest.isolateModulesAsync(async () => {
       upgraded = await freshDatabaseModule().appDatabase();
     });

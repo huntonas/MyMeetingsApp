@@ -21,7 +21,15 @@ export const MONTHS_SHORT = [
   "Dec",
 ] as const;
 
-// Counted on UTC's calendar, which has no daylight saving, so every day is exactly one day long.
+const DAY_MS = 86_400_000;
+const utcDay = (date: CivilDate) => Date.UTC(date.year, date.month - 1, date.day);
+
+// Days and day counts are taken on UTC's calendar, which has no daylight saving, so every day is exactly one day long
+// and two dates are always a whole number of days apart.
+export function daysBetween(from: CivilDate, to: CivilDate): number {
+  return (utcDay(to) - utcDay(from)) / DAY_MS;
+}
+
 export function shiftDays(date: CivilDate, days: number): CivilDate {
   const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
   return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate() };

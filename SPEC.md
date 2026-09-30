@@ -30,7 +30,7 @@ These override convenience everywhere. Flag any conflict instead of working arou
 
 - **No accounts.** The app and site never ask for a name, email, phone, or login. Only someone who chooses to email support gives us an email address (section 13).
 - **The server knows meetings, not people.** Nothing in our database links a device to the meetings it tagged, apart from a 7-day abuse-review log (section 6): tag rows carry only a per-meeting submitter ID, so a copy of the database alone can't join one device's tags across meetings. Each tag write computes the device's submitter ID for that one meeting; the server finds one device's rows across meetings (from its hash and the pepper) only for delete-mine and for blocking a device, and never stores or returns that list. The platform's request logs (Vercel) hold IP addresses with paths that can name a meeting (section 13).
-- **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple or Google, to find a place).
+- **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple's or Google's, or on some Android phones the phone maker's location service, to find a place).
 - **Device IDs are stored only as a keyed hash:** `device_hash = HMAC-SHA256(k_device, platform + ":" + rawId)`. The raw ID is never stored or logged. Keys are derived from `DEVICE_ID_PEPPER` via HKDF. The pepper can't be rotated without breaking every existing link, so treat it as permanent.
 - **Tag rows use a per-meeting submitter ID:** `submitter_id = HMAC-SHA256(k_submitter, device_hash + ":" + meetingId)`. The same device always gets the same ID for the same meeting, so it can edit or delete its tags at any time, but rows can't be joined across meetings.
 - **Location for search:** the phone rounds coordinates to 2 decimal places (about 1 km) before sending them, only in the body of the search request. The server uses them for that query only. Never stored, logged, placed in URLs, or used as cache keys beyond the rounded value.
@@ -229,7 +229,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 - **My tags (local record):** the phone keeps a record of every meeting it tagged, with the tags chosen and dates. Used for the edit/remove buttons and a "Meetings I've tagged" list. Never sent to the server.
 - **Favorites:** on the phone.
 - **Sobriety counter:** date stored on the phone; total days plus years/months/days; milestones at 24 hours, 30/60/90 days, 6 and 9 months, 1 year, and each year after. Resets use neutral "set a new date" wording, with no streak-broken messaging.
-- **Settings:** show the app ID (copyable, for support), delete all my tags, privacy policy and support links, help resources.
+- **Settings:** delete all my tags, privacy policy, support and terms links, help resources, and the app's version. The app never shows its device ID: the server knows a phone only by a keyed hash, and support never asks for it (owner decision, 2026-09-29).
 - **Always reachable:** 988 and the SAMHSA National Helpline (1-800-662-4357).
 - **Offline:** cache the last search results, online meetings, and favorited meetings' details.
 - **Forced upgrade:** check `/config` at launch; below the minimum version, show an upgrade screen but keep offline data (favorites, sobriety counter, crisis numbers) usable.
@@ -310,6 +310,8 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
 | exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features |     |
 
+The phone's own iCloud or Google backup may include this data, as it does for any app; that backup is the person's, and it never reaches our server.
+
 ## 14. Acceptance criteria for MVP
 
 - [ ] A fresh install can find meetings with no account and no location permission (search box → platform geocoder → rounded point).
@@ -337,6 +339,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - Tags editable any time; the window limits new submissions only.
 - Maps: Apple Maps (iOS) / Google Maps (Android), disclosed.
 - Feed sync on Vercel Cron in 15-minute batches.
+- Settings never show the raw device ID (2026-09-29), matching the privacy policy and support page.
 
 ## 16. Before launch (non-engineering)
 

@@ -6,7 +6,13 @@ import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import PrivacyPage from "@/app/(site)/privacy/page";
-import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
+import {
+  DATA_INVENTORY,
+  ON_PHONE,
+  PHONE_BACKUP,
+  SUPPORT_EMAIL,
+  THIRD_PARTIES,
+} from "@/content/privacy-inventory";
 import * as schema from "@/db/schema";
 
 import { renderText } from "./render";
@@ -167,6 +173,10 @@ describe("the privacy policy matches SPEC.md §13", () => {
     }
   });
 
+  it("says the phone's own iCloud or Google backup may include what stays on the phone", () => {
+    expect(inventory).toContain(PHONE_BACKUP.specSentence);
+  });
+
   it("keeps on the phone exactly what the table says stays there", () => {
     const cell = tableRows(inventory, 1)[0]?.[0] ?? "";
     expect(ON_PHONE.map((item) => item.specItem).sort()).toEqual(
@@ -216,6 +226,7 @@ describe("the privacy policy page", () => {
         expect(text).toContain(words);
     }
     for (const item of ON_PHONE) expect(text).toContain(item.text);
+    expect(text).toContain(PHONE_BACKUP.text);
     for (const party of THIRD_PARTIES) {
       expect(text).toContain(party.name);
       expect(text).toContain(party.role);

@@ -1,7 +1,13 @@
 import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
 import { DraftNotice } from "@/components/draft-notice";
-import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
+import {
+  DATA_INVENTORY,
+  ON_PHONE,
+  PHONE_BACKUP,
+  SUPPORT_EMAIL,
+  THIRD_PARTIES,
+} from "@/content/privacy-inventory";
 import { pageMetadata } from "@/lib/page-metadata";
 import { RETENTION } from "@/server/retention";
 
@@ -42,6 +48,7 @@ export default function PrivacyPage() {
           <li key={item.specItem}>{item.text}</li>
         ))}
       </ul>
+      <p>{PHONE_BACKUP.text}</p>
 
       <h2>What our server stores</h2>
       {DATA_INVENTORY.map((entry) => (
@@ -82,8 +89,9 @@ export default function PrivacyPage() {
         ))}
       </dl>
       <p>
-        When you type a place into the app&apos;s search box, your phone asks Apple or Google to find it. We
-        never receive what you typed, only the rounded point.
+        When you type a place into the app&apos;s search box, your phone asks Apple, Google or, on some
+        Android phones, the phone maker&apos;s location service to find it. We never receive what you typed,
+        only the rounded point.
       </p>
 
       <h2>Backups</h2>
@@ -119,7 +127,7 @@ export default function PrivacyPage() {
         We&apos;ll post any change here with a new date. Questions go to{" "}
         <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
       </p>
-      <p className="fine-print">Draft of 29 September 2026.</p>
+      <p className="fine-print">Draft of 30 September 2026.</p>
     </>
   );
 }

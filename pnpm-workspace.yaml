@@ -4,3 +4,10 @@ packages:
   - "tools/*"
 allowBuilds:
   esbuild: true
+# expo-router's drawer dependency pulls these in as auto-installed peers at their newest versions. They're autolinked into
+# the native build, so they must match expo/bundledNativeModules.json for SDK 57. Update them with each Expo SDK.
+overrides:
+  react-native-gesture-handler: ~2.32.0
+  react-native-reanimated: 4.5.1
+  react-native-worklets: 0.10.1
+  "@react-native/metro-config": 0.86.3

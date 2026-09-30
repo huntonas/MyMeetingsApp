@@ -8,6 +8,8 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      EXPO_NO_TELEMETRY: "1"
     services:
       db:
         image: imresamu/postgis:17-3.5

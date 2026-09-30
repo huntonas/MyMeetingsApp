@@ -9,7 +9,7 @@
 - **Staging on Vercel.** A custom environment `staging` in project `mymeetingapp`. It tracks the git branch `staging` and serves `https://mymeetingapp-staging.vercel.app`, a project domain attached to the environment. Its variables are its own. None are imported from Preview, and it has no `NEON_*` or `CRON_SECRET`.
 - **Staging on Neon.** A branch `staging` whose parent is `seed`. It starts with seed's reference data (vocabulary, feeds, and the meetings copied from production on 2026-09-29). Its own build creates the device tables, empty. Production data never flows into it.
 - **Code.** Two small changes. `resetPreviewBranch()` switches on `VERCEL_TARGET_ENV`, because Vercel reports a custom environment as `VERCEL_ENV=preview`. `proxy.ts` sends `X-Robots-Tag: noindex` on public pages everywhere except production.
-- **App.** An EAS project under `huntonas`, `eas.json` with `development`, `testflight` (store distribution, staging URL) and `production` (store distribution, production URL) profiles, remote build numbers, Node 24 and pnpm through corepack. A placeholder icon, the Android adaptive icon and the splash come from one SVG in the repo, and export compliance is answered in the config.
+- **App.** An EAS project under `huntonas`, `eas.json` with `development`, `testflight` (store distribution, staging URL) and `production` (store distribution, production URL) profiles, remote build numbers, Node 24 and pnpm 12.6.0. A placeholder icon, the Android adaptive icon and the splash come from one SVG in the repo, and export compliance is answered in the config.
 
 **Tech Stack:** Vercel CLI 55 (`vercel api`, `vercel env`), Neon API v2 (project-scoped key), Next.js 16 `proxy.ts`, vitest 5, Expo SDK 57 (`expo-splash-screen` config plugin), `eas-cli@24.8.0` through `pnpm dlx` (the version Phase 5a pins; the global 20.5.1 is out of date), jest 29, and `rsvg-convert` 2.62 (Homebrew librsvg, already on the Mac).
 
@@ -40,7 +40,7 @@
     - `eas init` creates `@huntonas/mymeetingapp` on Expo's servers. With a dynamic `app.config.ts` it "cannot be automatically modified": it prints `extra.eas.projectId` and exits non-zero (eas-cli `commands/project/init.js`). The ID is added by hand, under a test.
     - `owner: "huntonas"` is needed because the login also belongs to `betuwings` (`eas whoami`).
     - `eas.json` `"node"` must be an exact version. `"24.x"` is rejected, because the schema runs `semver.valid()` on it (`@expo/eas-json@24.8.0` `build/schema.js`). The plan uses `24.21.0`, the local Node 24.
-    - EAS's SDK 57 image ships Node 22 and pnpm 11. `"corepack": true` makes the build use the root `packageManager` (`pnpm@12.6.0`). No `eas-build-pre-install` hook is needed.
+    - EAS's SDK 57 image ships Node 22 and pnpm 11. `"pnpm": "12.6.0"` in `eas.json` makes EAS install the root `packageManager`'s version. (The first build used `"corepack": true` instead and failed: EAS's own pnpm install collided with corepack's shim, EEXIST.) No `eas-build-pre-install` hook is needed.
     - `minimumReleaseAge` only affects resolution, and a frozen-lockfile install doesn't resolve.
     - `appVersionSource: "remote"` with `autoIncrement: true`: "The build version values stored in app config are ignored", so no `buildNumber` goes into the config.
 11. **What EAS uploads.** It clones the git root (the whole monorepo) and then copies the working tree, skipping everything any `.gitignore` ignores (eas-cli `vcs/clients/git.js`, `vcs/local.js`). A `.easignore` would _replace_ the `.gitignore` rules.
@@ -360,7 +360,7 @@ Watch it fail (no `eas.json`), then create `apps/mobile/eas.json`:
 {
   "cli": { "version": ">= 24.8.0", "appVersionSource": "remote" },
   "build": {
-    "base": { "node": "24.21.0", "corepack": true },
+    "base": { "node": "24.21.0", "pnpm": "12.6.0" },
     "development": { "extends": "base", "developmentClient": true, "distribution": "internal" },
     "development-simulator": { "extends": "development", "ios": { "simulator": true } },
     "testflight": {
@@ -390,7 +390,7 @@ pnpm dlx eas-cli@24.8.0 build:inspect --platform ios --profile testflight --stag
 find "$TMPDIR/eas-archive" -name '.env*' ! -name '.env.example' -o -path '*/apps/mobile/ios' -o -name '.claude' | head
 ```
 
-Expected: the staging URL, `24.21.0` and `corepack: true`; `find` prints nothing. Delete the archive directory afterwards.
+Expected: the staging URL, `24.21.0` and `pnpm: 12.6.0`; `find` prints nothing. Delete the archive directory afterwards.
 
 - [ ] **Step 6:** Commit `chore(mobile): EAS project and development, TestFlight and production profiles`.
 

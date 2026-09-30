@@ -32,7 +32,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/icon.png",
   // Every build ships its JavaScript inside the app; nothing is downloaded over the air.
   updates: { enabled: false },
-  ios: { bundleIdentifier: "com.goodersoftware.mymeetingapp", supportsTablet: false },
+  ios: {
+    bundleIdentifier: "com.goodersoftware.mymeetingapp",
+    supportsTablet: false,
+    // HTTPS and the Keychain through the OS only: exempt, so `ITSAppUsesNonExemptEncryption` is false.
+    config: { usesNonExemptEncryption: false },
+  },
   android: {
     package: "com.goodersoftware.mymeetingapp",
     // Spec §11: coarse and fine foreground location only, never background.

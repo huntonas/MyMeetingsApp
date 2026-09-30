@@ -30,7 +30,10 @@ const Config = z.object({
   name: z.string(),
   version: z.string(),
   icon: z.string(),
-  ios: z.object({ bundleIdentifier: z.string() }),
+  ios: z.object({
+    bundleIdentifier: z.string(),
+    config: z.object({ usesNonExemptEncryption: z.boolean() }),
+  }),
   android: z.object({
     package: z.string(),
     permissions: z.array(z.string()),
@@ -160,6 +163,11 @@ describe("the app config", () => {
     expect(config.name).toBe(BRAND.appName);
     expect(config.ios.bundleIdentifier).toBe("com.goodersoftware.mymeetingapp");
     expect(config.android.package).toBe("com.goodersoftware.mymeetingapp");
+  });
+
+  it("declares no non-exempt encryption, so TestFlight uploads skip the compliance question", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    expect(config.ios.config).toEqual({ usesNonExemptEncryption: false });
   });
 
   it("asks only for While Using location, never in the background (spec §2, §11)", () => {

@@ -27,6 +27,9 @@ export default function RootLayout() {
               headerTintColor: colors.accent,
               headerTitleStyle: { fontFamily: FONT.bold, color: colors.text },
               contentStyle: { backgroundColor: colors.bg },
+              // iOS would title the back button with the screen underneath, the tab group's "(tabs)". The arrow alone
+              // still reads "Back" to VoiceOver.
+              headerBackButtonDisplayMode: "minimal",
               // Spec §8: Help is reachable from every screen, including any root-stack screen future tasks add (T8's
               // filters modal, T10's meeting route). Suppressed on the Help screen itself, below.
               headerRight: () => <HelpNowButton />,

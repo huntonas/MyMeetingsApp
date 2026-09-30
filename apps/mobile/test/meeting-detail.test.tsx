@@ -132,6 +132,20 @@ describe("the meeting page", () => {
     expect(permissionRequests()).toBe(0);
   });
 
+  // iOS titles the back button with the screen underneath, which here is the tab group, "(tabs)". The native header
+  // isn't rendered in tests, so this reads what the header is told: the arrow alone (VoiceOver still says "Back").
+  it("shows only the back arrow, never the tab group's name", async () => {
+    // react-navigation passes the display mode to iOS 14 and later only.
+    jest.spyOn(Platform, "Version", "get").mockReturnValue("26.5");
+    api.reply(PATH, { meeting: meeting() });
+    await renderApp(`/meeting/${ID}`);
+    await screen.findByText(WHEN);
+    const [header] = screen.container.queryAll(
+      (node) => node.type === "RNSScreenStackHeaderConfig" && node.props.title === "Meeting",
+    );
+    expect(header).toHaveProp("backButtonDisplayMode", "minimal");
+  });
+
   it("hands directions to Google Maps on Android", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     api.reply(PATH, { meeting: meeting() });

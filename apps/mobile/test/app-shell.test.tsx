@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { BRAND, SemVer } from "@mymeetingapp/shared";
@@ -28,11 +29,17 @@ const CONTEXT = {
 const Config = z.object({
   name: z.string(),
   version: z.string(),
+  icon: z.string(),
   ios: z.object({ bundleIdentifier: z.string() }),
   android: z.object({
     package: z.string(),
     permissions: z.array(z.string()),
     blockedPermissions: z.array(z.string()),
+    adaptiveIcon: z.object({
+      foregroundImage: z.string(),
+      monochromeImage: z.string(),
+      backgroundColor: z.string(),
+    }),
   }),
   plugins: z.array(z.union([z.string(), z.tuple([z.string(), z.unknown()])])),
 });
@@ -54,6 +61,12 @@ const LocationPlugin = z.tuple([
 const MapsPlugin = z.tuple([
   z.literal("react-native-maps"),
   z.object({ androidGoogleMapsApiKey: z.string().optional() }).strict(),
+]);
+
+// expo-splash-screen's config plugin options: the native launch screen's image, its width in points, and background.
+const SplashPlugin = z.tuple([
+  z.literal("expo-splash-screen"),
+  z.object({ image: z.string(), imageWidth: z.number(), backgroundColor: z.string() }).strict(),
 ]);
 
 // Launch reads the config and the tag list.
@@ -119,7 +132,29 @@ describe("test harness, not app behaviour: renderApp (test/render-app.tsx)", () 
   }, 1000);
 });
 
+// A PNG's IHDR: width and height at bytes 16 and 20, colour type at byte 25 (2 = RGB, 6 = RGB with alpha).
+function png(relative: string) {
+  const bytes = readFileSync(path.join(CONTEXT.projectRoot, relative));
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), colourType: bytes[25] };
+}
+
 describe("the app config", () => {
+  it("ships a 1024-pixel square icon with no transparency, as the App Store requires", () => {
+    expect(png(Config.parse(appConfig(CONTEXT)).icon)).toEqual({ width: 1024, height: 1024, colourType: 2 });
+  });
+
+  it("draws the Android adaptive icon and the splash as the mark on the accent blue", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    const { foregroundImage, monochromeImage, backgroundColor } = config.android.adaptiveIcon;
+    expect(backgroundColor).toBe("#1f5f8b");
+    expect(monochromeImage).toBe(foregroundImage);
+    expect(png(foregroundImage)).toEqual({ width: 1024, height: 1024, colourType: 6 });
+    const [, splash] = SplashPlugin.parse(
+      config.plugins.find((plugin) => plugin[0] === "expo-splash-screen"),
+    );
+    expect(splash).toEqual({ image: foregroundImage, imageWidth: 200, backgroundColor: "#1f5f8b" });
+  });
+
   it("names the app from the brand, with the owner's bundle identifier", () => {
     const config = Config.parse(appConfig(CONTEXT));
     expect(config.name).toBe(BRAND.appName);

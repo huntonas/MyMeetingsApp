@@ -1,4 +1,5 @@
 import {
+  AppConfigResponse,
   MeetingDetailResponse,
   MeetingSearchRequest,
   MeetingSearchResponse,
@@ -7,6 +8,9 @@ import {
 } from "@mymeetingapp/shared";
 
 import { getJson, postJson } from "@/api/client";
+
+// Spec §8: read at every launch, to gate Nearby and Online below the minimum supported version.
+export const fetchConfig = () => getJson(AppConfigResponse, "/api/v1/config");
 
 export const fetchVocabulary = () => getJson(VocabularyResponse, "/api/v1/vocabulary");
 

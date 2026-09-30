@@ -1,13 +1,14 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
+import { UpgradeProvider } from "@/config/upgrade";
 import { useColors } from "@/theme/colors";
 import { FONT } from "@/theme/type";
 
 export default function RootLayout() {
   const colors = useColors();
   return (
-    <>
+    <UpgradeProvider>
       <StatusBar style="auto" />
       <Stack
         screenOptions={{
@@ -18,7 +19,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="help" options={{ presentation: "modal", title: "Help now" }} />
       </Stack>
-    </>
+    </UpgradeProvider>
   );
 }

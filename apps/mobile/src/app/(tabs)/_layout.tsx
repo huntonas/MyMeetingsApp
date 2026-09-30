@@ -3,6 +3,7 @@ import { Tabs } from "expo-router/js-tabs";
 
 import { useColors } from "@/theme/colors";
 import { FONT } from "@/theme/type";
+import { HelpNowButton } from "@/ui/help-now-button";
 
 // The owner's design: Nearby, Online, Saved, Me.
 const TABS = [
@@ -23,6 +24,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontFamily: FONT.regular, fontSize: 13 },
+        headerRight: () => <HelpNowButton />,
       }}
     >
       {TABS.map((tab) => (

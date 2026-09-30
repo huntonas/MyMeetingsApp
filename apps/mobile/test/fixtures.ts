@@ -1,4 +1,9 @@
-import { MeetingSummary, STARTER_VOCABULARY, type VocabularyResponse } from "@mymeetingapp/shared";
+import {
+  AppConfigResponse,
+  MeetingSummary,
+  STARTER_VOCABULARY,
+  type VocabularyResponse,
+} from "@mymeetingapp/shared";
 
 // Every fixture is parsed through its shared contract, so a fixture can't drift from what the server sends.
 const BASE = MeetingSummary.parse({
@@ -31,3 +36,11 @@ export function meeting(change: Partial<MeetingSummary> = {}): MeetingSummary {
 }
 
 export const VOCABULARY: VocabularyResponse = { tags: [...STARTER_VOCABULARY] };
+
+// Matches app.config.ts's version (0.1.0) and the default fake nativeApplicationVersion, so a current install isn't
+// gated unless a test raises minSupportedVersion above it.
+export const CONFIG: AppConfigResponse = AppConfigResponse.parse({
+  minSupportedVersion: { ios: "0.1.0", android: "0.1.0" },
+  latestVersion: { ios: "0.1.0", android: "0.1.0" },
+  features: { tagging: true, suggestions: true },
+});

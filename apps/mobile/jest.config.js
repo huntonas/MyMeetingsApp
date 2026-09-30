@@ -32,6 +32,7 @@ module.exports = {
   // matching pattern wins.
   moduleNameMapper: {
     "^expo-sqlite$": "<rootDir>/test/native/expo-sqlite.ts",
+    "^expo-application$": "<rootDir>/test/native/expo-application.ts",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
 };

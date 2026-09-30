@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import { z } from "zod";
 
 import { readCache } from "@/cache/store";
@@ -114,6 +114,21 @@ async function moveTo(map: MapElement, region: MapRegion) {
   await fireEvent(map, "regionChangeComplete", region);
 }
 
+type Node = MapElement | string;
+const outline = (node: Node): unknown =>
+  typeof node === "string" ? node : [node.type, ...node.children.map(outline)];
+
+// Everything in the column the map shares with the rest of the screen, other than the map's own area. The map
+// stretches to fill what they leave, so if any of it changes, the map changes size.
+function besideMap() {
+  let area = screen.getByTestId("results-map");
+  while (area.parent !== null && within(area.parent).queryByRole("button", { name: "Change place" }) === null)
+    area = area.parent;
+  const column = area.parent;
+  if (column === null) throw new Error("the map isn't on a screen");
+  return column.children.filter((child) => child !== area).map(outline);
+}
+
 async function waitForSearchesToSettle() {
   await waitFor(() => {
     expect(screen.queryByLabelText("Searching")).toBeNull();
@@ -185,6 +200,34 @@ describe("the results map", () => {
     await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY]);
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+  });
+
+  // Apple Maps reports a new region whenever the map's frame changes size (not a gesture, and isGesture is always
+  // false there). Taking that as the person's pan fed a loop: search, the screen changes around the map, the map
+  // resizes, another search.
+  it("searches once per touch: a region report with no new touch, such as a resize, doesn't search", async () => {
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
+    await fireEvent(map, "regionChangeComplete", { ...PAN, latitudeDelta: 0.17 });
+    await waitForSearchesToSettle();
+    expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
+    expect(screen.getByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+  });
+
+  it("lays out nothing around the map that comes or goes with a search, so the map never resizes", async () => {
+    const { map } = await openMap();
+    const answerPan = api.answerLater(SEARCH);
+    await moveTo(map, PAN);
+    expect(await screen.findByLabelText("Searching")).toBeOnTheScreen();
+    const whileLoading = besideMap();
+    answerPan({ meetings: [] });
+    expect(
+      await screen.findByText("No in-person meetings within 11 miles of this map area."),
+    ).toBeOnTheScreen();
+    expect(screen.queryByLabelText("Searching")).toBeNull();
+    expect(besideMap()).toEqual(whileLoading);
   });
 
   it("keeps the last markers on the map while a pan's search loads", async () => {

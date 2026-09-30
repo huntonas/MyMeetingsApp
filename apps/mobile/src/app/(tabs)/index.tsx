@@ -147,26 +147,49 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
       />
     </>
   );
-  // The map stays mounted while a pan's search loads or fails, so the person's view never jumps.
+  // The map stays mounted while a pan's search loads or fails, so the person's view never jumps. Everything that comes
+  // and goes with a search sits on a layer over the map, never beside it: the map fills what the column leaves, so
+  // anything appearing beside it would resize it, and Apple Maps reports a resize as a new region.
   if (view === "map") {
+    const card = { backgroundColor: colors.surface, padding: 12, borderRadius: 8, gap: 8 } as const;
     return (
       <Screen scroll={false}>
         {heading}
-        {savedNote}
-        {state.status === "failed" && <AppText accessibilityRole="alert">{state.message}</AppText>}
         <FilterPills />
-        {state.status === "ready" && state.data.meetings.length === 0 && <AppText>{noneNearby}</AppText>}
-        {state.status === "ready" && state.data.meetings.length > 0 && onMap.length === 0 && noMatches}
-        <ResultsMap
-          initialRegion={mapRegion}
-          meetings={state.status === "failed" ? [] : onMap}
-          onMove={(region) => {
-            setMapRegion(region);
-            onMapMove(region);
-          }}
-          showsUser={nearPerson}
-        />
-        {state.status === "loading" && <ActivityIndicator accessibilityLabel="Searching" />}
+        <View style={{ flex: 1 }}>
+          <ResultsMap
+            initialRegion={mapRegion}
+            meetings={state.status === "failed" ? [] : onMap}
+            onMove={(region) => {
+              setMapRegion(region);
+              onMapMove(region);
+            }}
+            showsUser={nearPerson}
+          />
+          <View
+            style={{ position: "absolute", top: 12, left: 12, right: 12, gap: 8, pointerEvents: "box-none" }}
+          >
+            {savedNote}
+            {state.status === "failed" && (
+              <View style={card}>
+                <AppText accessibilityRole="alert">{state.message}</AppText>
+              </View>
+            )}
+            {state.status === "ready" && state.data.meetings.length === 0 && (
+              <View style={card}>
+                <AppText>{noneNearby}</AppText>
+              </View>
+            )}
+            {state.status === "ready" && state.data.meetings.length > 0 && onMap.length === 0 && (
+              <View style={card}>{noMatches}</View>
+            )}
+            {state.status === "loading" && (
+              <View style={[card, { alignSelf: "flex-start" }]}>
+                <ActivityIndicator accessibilityLabel="Searching" />
+              </View>
+            )}
+          </View>
+        </View>
       </Screen>
     );
   }

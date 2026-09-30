@@ -43,8 +43,10 @@ const MeetingMarker = memo(function MeetingMarker({
 // Apple Maps on iOS, Google Maps on Android (spec §8). The map is only ever given initialRegion (applied once, when it
 // appears) and is never moved by code. Both platforms still report a region change when the map first appears (the
 // region fitted to the screen, so never quite the one given), and Apple Maps can't say whether a change was a
-// gesture. So a region change counts as the person's pan or zoom only once they have touched this map. showsUser draws
-// the person's dot on the phone; it must only be set once location is already allowed.
+// gesture. So a region change counts as the person's pan or zoom only after they touch this map, and only the first
+// one after each touch: Apple Maps also reports a region whenever the map's frame changes size, and taking that as a
+// pan would search again. showsUser draws the person's dot on the phone; it must only be set once location is already
+// allowed.
 export function ResultsMap({ initialRegion, meetings, onMove, showsUser }: ResultsMapProps) {
   const touched = useRef(false);
   return (
@@ -58,7 +60,9 @@ export function ResultsMap({ initialRegion, meetings, onMove, showsUser }: Resul
         touched.current = true;
       }}
       onRegionChangeComplete={(region) => {
-        if (touched.current) onMove(region);
+        if (!touched.current) return;
+        touched.current = false;
+        onMove(region);
       }}
     >
       {meetings.flatMap((meeting) =>

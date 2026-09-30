@@ -49,7 +49,7 @@ async function pickInPicker(year: number, monthIndex: number, day: number) {
   await fireEvent(screen.getByTestId("date-picker"), "valueChange", valueEvent(chosen), chosen);
 }
 
-// On iPhone the calendar sits in the screen: tapping a day only chooses it, and "Save this date" keeps it.
+// On iPhone the date wheels sit in the screen: turning them only chooses a day, and "Save this date" keeps it.
 async function setDate(button: string, year: number, monthIndex: number, day: number) {
   await fireEvent.press(await screen.findByRole("button", { name: button }));
   await pickInPicker(year, monthIndex, day);
@@ -105,6 +105,14 @@ describe("the sobriety counter", () => {
     expect(screen.getByText("Next: 2 years on Oct 5, 2027")).toBeOnTheScreen();
     expect(screen.queryByTestId("date-picker")).toBeNull();
     expect(await readSobrietyDate()).toEqual({ year: 2025, month: 10, day: 5 });
+  });
+
+  // The inline calendar hides its day grid behind month and year wheels when its header is tapped, which confused the
+  // owner going back years; the spinner shows the month, day and year wheels all at once.
+  it("shows the iPhone's month, day and year wheels all at once", async () => {
+    await openMe();
+    await fireEvent.press(await screen.findByRole("button", { name: "Set my sobriety date" }));
+    expect(screen.getByTestId("date-picker")).toHaveProp("display", "spinner");
   });
 
   it("shows the date kept on the phone when the app opens again", async () => {

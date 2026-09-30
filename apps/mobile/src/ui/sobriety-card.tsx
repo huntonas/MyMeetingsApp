@@ -36,7 +36,7 @@ export function SobrietyCard() {
   const today = civilDateOf(now);
   // undefined while the phone is reading it; "unreadable" when it couldn't.
   const [start, setStart] = useState<CivilDate | null | "unreadable">();
-  // The day shown in the iPhone's open calendar, or null when it's closed.
+  // The day shown in the iPhone's open date wheels, or null when they're closed.
   const [picking, setPicking] = useState<Date | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -109,14 +109,15 @@ export function SobrietyCard() {
     });
   };
 
-  // iPhone shows a calendar in the screen, where tapping a day (or changing the month) only chooses it, so "Save this
-  // date" keeps it.
+  // iPhone shows the month, day and year wheels in the screen, all at once (the inline calendar hid its days behind
+  // month and year wheels once its header was tapped, which confused going back years). Turning a wheel only chooses,
+  // so "Save this date" keeps it.
   const picker = picking !== null && (
     <View style={{ gap: 8 }}>
       <DateTimePicker
         value={picking}
         mode="date"
-        display="inline"
+        display="spinner"
         maximumDate={now}
         onValueChange={(_event, chosen) => {
           setPicking(chosen);

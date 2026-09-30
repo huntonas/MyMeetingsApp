@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { readEnv } from "@/env";
 import { checkAdminLogin } from "@/server/admin/login-guard";
 
 // Spec §10: nothing under /metrics is ever cached or indexed, whatever the answer.
@@ -17,6 +18,13 @@ function isSameOrigin(request: NextRequest): boolean {
   return URL.parse(origin)?.host === host;
 }
 
+// Search engines index production only. Staging is public so TestFlight builds can reach it (Vercel drops its own
+// preview noindex once a domain is attached), so its pages say noindex; local builds have no target and are left alone.
+function publicHeaders(): Record<string, string> {
+  const target = readEnv("VERCEL_TARGET_ENV");
+  return target === undefined || target === "production" ? {} : { "X-Robots-Tag": "noindex, nofollow" };
+}
+
 // Spec §10: HTTP Basic Auth for /metrics and its admin views. A Vercel Firewall rule on /metrics limits each
 // visitor, so the app stores no IP; failed sign-ins also count toward a site-wide backstop of 200 a UTC day in
 // Postgres. Nothing about a request is logged. Vercel serves only HTTPS, so the credentials never travel in the
@@ -26,7 +34,9 @@ export async function proxy(request: NextRequest): Promise<Response> {
     return new Response("Requests from other sites aren't allowed here.", { status: 403, headers: PRIVATE });
   }
   const { pathname } = request.nextUrl;
-  if (pathname !== "/metrics" && !pathname.startsWith("/metrics/")) return NextResponse.next();
+  if (pathname !== "/metrics" && !pathname.startsWith("/metrics/")) {
+    return NextResponse.next({ headers: publicHeaders() });
+  }
   switch (await checkAdminLogin(request.headers.get("authorization"))) {
     case "allowed":
       return NextResponse.next({ headers: PRIVATE });

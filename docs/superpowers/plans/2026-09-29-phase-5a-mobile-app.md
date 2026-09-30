@@ -6678,7 +6678,7 @@ This task runs the app for real: an EAS dev build on the owner's iPhone, the iOS
   - Run `pnpm --filter mobile exec expo install --check`. Expected: "Dependencies are up to date".
   - Run `pnpm --filter mobile exec expo-doctor`. Expected: no failed checks. A warning about the local module's missing `README` can be ignored.
 
-- [ ] **Step 2: Link the EAS project (owner).**
+- [ ] **Step 2: Link the EAS project (owner).** **Superseded:** `2026-09-30-staging-and-testflight.md` Task 7 does this instead, with `development`, `testflight` and `production` profiles (not just `development`). Do the EAS project and `eas.json` setup there; the steps below are historical.
   1. Run `pnpm dlx eas-cli@24.8.0 login` with the owner's Expo account.
   2. From `apps/mobile`, run `pnpm dlx eas-cli@24.8.0 init`. It creates the project and prints its ID. Because the config is `app.config.ts`, it asks you to add the ID by hand: add `owner: "<the Expo account name>"` and `extra: { eas: { projectId: "<the ID it printed>" } }` to the object `app.config.ts` returns.
   3. Create `apps/mobile/eas.json`:

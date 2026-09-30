@@ -80,3 +80,30 @@ caught by substring matching; a canary base64-encoded _inside_ a third-party JSO
 degrees-minutes-seconds or scientific/exponential notation sent to a **third party** aren't specifically
 searched for as a pattern (a map SDK's tile traffic would make that list too noisy to be worth reading) — only
 traffic to our own server is held to an exact shape.
+
+## TestFlight builds
+
+Full detail: `docs/superpowers/plans/2026-09-30-staging-and-testflight.md`.
+
+- The `testflight` profile in `apps/mobile/eas.json` builds against staging (`EXPO_PUBLIC_SERVER_URL=https://mymeetingapp-staging.vercel.app`), so a TestFlight tester's phone never reaches production. The `production` profile is the same build pointed at `https://mymeetingapp.vercel.app`, for later store submissions.
+- Build numbers come from EAS, not the repo: `appVersionSource: "remote"` and `autoIncrement: true` mean each build gets the next number automatically, and no `buildNumber` is tracked in `app.config.ts`. The version shown in TestFlight and on the device is `app.config.ts`'s `version`.
+- The icon, adaptive icon and splash all render from one file. After editing `apps/mobile/assets/mark.svg`, re-render the PNGs with `pnpm --filter mobile icons` and commit them along with the SVG.
+
+### Building and submitting a TestFlight build (Owner)
+
+Needs an Apple ID and 2FA, so the owner runs these, not Claude.
+
+1. Confirm the Apple Developer Program membership for Gooder Software LLC is active, and that the latest agreements are accepted in App Store Connect → Business.
+2. Build:
+   ```bash
+   cd apps/mobile && pnpm dlx eas-cli@24.8.0 build --platform ios --profile testflight
+   ```
+   Sign in to Apple when asked, pick the Gooder Software LLC team, and let EAS register `com.goodersoftware.mymeetingapp` and create the distribution certificate and App Store provisioning profile. If EAS asks to upgrade the plan or buy builds, that's the owner's call.
+3. Submit:
+   ```bash
+   pnpm dlx eas-cli@24.8.0 submit --platform ios --latest
+   ```
+   EAS creates the App Store Connect record on this first submission.
+   - If the name `mymeetingapp` is already taken on the App Store, create the record by hand instead (App Store Connect → Apps → + → New App, bundle ID `com.goodersoftware.mymeetingapp`, another name), then rerun `submit` and give it the `ascAppId` it asks for. Claude then adds `"submit": { "testflight": { "ios": { "ascAppId": "<id>" } } }` to `eas.json` (not secret) and commits it.
+4. In App Store Connect → TestFlight, wait for processing (10–15 minutes). There should be no "Missing Compliance" (the app already answers export compliance in `app.config.ts`). Create the internal testing group, add testers, install the build through the TestFlight app, and search "Maryville, TN".
+5. Confirm the requests reached staging, not production: Vercel → Logs, filtered to the staging environment, should show `POST /api/v1/meetings/search` from around that time, and production should show none from that phone then.

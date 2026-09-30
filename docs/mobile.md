@@ -4,8 +4,10 @@
 
 1. Install Xcode (with the iOS simulator) and, for Android, Android Studio with an emulator.
 2. `cp apps/mobile/.env.example apps/mobile/.env`.
-3. `pnpm --filter mobile ios` builds and opens the dev build in the simulator; `pnpm --filter mobile start` serves JavaScript to an installed dev build.
-4. Android maps need `GOOGLE_MAPS_ANDROID_API_KEY` (owner decision 5): an EAS secret for EAS builds, and exported in the shell for `pnpm --filter mobile android`. Without it the Android map is blank; iOS (Apple Maps) needs nothing. Never commit the key.
+3. `pnpm --filter mobile ios --port 8082` builds and opens the dev build in the simulator (add `--device` for a plugged-in iPhone); `pnpm --filter mobile start --port 8082` serves JavaScript to an installed dev build. Pass a port other than 8081 whenever another project's Metro may be on 8081: a dev build connected to it loads that project's code. To point the simulator's installed dev build at our server, run `xcrun simctl openurl booted "exp+mymeetingapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8082"`; on an iPhone, pick the server from the dev launcher. `pnpm --filter mobile android` takes `--port` too.
+4. Dev builds float Expo's dev-menu gear over the top-right of the screen, and its touch area covers the Help header button and the top of a meeting's Save heart. That's dev-only: tap slightly lower, or check those in the Release build.
+5. The Release build is the realistic one for smoke checks (offline, Save, Help): it carries its own code, with no gear or dev launcher. `pnpm --filter mobile ios --configuration Release` (add `--device` for an iPhone). The command ends with an error because it tries to open the dev launcher, which a Release build doesn't have; the app is already installed and runs.
+6. Android maps need `GOOGLE_MAPS_ANDROID_API_KEY` (owner decision 5): an EAS secret for EAS builds, and exported in the shell for `pnpm --filter mobile android`. Without it the Android map is blank; iOS (Apple Maps) needs nothing. Never commit the key.
 
 ## Proxy audit
 

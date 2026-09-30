@@ -37,3 +37,8 @@ export const TIMEOUT_ONLY: FakeTimersConfig = {
     "clearInterval",
   ],
 };
+
+// Sets "now" for a test, with only the clock faked (CLOCK_ONLY): timers, promises and sockets stay real.
+export function setNow(iso: string): void {
+  jest.useFakeTimers({ now: new Date(iso), ...CLOCK_ONLY });
+}

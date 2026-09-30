@@ -31,6 +31,7 @@ module.exports = {
   // Native modules are faked only here, at their package boundary (docs/standards.md). Fakes come first: the first
   // matching pattern wins.
   moduleNameMapper: {
+    "^expo-sqlite$": "<rootDir>/test/native/expo-sqlite.ts",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
 };

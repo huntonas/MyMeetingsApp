@@ -22,6 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: { package: "com.goodersoftware.mymeetingapp" },
   plugins: [
     "expo-router",
+    "expo-sqlite",
     [
       "expo-font",
       {

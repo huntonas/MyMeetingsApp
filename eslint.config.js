@@ -111,7 +111,13 @@ export default defineConfig([
       "react-hooks/exhaustive-deps": "error",
       // The app logs nothing: no location, search text or device IDs can end up in a device log.
       "no-console": "error",
-      "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [{ name: "expo-sqlite", message: "Use appDatabase() from @/db/database." }],
+          patterns: [PARENT_IMPORT],
+        },
+      ],
       "no-restricted-globals": [
         "error",
         { name: "fetch", message: "Use getJson/postJson from @/api/client." },
@@ -122,6 +128,13 @@ export default defineConfig([
     // The one place allowed to call fetch directly.
     files: ["apps/mobile/src/api/client.ts"],
     rules: { "no-restricted-globals": "off" },
+  },
+  {
+    // The one place allowed to open the database directly, and the fake standing in for expo-sqlite in tests.
+    files: ["apps/mobile/src/db/database.ts", "apps/mobile/test/native/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
+    },
   },
   {
     // The Expo config lives at the workspace root.

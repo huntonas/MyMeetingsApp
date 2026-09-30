@@ -36,8 +36,9 @@ function setting(name: NeonSetting): string {
 // nothing from production and no earlier preview's device data survives into a new preview. Production and
 // local builds leave the database alone. Neon's "reset from parent" is the restore endpoint with the parent
 // as source; the parent must be seed, so a mistyped branch id can never overwrite main.
+// Vercel reports a custom environment such as staging as VERCEL_ENV=preview; only VERCEL_TARGET_ENV tells them apart.
 export async function resetPreviewBranch(): Promise<"reset" | "skipped"> {
-  if (readEnv("VERCEL_ENV") !== "preview") return "skipped";
+  if (readEnv("VERCEL_TARGET_ENV") !== "preview") return "skipped";
   const apiKey = setting("NEON_API_KEY");
   const base = `${readEnv("NEON_API_URL") ?? DEFAULT_NEON_API_URL}/projects/${setting("NEON_PROJECT_ID")}`;
   const branchId = setting("NEON_PREVIEW_BRANCH_ID");

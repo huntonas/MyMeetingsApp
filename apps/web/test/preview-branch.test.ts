@@ -45,6 +45,7 @@ async function neon(laterStatuses: string[] = ["finished"], status = 200) {
 
 function stubPreviewBuild(apiUrl: string, branchId = "br-preview") {
   vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_TARGET_ENV", "preview");
   vi.stubEnv("NEON_API_URL", apiUrl);
   vi.stubEnv("NEON_API_KEY", "neon-test-key");
   vi.stubEnv("NEON_PROJECT_ID", "proj-1");
@@ -56,15 +57,23 @@ const calls = (server: { requests: { method: string; path: string }[] }) =>
 
 describe("resetPreviewBranch", () => {
   it.each([undefined, "production", "development"])(
-    "leaves the database alone when VERCEL_ENV is %j",
-    async (env) => {
+    "leaves the database alone when VERCEL_TARGET_ENV is %j",
+    async (target) => {
       const server = await neon();
       stubPreviewBuild(server.baseUrl);
-      vi.stubEnv("VERCEL_ENV", env);
+      vi.stubEnv("VERCEL_TARGET_ENV", target);
       expect(await resetPreviewBranch()).toBe("skipped");
       expect(server.requests).toEqual([]);
     },
   );
+
+  it("leaves the database alone on a custom environment, which Vercel also reports as VERCEL_ENV=preview", async () => {
+    const server = await neon();
+    stubPreviewBuild(server.baseUrl);
+    vi.stubEnv("VERCEL_TARGET_ENV", "staging");
+    expect(await resetPreviewBranch()).toBe("skipped");
+    expect(server.requests).toEqual([]);
+  });
 
   it("restores the preview branch from seed and waits for Neon to finish", async () => {
     const server = await neon(["running", "finished"]);

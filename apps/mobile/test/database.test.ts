@@ -1,8 +1,10 @@
 import type { AppDatabase } from "@/db/database";
-import { appDatabase } from "@/db/database";
+import { appDatabase, inTransaction } from "@/db/database";
 import { MIGRATIONS } from "@/db/migrations";
 import { readCache, writeCache } from "@/cache/store";
 import { meetingMoved } from "@/meetings/merged";
+import { isFavorite, setFavorite } from "@/saved/favorites";
+import { clearSobrietyDate, readSobrietyDate, saveSobrietyDate } from "@/sobriety/sobriety-date";
 import type * as DatabaseModule from "@/db/database";
 import type * as ExpoSqliteModule from "expo-sqlite";
 
@@ -174,6 +176,61 @@ describe("transactions", () => {
     const moves = await Promise.allSettled([meetingMoved("a", "a2"), meetingMoved("b", "b2")]);
     expect(moves.map((move) => move.status)).toEqual(["rejected", "fulfilled"]);
     expect(await readCache("meeting:b2")).not.toBeNull();
+  });
+});
+
+// A transaction that has written and is waiting, then fails (a search save hitting a full disk): what it wrote is
+// undone. Personal writes made meanwhile must not be undone with it.
+async function whileAFailingTransactionIsOpen(write: () => Promise<void>) {
+  let fail: () => void = () => undefined;
+  let markOpen: () => void = () => undefined;
+  const open = new Promise<void>((resolve) => {
+    markOpen = resolve;
+  });
+  const failing = inTransaction(async (db) => {
+    await db.runAsync("insert into cache_entries (key, body, saved_at) values (?, ?, ?)", [
+      "search:1,1,25",
+      "{}",
+      1,
+    ]);
+    markOpen();
+    await new Promise<void>((_resolve, reject) => {
+      fail = () => {
+        reject(new Error("disk full"));
+      };
+    });
+  });
+  await open;
+  const writing = write();
+  fail();
+  await expect(failing).rejects.toThrow("disk full");
+  await writing;
+  expect(await readCache("search:1,1,25")).toBeNull();
+}
+
+describe("personal writes are never undone by someone else's failed transaction", () => {
+  const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
+  it("saving a favorite", async () => {
+    await whileAFailingTransactionIsOpen(() => setFavorite(ID, true));
+    expect(await isFavorite(ID)).toBe(true);
+  });
+
+  it("removing a favorite", async () => {
+    await setFavorite(ID, true);
+    await whileAFailingTransactionIsOpen(() => setFavorite(ID, false));
+    expect(await isFavorite(ID)).toBe(false);
+  });
+
+  it("saving the sobriety date", async () => {
+    await whileAFailingTransactionIsOpen(() => saveSobrietyDate({ year: 2024, month: 2, day: 29 }));
+    expect(await readSobrietyDate()).toEqual({ year: 2024, month: 2, day: 29 });
+  });
+
+  it("clearing the sobriety date", async () => {
+    await saveSobrietyDate({ year: 2024, month: 2, day: 29 });
+    await whileAFailingTransactionIsOpen(() => clearSobrietyDate());
+    expect(await readSobrietyDate()).toBeNull();
   });
 });
 

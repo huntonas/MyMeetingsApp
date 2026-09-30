@@ -235,9 +235,9 @@ describe("the Saved tab", () => {
   });
 
   it("keeps a merged favorite under its old id when it can't be moved", async () => {
+    await setFavorite(ID, true);
     const db = await appDatabase();
     const move = jest.spyOn(db, "withTransactionAsync").mockRejectedValueOnce(new Error("disk full"));
-    await setFavorite(ID, true);
     api.reply(PATH, { meeting: meeting({ id: SURVIVOR }) });
     await renderApp("/saved");
     expect(await screen.findByRole("button", { name: CARD })).toBeOnTheScreen();

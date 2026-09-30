@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { appDatabase } from "@/db/database";
+import { appDatabase, inTransaction } from "@/db/database";
 
 const Row = z.object({ meeting_id: z.string() });
 
@@ -22,12 +22,14 @@ export async function isFavorite(id: string): Promise<boolean> {
   return (await db.getFirstAsync("select meeting_id from favorites where meeting_id = ?", [id])) !== null;
 }
 
-export async function setFavorite(id: string, saved: boolean): Promise<void> {
-  const db = await appDatabase();
-  if (saved)
-    await db.runAsync("insert or ignore into favorites (meeting_id, saved_at) values (?, ?)", [
-      id,
-      Date.now(),
-    ]);
-  else await db.runAsync("delete from favorites where meeting_id = ?", [id]);
+// In its own transaction: a lone statement would join any transaction already open and be undone with it.
+export function setFavorite(id: string, saved: boolean): Promise<void> {
+  return inTransaction(async (db) => {
+    if (saved)
+      await db.runAsync("insert or ignore into favorites (meeting_id, saved_at) values (?, ?)", [
+        id,
+        Date.now(),
+      ]);
+    else await db.runAsync("delete from favorites where meeting_id = ?", [id]);
+  });
 }

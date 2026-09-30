@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { appDatabase } from "@/db/database";
+import { appDatabase, inTransaction } from "@/db/database";
 import type { CivilDate } from "@/time/civil-date";
 
 const KEY = "sobriety_date";
@@ -23,13 +23,16 @@ export async function readSobrietyDate(): Promise<CivilDate | null> {
   return { year, month, day };
 }
 
-export async function saveSobrietyDate(date: CivilDate): Promise<void> {
-  const db = await appDatabase();
+// Each write is its own transaction: a lone statement would join any transaction already open and be undone with it.
+export function saveSobrietyDate(date: CivilDate): Promise<void> {
   const value = `${pad(date.year, 4)}-${pad(date.month, 2)}-${pad(date.day, 2)}`;
-  await db.runAsync("insert or replace into settings (key, value) values (?, ?)", [KEY, value]);
+  return inTransaction(async (db) => {
+    await db.runAsync("insert or replace into settings (key, value) values (?, ?)", [KEY, value]);
+  });
 }
 
-export async function clearSobrietyDate(): Promise<void> {
-  const db = await appDatabase();
-  await db.runAsync("delete from settings where key = ?", [KEY]);
+export function clearSobrietyDate(): Promise<void> {
+  return inTransaction(async (db) => {
+    await db.runAsync("delete from settings where key = ?", [KEY]);
+  });
 }

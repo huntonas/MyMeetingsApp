@@ -12,6 +12,7 @@ A privacy-first AA meeting finder: Expo mobile app, a Next.js 16 site and API, a
 - `pnpm knip:production`: fails on exports used only by tests. Must pass at the end of each phase.
 - `pnpm --filter web test:e2e`: builds the web app and runs the end-to-end tests against it (needs the docker database). Must pass at the end of each phase.
 - `docker compose up -d`: local PostGIS needed by the web tests.
+- `pnpm --filter mobile test`: the app's Jest suite (part of `pnpm check`). Device builds and the proxy audit: `docs/mobile.md`.
 - Node 24 via `nvm use`; pnpm via corepack.
 
 ## Rules that matter most

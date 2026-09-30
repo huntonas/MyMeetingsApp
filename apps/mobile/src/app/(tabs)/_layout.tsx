@@ -1,0 +1,41 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Tabs } from "expo-router/js-tabs";
+
+import { useColors } from "@/theme/colors";
+import { FONT } from "@/theme/type";
+
+// The owner's design: Nearby, Online, Saved, Me.
+const TABS = [
+  { name: "index", title: "Nearby", icon: "location-outline" },
+  { name: "online", title: "Online", icon: "videocam-outline" },
+  { name: "saved", title: "Saved", icon: "heart-outline" },
+  { name: "me", title: "Me", icon: "person-outline" },
+] as const;
+
+export default function TabsLayout() {
+  const colors = useColors();
+  return (
+    <Tabs
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.bg },
+        headerTitleStyle: { fontFamily: FONT.bold, color: colors.text },
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line },
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarLabelStyle: { fontFamily: FONT.regular, fontSize: 13 },
+      }}
+    >
+      {TABS.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarAccessibilityLabel: tab.title,
+            tabBarIcon: ({ color, size }) => <Ionicons name={tab.icon} color={color} size={size} />,
+          }}
+        />
+      ))}
+    </Tabs>
+  );
+}

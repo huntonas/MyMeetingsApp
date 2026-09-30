@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 const PARENT_IMPORT = { group: ["../*"], message: "Use the @/ alias instead of a parent-relative import." };
@@ -12,6 +13,9 @@ export default defineConfig([
     "**/drizzle/",
     "**/next-env.d.ts",
     ".superpowers/",
+    "apps/mobile/.expo/",
+    "apps/mobile/ios/",
+    "apps/mobile/android/",
   ]),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -98,5 +102,26 @@ export default defineConfig([
         },
       ],
     },
+  },
+  {
+    files: ["apps/mobile/**/*.{ts,tsx,js}"],
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+      // The app logs nothing: no location, search text or device IDs can end up in a device log.
+      "no-console": "error",
+      "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
+    },
+  },
+  {
+    // The Expo config lives at the workspace root.
+    files: ["apps/mobile/test/app-shell.test.tsx"],
+    rules: { "no-restricted-imports": "off" },
+  },
+  {
+    // Jest loads its config as CommonJS.
+    files: ["apps/mobile/jest.config.js"],
+    languageOptions: { sourceType: "commonjs", globals: { module: "writable", process: "readonly" } },
   },
 ]);

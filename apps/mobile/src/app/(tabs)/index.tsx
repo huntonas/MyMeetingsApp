@@ -33,22 +33,26 @@ const BLANK = "Type a city, zip code or address.";
 const notFound = (text: string) =>
   `We couldn't find “${text}”. Check the spelling or your connection, then try again.`;
 
+// Recent places are best effort, like the cache: failing to save one (a full disk, a native storage error) never
+// stops the search the person asked for.
+const ignoreRecentPlaceFailure = () => undefined;
+
 function FilterPills() {
   const { filters } = useFilters();
   const pills = [
-    { name: "Day", count: filters.days.length },
-    { name: "Time", count: filters.times.length },
-    { name: "Type", count: filters.types.length },
-    { name: "Tags", count: filters.tags.length },
+    { name: "Day", spoken: "Day", count: filters.days.length },
+    { name: "Time", spoken: "Time", count: filters.times.length },
+    { name: "Type", spoken: "Type", count: filters.types.length },
+    { name: "Tags", spoken: "Tag", count: filters.tags.length },
   ];
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-      {pills.map(({ name, count }) => (
+      {pills.map(({ name, spoken, count }) => (
         <Pill
           key={name}
           role="button"
           label={count === 0 ? name : `${name} · ${String(count)}`}
-          spokenLabel={count === 0 ? `${name} filters` : `${name} filters, ${String(count)} chosen`}
+          spokenLabel={count === 0 ? `${spoken} filters` : `${spoken} filters, ${String(count)} chosen`}
           selected={count > 0}
           onPress={() => {
             router.push("/filters");
@@ -84,7 +88,7 @@ function Results({ origin, onChangePlace }: { origin: SearchOrigin; onChangePlac
     return (
       <Screen>
         {heading}
-        <AppText>{state.message}</AppText>
+        <AppText accessibilityRole="alert">{state.message}</AppText>
       </Screen>
     );
   const savedNote = state.savedAt !== null && <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />;
@@ -115,6 +119,9 @@ function Results({ origin, onChangePlace }: { origin: SearchOrigin; onChangePlac
           {heading}
           {savedNote}
           <FilterPills />
+          {shown.length > 0 && (
+            <AppText tone="muted">{`${String(shown.length)} ${shown.length === 1 ? "meeting" : "meetings"}`}</AppText>
+          )}
           {shown.length === 0 && (
             <>
               <AppText>No meetings match your filters.</AppText>
@@ -190,14 +197,14 @@ function Nearby() {
       return;
     }
     // The person did search for it, so it's a recent place even when a newer search has since taken over.
-    await rememberPlace(label, point);
+    await rememberPlace(label, point).catch(ignoreRecentPlaceFailure);
     if (current()) search({ kind: "place", label, point, radiusKm: SEARCH_RADIUS_KM });
   }
 
   function searchRecent(place: RecentPlace) {
     begin();
     // Moves it to the top of the recent list; the search itself needn't wait for that.
-    void rememberPlace(place.label, place);
+    void rememberPlace(place.label, place).catch(ignoreRecentPlaceFailure);
     search({
       kind: "place",
       label: place.label,
@@ -223,6 +230,8 @@ function Nearby() {
         onPlace={(text) => void searchPlace(text)}
         onRecent={searchRecent}
         onNearMe={() => void searchNearMe("tap")}
+        // Typing a place is a newer request: a slow launch position mustn't take the screen from under it.
+        onStart={begin}
       />
       {problem !== null && <AppText accessibilityRole="alert">{problem}</AppText>}
       {problem === DENIED && (

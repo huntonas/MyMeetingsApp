@@ -11,14 +11,17 @@ interface PlaceSearchProps {
   onPlace: (text: string) => void;
   onRecent: (place: RecentPlace) => void;
   onNearMe: () => void;
+  // The person has started typing a place.
+  onStart: () => void;
 }
 
-export function PlaceSearch({ onPlace, onRecent, onNearMe }: PlaceSearchProps) {
+export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearchProps) {
   const colors = useColors();
   const [text, setText] = useState("");
   const [recent, setRecent] = useState<RecentPlace[]>([]);
   useEffect(() => {
-    void recentPlaces().then(setRecent);
+    // Best effort: without a readable list, the search box still works.
+    void recentPlaces().then(setRecent, () => undefined);
   }, []);
   return (
     <View style={{ gap: 12 }}>
@@ -28,7 +31,11 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe }: PlaceSearchProps) {
         placeholder="City, zip code or address"
         placeholderTextColor={colors.muted}
         value={text}
-        onChangeText={setText}
+        onFocus={onStart}
+        onChangeText={(next) => {
+          if (text === "") onStart();
+          setText(next);
+        }}
         onSubmitEditing={() => {
           onPlace(text);
         }}
@@ -79,9 +86,12 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe }: PlaceSearchProps) {
             kind="secondary"
             label="Clear recent places"
             onPress={() => {
-              void forgetRecentPlaces().then(() => {
-                setRecent([]);
-              });
+              void forgetRecentPlaces().then(
+                () => {
+                  setRecent([]);
+                },
+                () => undefined,
+              );
             }}
           />
         </View>

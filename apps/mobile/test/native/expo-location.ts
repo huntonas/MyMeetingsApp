@@ -6,8 +6,14 @@ let status: Status = "undetermined";
 let canAskAgain = true;
 // What the person does when the permission dialog appears: allow, deny, or dismiss it (which leaves it undecided).
 let answer: "granted" | "denied" | "dismissed" = "granted";
-// Where the phone is, or that it can't find itself ("fails") or never answers ("hangs", say no GPS fix indoors).
-let position: { latitude: number; longitude: number } | "fails" | "hangs" = NASHVILLE;
+interface Point {
+  latitude: number;
+  longitude: number;
+}
+// Where the phone is, or that it can't find itself ("fails") or never answers ("hangs", say no GPS fix indoors). A
+// promise answers when the test resolves it, as a slow GPS fix does.
+let position: Point | Promise<Point> | "fails" | "hangs" = NASHVILLE;
+let delivered = 0;
 let requests = 0;
 let checks = 0;
 let reads: unknown[] = [];
@@ -35,6 +41,10 @@ export function permissionRequests(): number {
 export function permissionChecks(): number {
   return checks;
 }
+// How many position answers the phone has handed back to the app, so a test can wait for a slow one to arrive.
+export function positionsDelivered(): number {
+  return delivered;
+}
 // How many times the app asked the phone where it is.
 export function positionReads(): number {
   return reads.length;
@@ -50,6 +60,7 @@ export function resetLocation(): void {
   position = NASHVILLE;
   requests = 0;
   checks = 0;
+  delivered = 0;
   reads = [];
 }
 
@@ -71,5 +82,8 @@ export function getCurrentPositionAsync(options: unknown) {
   reads.push(options);
   if (position === "fails") return Promise.reject(new Error("Location unavailable"));
   if (position === "hangs") return new Promise<never>(() => undefined);
-  return Promise.resolve({ coords: { ...position, accuracy: 20 }, timestamp: Date.now() });
+  return Promise.resolve(position).then((point) => {
+    delivered += 1;
+    return { coords: { ...point, accuracy: 20 }, timestamp: Date.now() };
+  });
 }

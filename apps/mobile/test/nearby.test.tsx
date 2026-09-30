@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AppState, type AppStateStatus, Linking } from "react-native";
 
 import { readCache } from "@/cache/store";
+import { appDatabase } from "@/db/database";
 import { recentPlaces } from "@/location/recent-places";
 
 import { startApi, type TestApi } from "./api-server";
@@ -12,11 +13,12 @@ import {
   permissionChecks,
   permissionRequests,
   positionOptions,
+  positionsDelivered,
   setDevicePosition,
   setLocationPermission,
   setPermissionAnswer,
 } from "./native/expo-location";
-import { lookups, setPlace } from "./native/native-location";
+import { answered, lookups, setPlace } from "./native/native-location";
 import { renderApp } from "./render-app";
 
 let api: TestApi;
@@ -79,6 +81,11 @@ async function searchFor(text: string) {
   await fireEvent.press(screen.getByRole("button", { name: "Search" }));
 }
 
+const UNCHOSEN = ["Day filters", "Time filters", "Type filters", "Tag filters"];
+function expectNoFiltersChosen() {
+  for (const name of UNCHOSEN) expect(screen.getByRole("button", { name })).toBeOnTheScreen();
+}
+
 async function chooseFilters(pill: string, choices: string[]) {
   await fireEvent.press(await screen.findByRole("button", { name: pill }));
   for (const choice of choices) await fireEvent.press(await screen.findByRole("checkbox", { name: choice }));
@@ -133,6 +140,7 @@ describe("Nearby without location", () => {
       "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
     );
     expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.4 mi, St. Luke's, Welcoming 14 people");
+    expect(screen.getByText("2 meetings")).toBeOnTheScreen();
     expect(lookups).toEqual(["Maryville, TN"]);
     expect(searchBodies()).toEqual([{ lat: 35.76, lng: -83.97, radiusKm: 25 }]);
     for (const request of api.requests) {
@@ -205,6 +213,87 @@ describe("Nearby without location", () => {
     expect(await screen.findByText("Near Maryville, TN")).toBeOnTheScreen();
     expect(screen.queryByText("Near Slowtown")).toBeNull();
     expect(searchBodies()).toEqual([{ lat: 35.76, lng: -83.97, radiusKm: 25 }]);
+  });
+});
+
+describe("stale answers", () => {
+  it("drops a slow place lookup once a recent place has been chosen", async () => {
+    api.reply(SEARCH, { meetings: [near] });
+    await launch();
+    await searchFor("Maryville, TN");
+    await screen.findByText("Near Group");
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    const slow = later<unknown>();
+    setPlace("Slowtown", slow.promise);
+    await searchFor("Slowtown");
+    await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
+    expect(await screen.findByText("Near Group")).toBeOnTheScreen();
+    slow.resolve({ latitude: 40.1234, longitude: -80.5678 });
+    await waitFor(async () => {
+      expect(await recentLabels()).toEqual(["Slowtown", "Maryville, TN"]);
+    });
+    expect(await screen.findByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(screen.queryByText("Near Slowtown")).toBeNull();
+  });
+
+  it("never shows a slow not-found answer after a newer search", async () => {
+    api.reply(SEARCH, { meetings: [near] });
+    const slow = later<unknown>();
+    setPlace("Slowtown", slow.promise);
+    await launch();
+    await searchFor("Slowtown");
+    await searchFor("Maryville, TN");
+    expect(await screen.findByText("Near Group")).toBeOnTheScreen();
+    slow.resolve(null);
+    await waitFor(() => {
+      expect(answered).toContain("Slowtown");
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    expect(await screen.findByLabelText("Search for a place")).toBeOnTheScreen();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("drops a slow launch position once the person has searched a place", async () => {
+    setLocationPermission("granted");
+    const slow = later<{ latitude: number; longitude: number }>();
+    setDevicePosition(slow.promise);
+    api.reply(SEARCH, { meetings: [near] });
+    await launch();
+    await searchFor("Maryville, TN");
+    expect(await screen.findByText("Near Group")).toBeOnTheScreen();
+    slow.resolve({ latitude: 36.162749, longitude: -86.781602 });
+    await waitFor(() => {
+      expect(positionsDelivered()).toBe(1);
+    });
+    expect(await screen.findByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(screen.queryByText("Near you")).toBeNull();
+    expect(searchBodies()).toEqual([{ lat: 35.76, lng: -83.97, radiusKm: 25 }]);
+  });
+
+  it("doesn't let a slow launch position take over while the person is typing", async () => {
+    setLocationPermission("granted");
+    const slow = later<{ latitude: number; longitude: number }>();
+    setDevicePosition(slow.promise);
+    await launch();
+    await fireEvent.changeText(screen.getByLabelText("Search for a place"), "Mary");
+    slow.resolve({ latitude: 36.162749, longitude: -86.781602 });
+    await waitFor(() => {
+      expect(positionsDelivered()).toBe(1);
+    });
+    expect(await screen.findByText(PROMPT)).toBeOnTheScreen();
+    expect(screen.getByLabelText("Search for a place")).toHaveDisplayValue("Mary");
+    expect(screen.queryByText("Near you")).toBeNull();
+  });
+});
+
+describe("recent places are best effort", () => {
+  it("still searches when the place can't be saved", async () => {
+    const db = await appDatabase();
+    jest.spyOn(db, "withTransactionAsync").mockRejectedValueOnce(new Error("disk full"));
+    api.reply(SEARCH, { meetings: [near] });
+    await launch();
+    await searchFor("Maryville, TN");
+    expect(await screen.findByText("Near Group")).toBeOnTheScreen();
   });
 });
 
@@ -294,12 +383,17 @@ describe("results", () => {
       expect(screen.queryByText("Near Group")).toBeNull();
     });
     expect(screen.getByText("Far Group")).toBeOnTheScreen();
+    expect(screen.getByText("1 meeting")).toBeOnTheScreen();
     await chooseFilters("Time filters, 1 chosen", ["Evening", "Night"]);
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
+    await chooseFilters("Day filters", ["Monday"]);
+    await chooseFilters("Type filters", ["Open"]);
+    await chooseFilters("Tag filters", ["Quiet"]);
+    expect(await screen.findByRole("button", { name: "Tag filters, 1 chosen" })).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
     expect(screen.getByText("Far Group")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Time filters" })).toBeOnTheScreen();
+    expectNoFiltersChosen();
   });
 
   it("narrows by day, type and what people say, and the filter sheet clears them", async () => {
@@ -307,21 +401,25 @@ describe("results", () => {
     await launch();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    await chooseFilters("Tags filters", ["Quiet"]);
+    await chooseFilters("Tag filters", ["Quiet"]);
     await waitFor(() => {
       expect(screen.queryByText("Far Group")).toBeNull();
     });
     expect(screen.getByText("Near Group")).toBeOnTheScreen();
     await chooseFilters("Type filters", ["Women"]);
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
+    await chooseFilters("Day filters", ["Monday"]);
+    await chooseFilters("Time filters", ["Morning"]);
 
-    await fireEvent.press(screen.getByRole("button", { name: "Day filters" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Day filters, 1 chosen" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Clear filters" }));
-    expect(screen.getByRole("checkbox", { name: "Quiet" })).not.toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Women" })).not.toBeChecked();
+    for (const choice of ["Quiet", "Women", "Monday", "Morning"]) {
+      expect(screen.getByRole("checkbox", { name: choice })).not.toBeChecked();
+    }
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     expect(await screen.findByText("Far Group")).toBeOnTheScreen();
     expect(screen.getByText("Near Group")).toBeOnTheScreen();
+    expectNoFiltersChosen();
 
     await chooseFilters("Day filters", ["Tuesday"]);
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
@@ -356,14 +454,31 @@ describe("results", () => {
     api = await startApi();
   });
 
+  it("labels a saved empty search shown offline, above the online fallback", async () => {
+    setNow("2026-10-05T20:00:00Z");
+    api.reply(SEARCH, { meetings: [] });
+    await launch();
+    await searchFor("Maryville, TN");
+    await screen.findByText("No in-person meetings within 16 miles of Maryville, TN.");
+    setNow("2026-10-05T21:20:00Z");
+    await api.close();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
+    expect(
+      await screen.findByText(
+        "Showing the copy saved today at 3:00 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("No in-person meetings within 16 miles of Maryville, TN.")).toBeOnTheScreen();
+    api = await startApi();
+  });
+
   it("says so when a search fails with no saved copy", async () => {
     await launch();
     await searchFor("Maryville, TN");
-    expect(
-      await screen.findByText(
-        "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
-      ),
-    ).toBeOnTheScreen();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
+    );
     expect(screen.getByRole("button", { name: "Change place" })).toBeOnTheScreen();
   });
 

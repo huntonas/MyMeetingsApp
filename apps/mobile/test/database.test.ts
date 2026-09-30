@@ -47,6 +47,33 @@ describe("appDatabase: reopening the same database", () => {
   });
 });
 
+describe("appDatabase: upgrading a phone installed before recent places", () => {
+  it("adds the recent places table and keeps the saved copies it already had", async () => {
+    const old = await appDatabase();
+    await old.runAsync("insert into cache_entries (key, body, saved_at) values (?, ?, ?)", [
+      "vocabulary",
+      "{}",
+      1,
+    ]);
+    // Turn this database back into one that only ever ran the first migration.
+    await old.execAsync("drop table recent_places; pragma user_version = 1");
+
+    let upgraded: AppDatabase | undefined;
+    await jest.isolateModulesAsync(async () => {
+      upgraded = await freshDatabaseModule().appDatabase();
+    });
+    if (upgraded === undefined) throw new Error("jest.isolateModulesAsync didn't run its callback");
+
+    expect(await upgraded.getFirstAsync("pragma user_version", [])).toEqual({
+      user_version: MIGRATIONS.length,
+    });
+    expect(await upgraded.getAllAsync("select label from recent_places", [])).toEqual([]);
+    expect(
+      await upgraded.getFirstAsync("select body from cache_entries where key = ?", ["vocabulary"]),
+    ).toEqual({ body: "{}" });
+  });
+});
+
 describe("the fake expo-sqlite (test/native/expo-sqlite.ts) behaves like a real async database", () => {
   it("returns the real last_insert_rowid, not a placeholder", async () => {
     const db = await appDatabase();

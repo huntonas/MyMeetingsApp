@@ -4,6 +4,15 @@ import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 const PARENT_IMPORT = { group: ["../*"], message: "Use the @/ alias instead of a parent-relative import." };
+// The app's one way to each native capability (docs/standards.md). Exemptions restate the bans they don't lift.
+const SQLITE_IMPORT = { name: "expo-sqlite", message: "Use appDatabase() from @/db/database." };
+const LOCATION_IMPORTS = [
+  {
+    name: "expo-location",
+    message: "Use currentPosition() or locationAlreadyAllowed() from @/location/current-position.",
+  },
+  { name: "@modules/native-location", message: "Use findPlace() from @/location/find-place." },
+];
 
 export default defineConfig([
   globalIgnores([
@@ -114,7 +123,7 @@ export default defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          paths: [{ name: "expo-sqlite", message: "Use appDatabase() from @/db/database." }],
+          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS],
           patterns: [PARENT_IMPORT],
         },
       ],
@@ -130,13 +139,23 @@ export default defineConfig([
     rules: { "no-restricted-globals": "off" },
   },
   {
-    // The one place allowed to open the database directly, the fake standing in for expo-sqlite in tests, and the
-    // test proving appDatabase() recovers from a failed open (it has to spy on expo-sqlite's own openDatabaseAsync).
-    files: [
-      "apps/mobile/src/db/database.ts",
-      "apps/mobile/test/native/**/*.ts",
-      "apps/mobile/test/database.test.ts",
-    ],
+    // The one place allowed to open the database directly, and the test proving appDatabase() recovers from a failed
+    // open (it has to spy on expo-sqlite's own openDatabaseAsync).
+    files: ["apps/mobile/src/db/database.ts", "apps/mobile/test/database.test.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: LOCATION_IMPORTS, patterns: [PARENT_IMPORT] }],
+    },
+  },
+  {
+    // The one place allowed to reach the location packages directly.
+    files: ["apps/mobile/src/location/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [SQLITE_IMPORT], patterns: [PARENT_IMPORT] }],
+    },
+  },
+  {
+    // The fakes standing in for native packages in tests.
+    files: ["apps/mobile/test/native/**/*.ts"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
     },

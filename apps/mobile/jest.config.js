@@ -33,6 +33,8 @@ module.exports = {
   moduleNameMapper: {
     "^expo-sqlite$": "<rootDir>/test/native/expo-sqlite.ts",
     "^expo-application$": "<rootDir>/test/native/expo-application.ts",
+    "^expo-location$": "<rootDir>/test/native/expo-location.ts",
+    "^@modules/native-location$": "<rootDir>/test/native/native-location.ts",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
 };

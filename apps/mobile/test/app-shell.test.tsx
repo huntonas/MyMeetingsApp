@@ -10,6 +10,7 @@ import appConfig from "../app.config";
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { CONFIG, VOCABULARY } from "./fixtures";
+import { permissionRequests, positionReads } from "./native/expo-location";
 import { renderApp } from "./render-app";
 
 jest.mock("react-native/Libraries/Utilities/useColorScheme", () => ({
@@ -28,8 +29,26 @@ const Config = z.object({
   name: z.string(),
   version: z.string(),
   ios: z.object({ bundleIdentifier: z.string() }),
-  android: z.object({ package: z.string() }),
+  android: z.object({
+    package: z.string(),
+    permissions: z.array(z.string()),
+    blockedPermissions: z.array(z.string()),
+  }),
+  plugins: z.array(z.union([z.string(), z.tuple([z.string(), z.unknown()])])),
 });
+
+// expo-location's config plugin options: `false` removes that iOS purpose string; the background switches default off.
+const LocationPlugin = z.tuple([
+  z.literal("expo-location"),
+  z
+    .object({
+      locationWhenInUsePermission: z.string(),
+      locationAlwaysAndWhenInUsePermission: z.literal(false),
+      locationAlwaysPermission: z.literal(false),
+      motionUsagePermission: z.literal(false),
+    })
+    .strict(),
+]);
 
 // Launch reads the config and the tag list.
 const LAUNCH_READS = 2;
@@ -47,6 +66,17 @@ afterEach(async () => {
 });
 
 describe("the app shell", () => {
+  // First in the file, so it also catches a request made when a module is first loaded.
+  it("asks for no location permission at launch (spec §2)", async () => {
+    await renderApp("/");
+    await waitFor(() => {
+      expect(api.requests).toHaveLength(LAUNCH_READS);
+    });
+    expect(await screen.findByLabelText("Nearby")).toBeOnTheScreen();
+    expect(permissionRequests()).toBe(0);
+    expect(positionReads()).toBe(0);
+  });
+
   it("opens on Nearby, with the four tabs", async () => {
     const app = await renderApp("/");
     await waitFor(() => {
@@ -87,6 +117,17 @@ describe("the app config", () => {
     expect(config.name).toBe(BRAND.appName);
     expect(config.ios.bundleIdentifier).toBe("com.goodersoftware.mymeetingapp");
     expect(config.android.package).toBe("com.goodersoftware.mymeetingapp");
+  });
+
+  it("asks only for While Using location, never in the background (spec §2, §11)", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    expect(config.android.permissions).toEqual([
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.ACCESS_FINE_LOCATION",
+    ]);
+    expect(config.android.blockedPermissions).toContain("android.permission.ACCESS_BACKGROUND_LOCATION");
+    const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
+    expect(options.locationWhenInUsePermission).toContain("rounds it to about 1 km");
   });
 
   it("keeps its version parseable as the semantic version appVersion() expects (owner ruling M3)", () => {

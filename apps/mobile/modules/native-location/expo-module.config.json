@@ -1,0 +1,5 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": { "modules": ["NativeLocationModule"] },
+  "android": { "modules": ["expo.modules.nativelocation.NativeLocationModule"] }
+}

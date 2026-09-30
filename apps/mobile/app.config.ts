@@ -19,10 +19,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // Every build ships its JavaScript inside the app; nothing is downloaded over the air.
   updates: { enabled: false },
   ios: { bundleIdentifier: "com.goodersoftware.mymeetingapp", supportsTablet: false },
-  android: { package: "com.goodersoftware.mymeetingapp" },
+  android: {
+    package: "com.goodersoftware.mymeetingapp",
+    // Spec §11: coarse and fine foreground location only, never background.
+    permissions: ["android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"],
+    blockedPermissions: ["android.permission.ACCESS_BACKGROUND_LOCATION"],
+  },
   plugins: [
     "expo-router",
     "expo-sqlite",
+    [
+      // Spec §2: While Using only. `false` leaves the Always and motion purpose strings out of the app entirely.
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "mymeetingapp uses your location to sort nearby meetings. It rounds it to about 1 km before searching, and your exact location never leaves your phone.",
+        locationAlwaysAndWhenInUsePermission: false,
+        locationAlwaysPermission: false,
+        motionUsagePermission: false,
+      },
+    ],
     [
       "expo-font",
       {

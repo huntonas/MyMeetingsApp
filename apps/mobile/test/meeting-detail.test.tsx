@@ -119,8 +119,13 @@ describe("the meeting page", () => {
     expect(screen.getByRole("button", { name: "Help now: crisis lines" })).toBeOnTheScreen();
 
     // Only the meeting's own place is handed to Maps, which starts from the phone's location itself.
+    expect(screen.getByRole("button", { name: "Directions" })).toHaveProp("accessibilityHint", "Opens Maps");
     await fireEvent.press(screen.getByRole("button", { name: "Directions" }));
     expect(openURL).toHaveBeenLastCalledWith("https://maps.apple.com/?daddr=36.1627%2C-86.7816");
+    expect(screen.getByRole("button", { name: "Listed by aanashville.org" })).toHaveProp(
+      "accessibilityHint",
+      "Opens in your browser",
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Listed by aanashville.org" }));
     expect(openURL).toHaveBeenLastCalledWith("https://aanashville.org/meetings/nooners");
     expect(permissionChecks()).toBe(0);
@@ -141,7 +146,7 @@ describe("the meeting page", () => {
     setNow("2026-10-05T12:00:00Z");
     api.reply(PATH, { meeting: meeting({ timezone: "America/New_York" }) });
     await renderApp(`/meeting/${ID}`);
-    expect(await screen.findByText(WHEN)).toBeOnTheScreen();
+    expect(await screen.findByText(`${WHEN} (New York time)`)).toBeOnTheScreen();
     expect(screen.getByText("That's Monday at 11:00 AM your time.")).toBeOnTheScreen();
   });
 
@@ -171,8 +176,11 @@ describe("the meeting page", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Join online" }));
     expect(openURL).toHaveBeenLastCalledWith("https://zoom.us/j/123456");
     expect(screen.getByText("Password: serenity")).toBeOnTheScreen();
+    // The number and passcode stay on screen, selectable, for a phone that can't dial them itself.
+    expect(screen.getByText("+1 646 558 8656,,123456#")).toHaveProp("selectable", true);
     await fireEvent.press(screen.getByRole("button", { name: "Dial in" }));
-    expect(openURL).toHaveBeenLastCalledWith("tel:+16465588656,,123456#");
+    // A raw "#" ends a URL (Android cuts the call there, iOS refuses it), so it and "*" are percent-encoded.
+    expect(openURL).toHaveBeenLastCalledWith("tel:+16465588656,,123456%23");
     expect(screen.queryByRole("button", { name: "Directions" })).toBeNull();
     expect(screen.queryByRole("header", { name: "Where" })).toBeNull();
   });
@@ -196,6 +204,52 @@ describe("the meeting page", () => {
     api.reply(PATH, { meeting: meeting({ tags: [] }) });
     await renderApp(`/meeting/${ID}`);
     expect(await screen.findByText("No one has tagged this meeting yet.")).toBeOnTheScreen();
+  });
+
+  it("says so when the phone can't open a hand-off", async () => {
+    openURL.mockRejectedValue(new Error("No app handles this URL"));
+    api.reply(PATH, { meeting: meeting({ attendance: "hybrid", conferencePhone: "+1 646 558 8656" }) });
+    await renderApp(`/meeting/${ID}`);
+    expect(screen.queryByText(/couldn't/)).toBeNull();
+    await fireEvent.press(await screen.findByRole("button", { name: "Dial in" }));
+    expect(
+      await screen.findByText("This phone couldn't start a call. The number is shown above."),
+    ).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Directions" }));
+    expect(await screen.findByText("This phone couldn't open Maps.")).toBeOnTheScreen();
+  });
+
+  it("says the tag names are still to come when none have loaded", async () => {
+    // The tag list can't be read (no saved copy either), so no slug has a name to show.
+    api.reply(
+      "/api/v1/vocabulary",
+      { error: { code: "server_error", message: "Something went wrong." } },
+      500,
+    );
+    api.reply(PATH, { meeting: meeting() });
+    await renderApp(`/meeting/${ID}`);
+    await waitFor(() => {
+      expect(api.requests.some((r) => r.path === "/api/v1/vocabulary")).toBe(true);
+    });
+    expect(
+      await screen.findByText("Tag names haven't loaded yet. They'll appear when you're back online."),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText("No one has tagged this meeting yet.")).toBeNull();
+  });
+
+  it("never opens a link that isn't a web address", async () => {
+    // WebUrl allows only http and https, so the whole answer is refused rather than shown.
+    api.reply(PATH, {
+      meeting: { ...meeting({ attendance: "online" }), conferenceUrl: "javascript:alert(1)" },
+    });
+    await renderApp(`/meeting/${ID}`);
+    expect(
+      await screen.findByText(
+        "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Join online" })).toBeNull();
+    expect(openURL).not.toHaveBeenCalled();
   });
 
   it("follows a merged meeting to its new id, moving its saved copy", async () => {

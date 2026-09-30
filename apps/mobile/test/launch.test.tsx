@@ -111,6 +111,14 @@ describe("Help now", () => {
     await renderApp("/me");
     await fireEvent.press(await screen.findByRole("button", { name: "Help now: crisis lines" }));
     expect(await screen.findByText("988 Suicide & Crisis Lifeline")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Call 988" })).toHaveProp(
+      "accessibilityHint",
+      "Opens your phone app",
+    );
+    expect(screen.getByRole("button", { name: "Text 988" })).toHaveProp(
+      "accessibilityHint",
+      "Opens your messages app",
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Call 988" }));
     expect(openURL).toHaveBeenCalledWith("tel:988");
     await fireEvent.press(screen.getByRole("button", { name: "Text 988" }));

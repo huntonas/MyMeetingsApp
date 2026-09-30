@@ -7,6 +7,7 @@ import {
   type Scheduled,
   shortWhen,
   yourTime,
+  zoneName,
 } from "@/meetings/schedule";
 
 import { meeting } from "./fixtures";
@@ -146,6 +147,16 @@ describe("yourTime", () => {
   it("says nothing when the phone keeps the meeting's time", () => {
     const central = { day: 1, time: "19:30", endTime: null, timezone: "America/Chicago" };
     expect(yourTime(central, new Date("2026-10-05T12:00:00Z"))).toBeNull();
+  });
+});
+
+describe("zoneName", () => {
+  it.each([
+    ["America/New_York", "New York"],
+    ["America/Argentina/Buenos_Aires", "Buenos Aires"],
+    ["Pacific/Honolulu", "Honolulu"],
+  ])("names %s after its city, %s", (timezone, name) => {
+    expect(zoneName(timezone)).toBe(name);
   });
 });
 

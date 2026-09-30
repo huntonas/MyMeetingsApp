@@ -132,3 +132,9 @@ export function yourTime(meeting: Scheduled, now: Date): string | null {
   if (onPhone === `${WEEKDAYS[meeting.day] ?? ""} at ${listedTime(meeting.time)}`) return null;
   return `That's ${onPhone} your time.`;
 }
+
+// A zone as people name it: the city in its IANA name ("America/New_York" is "New York"). Not Intl's timeZoneName,
+// whose wording depends on the phone's ICU version and the date.
+export function zoneName(timezone: string): string {
+  return (timezone.split("/").at(-1) ?? timezone).replace(/_/g, " ");
+}

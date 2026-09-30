@@ -23,7 +23,10 @@ const TRANSFORMED = [
 module.exports = {
   preset: "jest-expo",
   maxWorkers: 1,
-  // Spies on React Native core APIs (Linking, AppState) never leak from one test into the next.
+  // Spies on React Native core APIs (Linking, AppState) never leak from one test into the next. The preset already
+  // mocks some of them (Linking.openURL is a jest.fn), and spying on a mock returns that same mock, which restoring
+  // doesn't reset; clearing drops the calls it recorded in earlier tests.
+  clearMocks: true,
   restoreMocks: true,
   setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
   testMatch: ["<rootDir>/test/**/*.test.{ts,tsx}"],

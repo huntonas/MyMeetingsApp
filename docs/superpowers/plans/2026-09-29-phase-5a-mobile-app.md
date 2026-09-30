@@ -1999,7 +1999,7 @@ git commit -m "feat(mobile): on-phone database and an offline cache that keeps t
 - Produces:
   - `appVersion(): string` and `appPlatform(): Platform` from `@/config/app-version`;
   - `UpgradeProvider` and `useUpgradeRequired(): boolean` from `@/config/upgrade`;
-  - `Button` from `@/ui/button`, with props `{ label: string; onPress: () => void; kind?: "primary" | "secondary" }` and at least 44 × 44 points;
+  - `Button` from `@/ui/button`, with props `{ label: string; onPress: () => void; kind?: "primary" | "secondary"; hint?: string }` (`hint` is the `accessibilityHint`, first used by Task 10's `HandOffButton`) and at least 44 × 44 points;
   - `HelpResources` from `@/ui/help-resources`;
   - `HelpNowButton` from `@/ui/help-now-button`;
   - `UpgradeNotice` from `@/ui/upgrade-notice`;

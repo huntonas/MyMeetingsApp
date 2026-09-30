@@ -1,8 +1,6 @@
-import { Linking } from "react-native";
-
 import { serverUrl } from "@/config/server-url";
 import { AppText } from "@/ui/app-text";
-import { Button } from "@/ui/button";
+import { HandOffButton } from "@/ui/hand-off-button";
 import { HelpResources } from "@/ui/help-resources";
 import { Screen } from "@/ui/screen";
 
@@ -17,7 +15,7 @@ export function UpgradeNotice() {
         This version is too old to find meetings. Your saved meetings, sobriety counter and help numbers still
         work.
       </AppText>
-      <Button label="Update the app" onPress={() => void Linking.openURL(`${serverUrl()}/`)} />
+      <HandOffButton to="web" label="Update the app" url={`${serverUrl()}/`} />
       <HelpResources />
     </Screen>
   );

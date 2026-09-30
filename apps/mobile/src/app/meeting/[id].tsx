@@ -1,7 +1,7 @@
 import { MeetingDetailResponse, type MeetingSummary } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useEffect } from "react";
-import { ActivityIndicator, Linking, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { z } from "zod";
 
 import { fetchMeeting } from "@/api/reads";
@@ -10,10 +10,10 @@ import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { appPlatform } from "@/config/app-version";
 import { directionsUrl } from "@/meetings/directions";
 import { meetingMoved } from "@/meetings/merged";
-import { listedTime, WEEKDAYS, yourTime } from "@/meetings/schedule";
+import { listedTime, WEEKDAYS, yourTime, zoneName } from "@/meetings/schedule";
 import { TYPE_LABELS } from "@/meetings/type-labels";
 import { AppText } from "@/ui/app-text";
-import { Button } from "@/ui/button";
+import { HandOffButton } from "@/ui/hand-off-button";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { TagChips, useLabelledTags } from "@/ui/tag-chips";
@@ -42,12 +42,13 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 // React Native's URL has no hostname getter, so the host is read with a pattern.
 const hostOf = (url: string) => /^https?:\/\/([^/?#]+)/.exec(url)?.[1] ?? url;
 
-function LinkButton({ label, url, kind }: { label: string; url: string; kind?: "primary" | "secondary" }) {
-  return <Button kind={kind} label={label} onPress={() => void Linking.openURL(url)} />;
-}
-
-// Keeps digits, "+" and the pause and extension characters (",", ";", "#", "*").
-const dialable = (phone: string) => `tel:${phone.replace(/[^\d+,;#*]/g, "")}`;
+// Keeps digits, "+" and the pause and extension characters (",", ";", "#", "*"). A raw "#" would end the URL (Android
+// cuts the call off there, and iOS refuses a tel: URL holding "#" or "*"), so both are percent-encoded.
+const dialable = (phone: string) =>
+  `tel:${phone
+    .replace(/[^\d+,;#*]/g, "")
+    .replace(/#/g, "%23")
+    .replace(/\*/g, "%2A")}`;
 
 // Spec §5: every tag, with its count, in the server's order.
 function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
@@ -58,6 +59,9 @@ function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
         <AppText>This group has asked not to be tagged.</AppText>
       ) : meeting.tags.length === 0 ? (
         <AppText>No one has tagged this meeting yet.</AppText>
+      ) : tags.length === 0 ? (
+        // No tag list on the phone yet (a first launch offline): a slug is never shown in place of its name.
+        <AppText tone="muted">Tag names haven't loaded yet. They'll appear when you're back online.</AppText>
       ) : (
         <TagChips tags={tags} />
       )}
@@ -67,9 +71,14 @@ function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
 
 function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
   const until = meeting.endTime === null ? "" : ` to ${listedTime(meeting.endTime)}`;
-  const when = `${WEEKDAYS[meeting.day] ?? ""}s, ${listedTime(meeting.time)}${until}`;
+  const listed = `${WEEKDAYS[meeting.day] ?? ""}s, ${listedTime(meeting.time)}${until}`;
   const phoneTime =
     meeting.timezone === null ? null : yourTime({ ...meeting, timezone: meeting.timezone }, new Date());
+  // When the phone's clock differs, the listed time says whose clock it's on.
+  const when =
+    phoneTime === null || meeting.timezone === null
+      ? listed
+      : `${listed} (${zoneName(meeting.timezone)} time)`;
   const directions = directionsUrl(meeting, appPlatform());
   return (
     <>
@@ -83,17 +92,27 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
           {meeting.locationName !== null && <AppText variant="label">{meeting.locationName}</AppText>}
           {meeting.formattedAddress !== null && <AppText>{meeting.formattedAddress}</AppText>}
           {meeting.locationNotes !== null && <AppText tone="muted">{meeting.locationNotes}</AppText>}
-          {directions !== null && <LinkButton label="Directions" url={directions} />}
+          {directions !== null && <HandOffButton to="maps" label="Directions" url={directions} />}
         </Section>
       )}
       {meeting.attendance !== "in_person" && (
         <Section title="Online">
-          {meeting.conferenceUrl !== null && <LinkButton label="Join online" url={meeting.conferenceUrl} />}
+          {meeting.conferenceUrl !== null && (
+            <HandOffButton to="web" label="Join online" url={meeting.conferenceUrl} />
+          )}
           {meeting.conferenceUrlNotes !== null && (
             <AppText tone="muted">{meeting.conferenceUrlNotes}</AppText>
           )}
           {meeting.conferencePhone !== null && (
-            <LinkButton kind="secondary" label="Dial in" url={dialable(meeting.conferencePhone)} />
+            <>
+              <AppText selectable>{meeting.conferencePhone}</AppText>
+              <HandOffButton
+                to="phone"
+                kind="secondary"
+                label="Dial in"
+                url={dialable(meeting.conferencePhone)}
+              />
+            </>
           )}
           {meeting.conferencePhoneNotes !== null && (
             <AppText tone="muted">{meeting.conferencePhoneNotes}</AppText>
@@ -116,7 +135,8 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
         Listings come from local AA service offices and may be out of date.
       </AppText>
       {meeting.sourceUrl !== null && (
-        <LinkButton
+        <HandOffButton
+          to="web"
           kind="secondary"
           label={`Listed by ${hostOf(meeting.sourceUrl)}`}
           url={meeting.sourceUrl}

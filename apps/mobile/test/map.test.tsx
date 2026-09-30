@@ -108,9 +108,16 @@ async function openMap() {
 
 type MapElement = Awaited<ReturnType<typeof screen.findByTestId>>;
 
-// The person drags or pinches the map, and lets go.
+// The person touches the map, drags or pinches it, and lets go.
 async function moveTo(map: MapElement, region: MapRegion) {
+  await fireEvent(map, "touchStart");
   await fireEvent(map, "regionChangeComplete", region);
+}
+
+async function waitForSearchesToSettle() {
+  await waitFor(() => {
+    expect(screen.queryByLabelText("Searching")).toBeNull();
+  });
 }
 
 describe("regionAround", () => {
@@ -162,10 +169,57 @@ describe("the results map", () => {
     await moveTo(map, PAN);
     await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
     await moveTo(map, { latitude: 35.8049, longitude: -83.9049, latitudeDelta: 0.2, longitudeDelta: 0.3 });
-    await waitFor(() => {
-      expect(screen.queryByLabelText("Searching")).toBeNull();
-    });
+    await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
+  });
+
+  // Both platforms report the region they fitted to the screen when the map first appears, before anyone touches it.
+  it("doesn't search or relabel when the map first appears", async () => {
+    const map = await openMap();
+    await fireEvent(map, "regionChangeComplete", {
+      latitude: 35.7565,
+      longitude: -83.9705,
+      latitudeDelta: 0.64,
+      longitudeDelta: 0.5535,
+    });
+    await waitForSearchesToSettle();
+    expect(searchBodies()).toEqual([FIRST_BODY]);
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+  });
+
+  it("keeps the last markers on the map while a pan's search loads", async () => {
+    const map = await openMap();
+    const answerPan = api.answerLater(SEARCH);
+    await moveTo(map, PAN);
+    expect(await screen.findByLabelText("Searching")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    answerPan({ meetings: [hill] });
+    expect(await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+  });
+
+  it("says plainly when a map area has no in-person meetings", async () => {
+    const map = await openMap();
+    api.reply(SEARCH, { meetings: [] });
+    await moveTo(map, PAN);
+    expect(
+      await screen.findByText("No in-person meetings within 11 miles of this map area."),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId("results-map")).toBe(map);
+    expect(screen.queryByText("Online meetings you can join")).toBeNull();
+  });
+
+  it("says when no marker matches the filters, and clears them from the map", async () => {
+    await openMap();
+    await fireEvent.press(screen.getByRole("button", { name: "Day filters" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Tuesday" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
+    expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.queryByText("No meetings match your filters.")).toBeNull();
+    expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
 
   it("keeps the map on screen while a pan's search loads, and a slower earlier search never replaces a newer one", async () => {
@@ -225,8 +279,12 @@ describe("the results map", () => {
 });
 
 describe("the person's own dot", () => {
-  it("isn't shown for a searched place", async () => {
-    await openMap();
+  it("isn't shown for a searched place, even after a pan", async () => {
+    const map = await openMap();
+    expect(mapProps().showsUserLocation).toBe(false);
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    expect(await screen.findByText("Near this map area")).toBeOnTheScreen();
     expect(mapProps().showsUserLocation).toBe(false);
   });
 
@@ -254,6 +312,8 @@ describe("the map's notices", () => {
       "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
     );
     expect(screen.getByTestId("results-map")).toBe(map);
+    // The earlier area's markers would read as this area's meetings.
+    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
   });
 
   it("labels a saved copy shown offline", async () => {

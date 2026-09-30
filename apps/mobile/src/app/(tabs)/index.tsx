@@ -1,5 +1,6 @@
+import type { MeetingSearchResponse } from "@mymeetingapp/shared";
 import { router } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Linking, View } from "react-native";
 
 import { useCachedRead } from "@/cache/use-cached-read";
@@ -85,6 +86,14 @@ function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProp
   const [mapRegion, setMapRegion] = useState(() => regionAround(origin.point, origin.radiusKm));
   // The person's dot shows only on a search near them (location is allowed by then), and stays through their pans.
   const [nearPerson] = useState(origin.kind === "me");
+  // The last meetings found, kept on the map while a pan's search loads so the markers don't flash off and on. Updated
+  // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
+  const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
+  if (state.status === "ready" && state.data.meetings !== lastFound) setLastFound(state.data.meetings);
+  const onMap = useMemo(
+    () => lastFound.filter((meeting) => matchesFilters(meeting, filters)),
+    [lastFound, filters],
+  );
   const heading = (
     <View style={{ gap: 12 }}>
       <AppText variant="title" accessibilityRole="header">
@@ -114,6 +123,20 @@ function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProp
   const savedNote = state.status === "ready" && state.savedAt !== null && (
     <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />
   );
+  // Spec §8: no in-person meetings here is said plainly, on the list and on the map.
+  const noneNearby = `No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`;
+  const noMatches = (
+    <>
+      <AppText>No meetings match your filters.</AppText>
+      <Button
+        kind="secondary"
+        label="Clear filters"
+        onPress={() => {
+          setFilters(NO_FILTERS);
+        }}
+      />
+    </>
+  );
   // The map stays mounted while a pan's search loads or fails, so the person's view never jumps.
   if (view === "map") {
     return (
@@ -122,13 +145,11 @@ function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProp
         {savedNote}
         {state.status === "failed" && <AppText accessibilityRole="alert">{state.message}</AppText>}
         <FilterPills />
+        {state.status === "ready" && state.data.meetings.length === 0 && <AppText>{noneNearby}</AppText>}
+        {state.status === "ready" && state.data.meetings.length > 0 && onMap.length === 0 && noMatches}
         <ResultsMap
           initialRegion={mapRegion}
-          meetings={
-            state.status === "ready"
-              ? state.data.meetings.filter((meeting) => matchesFilters(meeting, filters))
-              : []
-          }
+          meetings={state.status === "failed" ? [] : onMap}
           onMove={(region) => {
             setMapRegion(region);
             onMapMove(region);
@@ -154,13 +175,13 @@ function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProp
       </Screen>
     );
   const sorted = byExactDistance(state.data.meetings, origin.point);
-  // Spec §8: no in-person meetings here is said plainly, with the online meetings instead of an empty screen.
+  // The list offers the online meetings instead of an empty screen.
   if (sorted.length === 0) {
     return (
       <Screen>
         {heading}
         {savedNote}
-        <AppText>{`No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`}</AppText>
+        <AppText>{noneNearby}</AppText>
         <AppText variant="heading" accessibilityRole="header">
           Online meetings you can join
         </AppText>
@@ -183,18 +204,7 @@ function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProp
           {shown.length > 0 && (
             <AppText tone="muted">{`${String(shown.length)} ${shown.length === 1 ? "meeting" : "meetings"}`}</AppText>
           )}
-          {shown.length === 0 && (
-            <>
-              <AppText>No meetings match your filters.</AppText>
-              <Button
-                kind="secondary"
-                label="Clear filters"
-                onPress={() => {
-                  setFilters(NO_FILTERS);
-                }}
-              />
-            </>
-          )}
+          {shown.length === 0 && noMatches}
         </View>
       }
       renderItem={({ item }) => (
@@ -229,20 +239,14 @@ function Nearby() {
   // Spec §8: panning searches around the new map center, with the radius from the visible area. It changes the origin
   // without remounting the results, so the map stays as the person left it. useCachedRead reads only when the rounded
   // center or the radius changes, so a small drag sends nothing.
-  const moveMap = useCallback(
-    (region: MapRegion) => {
-      // A move is the newest request, so it takes a ticket like every other action. (Today every slow lookup starts
-      // from the place screen, where no map is shown, so nothing can be in flight to overtake it.)
-      begin();
-      setOrigin({
-        kind: "map",
-        label: "this map area",
-        point: { latitude: region.latitude, longitude: region.longitude },
-        radiusKm: radiusForRegion(region),
-      });
-    },
-    [begin],
-  );
+  const moveMap = useCallback((region: MapRegion) => {
+    setOrigin({
+      kind: "map",
+      label: "this map area",
+      point: { latitude: region.latitude, longitude: region.longitude },
+      radiusKm: radiusForRegion(region),
+    });
+  }, []);
 
   const searchNearMe = useCallback(
     async (when: "tap" | "launch") => {

@@ -43,6 +43,9 @@ let turn: Promise<unknown> = Promise.resolve();
 
 // Runs `task` in a transaction once every transaction started before it has finished: SQLite (and expo-sqlite) refuse
 // to begin one inside another, so two at once would lose the second. The one way to write in a transaction.
+// Never call inTransaction (or anything that does) inside `task`: it would wait for its own turn forever. Single
+// statements run outside the queue; one issued while a transaction is open joins it and is undone if that rolls back,
+// which is accepted because those writes are best effort.
 export function inTransaction(task: (db: AppDatabase) => Promise<void>): Promise<void> {
   const run = turn.then(async () => {
     const db = await appDatabase();

@@ -2,20 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 
 import { ApiError, Unreachable } from "@/api/client";
-import { cachedRead, type CachedRead } from "@/cache/cached-read";
+import { cachedRead, type CachedRead, type CachedResult } from "@/cache/cached-read";
 
 export type ReadState<T> =
-  | { status: "loading" }
-  | { status: "ready"; data: T; savedAt: Date | null }
-  | { status: "failed"; message: string };
+  { status: "loading" } | ({ status: "ready" } & CachedResult<T>) | { status: "failed"; message: string };
 
 const NO_COPY =
   "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.";
 
+// Anything else (a bug, a native module throwing) is ours, not the server's or the connection's; say so plainly
+// instead of leaving the screen on "Loading" forever.
+const GENERIC_FAILURE = "Something went wrong on this phone. Try again.";
+
 function failureMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Unreachable) return NO_COPY;
-  throw error;
+  return GENERIC_FAILURE;
 }
 
 // Reads `read` whenever its key changes, and again on refresh(); a refresh keeps showing what's already there.
@@ -29,7 +31,12 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
 
   useEffect(() => {
     const current = latest.current;
-    if (current === null) return;
+    if (current === null) {
+      // Otherwise the previous read's result (or failure) would stay on screen for a read that no longer applies.
+      shownKey.current = null;
+      setState({ status: "loading" });
+      return;
+    }
     let live = true;
     if (shownKey.current !== current.key) setState({ status: "loading" });
     shownKey.current = current.key;

@@ -13,17 +13,32 @@ export async function readCache(key: string): Promise<{ body: unknown; savedAt: 
   return { body: parsed, savedAt: new Date(saved_at) };
 }
 
-export async function writeCache(key: string, body: unknown): Promise<void> {
+export async function writeCache(key: string, body: unknown, savedAt: Date = new Date()): Promise<void> {
   const db = await appDatabase();
   await db.runAsync("insert or replace into cache_entries (key, body, saved_at) values (?, ?, ?)", [
     key,
     JSON.stringify(body),
-    Date.now(),
+    savedAt.getTime(),
   ]);
 }
 
-// Spec §8 keeps only the last search results offline.
-export async function forgetOtherSearches(keep: string): Promise<void> {
+// Spec §8 keeps only the last search results offline. Saving and pruning happen in one transaction, and the save is
+// skipped entirely if a newer search is already saved: two searches can resolve out of order (a slow request started
+// first can still finish last), and without this an older one finishing late would both overwrite a newer result
+// under a different key and then delete it while pruning.
+export async function writeSearchResult(key: string, body: unknown, savedAt: Date): Promise<void> {
   const db = await appDatabase();
-  await db.runAsync("delete from cache_entries where key like 'search:%' and key <> ?", [keep]);
+  await db.withTransactionAsync(async () => {
+    const newer = await db.getFirstAsync(
+      "select 1 from cache_entries where key like 'search:%' and key <> ? and saved_at > ?",
+      [key, savedAt.getTime()],
+    );
+    if (newer !== null) return;
+    await db.runAsync("insert or replace into cache_entries (key, body, saved_at) values (?, ?, ?)", [
+      key,
+      JSON.stringify(body),
+      savedAt.getTime(),
+    ]);
+    await db.runAsync("delete from cache_entries where key like 'search:%' and key <> ?", [key]);
+  });
 }

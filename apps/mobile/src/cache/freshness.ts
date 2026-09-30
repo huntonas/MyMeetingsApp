@@ -19,5 +19,8 @@ const REUSE_MINUTES = {
 export type CacheKind = keyof typeof REUSE_MINUTES;
 
 export function isFresh(kind: CacheKind, savedAt: Date, now: Date): boolean {
-  return now.getTime() - savedAt.getTime() < REUSE_MINUTES[kind] * 60_000;
+  const age = now.getTime() - savedAt.getTime();
+  // A phone clock that has moved backwards since the copy was saved (a negative age) is never fresh: without this,
+  // a saved copy would look fresh forever, since a negative age is always less than the window.
+  return age >= 0 && age < REUSE_MINUTES[kind] * 60_000;
 }

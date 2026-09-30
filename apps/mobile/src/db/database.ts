@@ -27,6 +27,13 @@ let opening: Promise<AppDatabase> | undefined;
 // The one database for everything the phone keeps: saved server responses and personal data. It never leaves the
 // phone except in the phone's own backups (owner decision 6).
 export function appDatabase(): Promise<AppDatabase> {
-  opening ??= openDatabaseAsync("mymeetingapp.db").then(migrate);
+  opening ??= openDatabaseAsync("mymeetingapp.db")
+    .then(migrate)
+    .catch((error: unknown) => {
+      // A failed open (or migration) isn't remembered: without this, one transient failure would fail every later
+      // call too, forever, since `opening` would stay set to this same rejected promise.
+      opening = undefined;
+      throw error;
+    });
   return opening;
 }

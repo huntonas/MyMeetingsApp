@@ -130,8 +130,13 @@ export default defineConfig([
     rules: { "no-restricted-globals": "off" },
   },
   {
-    // The one place allowed to open the database directly, and the fake standing in for expo-sqlite in tests.
-    files: ["apps/mobile/src/db/database.ts", "apps/mobile/test/native/**/*.ts"],
+    // The one place allowed to open the database directly, the fake standing in for expo-sqlite in tests, and the
+    // test proving appDatabase() recovers from a failed open (it has to spy on expo-sqlite's own openDatabaseAsync).
+    files: [
+      "apps/mobile/src/db/database.ts",
+      "apps/mobile/test/native/**/*.ts",
+      "apps/mobile/test/database.test.ts",
+    ],
     rules: {
       "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
     },

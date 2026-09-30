@@ -158,6 +158,22 @@ describe("Help now", () => {
     expect(openURL).toHaveBeenCalledWith("https://www.aa.org/find-aa");
   });
 
+  // Swiping the sheet down is the only other way out, and VoiceOver users need a button.
+  it("closes with a Close button, back where it was opened", async () => {
+    api.reply("/api/v1/config", CONFIG);
+    const app = await renderApp("/me");
+    await fireEvent.press(await screen.findByRole("button", { name: "Help now: crisis lines" }));
+    await waitFor(() => {
+      expect(app.getPathname()).toBe("/help");
+    });
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close).toHaveStyle({ minHeight: 44, minWidth: 44 });
+    await fireEvent.press(close);
+    await waitFor(() => {
+      expect(app.getPathname()).toBe("/me");
+    });
+  });
+
   it("is on the upgrade notice too", async () => {
     api.reply("/api/v1/config", tooOld);
     await renderApp("/");

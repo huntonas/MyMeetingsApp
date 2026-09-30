@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
@@ -8,6 +8,7 @@ import { VocabularyProvider } from "@/meetings/vocabulary";
 import { FiltersProvider } from "@/search/filters";
 import { useColors } from "@/theme/colors";
 import { FONT } from "@/theme/type";
+import { HeaderButton } from "@/ui/header-button";
 import { HelpNowButton } from "@/ui/help-now-button";
 
 export default function RootLayout() {
@@ -31,7 +32,7 @@ export default function RootLayout() {
               // still reads "Back" to VoiceOver.
               headerBackButtonDisplayMode: "minimal",
               // Spec §8: Help is reachable from every screen, including any root-stack screen future tasks add (T8's
-              // filters modal, T10's meeting route). Suppressed on the Help screen itself, below.
+              // filters modal, T10's meeting route). Replaced by Close on the Help screen itself, below.
               headerRight: () => <HelpNowButton />,
             }}
           >
@@ -39,9 +40,22 @@ export default function RootLayout() {
           suppressed here too, even though this header never shows: the tabs navigator renders its own (with the
           same button) instead. */}
             <Stack.Screen name="(tabs)" options={{ headerShown: false, headerRight: () => null }} />
+            {/* The Help screen gets Close in place of its own Help button: swiping the sheet down is the only other way
+          out, and VoiceOver users need a button. */}
             <Stack.Screen
               name="help"
-              options={{ presentation: "modal", title: "Help now", headerRight: () => null }}
+              options={{
+                presentation: "modal",
+                title: "Help now",
+                headerRight: () => (
+                  <HeaderButton
+                    label="Close"
+                    onPress={() => {
+                      router.back();
+                    }}
+                  />
+                ),
+              }}
             />
             <Stack.Screen name="filters" options={{ presentation: "modal", title: "Filters" }} />
             <Stack.Screen name="meeting/[id]" options={{ title: "Meeting" }} />

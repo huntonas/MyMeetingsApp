@@ -54,13 +54,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-sqlite",
     ["expo-splash-screen", { image: MARK, imageWidth: 200, backgroundColor: ACCENT }],
     [
-      // Spec §2: While Using only. `false` leaves the Always and motion purpose strings out of the app entirely.
+      // Spec §2: While Using only. `false` leaves the Always purpose strings out of the app entirely. The motion string
+      // is required anyway: Apple rejects the upload without it (ITMS-90683) because the location library can reach
+      // motion APIs, though the app never asks for them.
       "expo-location",
       {
         locationWhenInUsePermission: `${APP_NAME} uses your location to sort nearby meetings. It rounds it to about 1 km before searching, and your exact location never leaves your phone.`,
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
-        motionUsagePermission: false,
+        motionUsagePermission: `${APP_NAME} never uses motion or fitness data. It asks only for your location, and only when you tap to use it.`,
       },
     ],
     // Spec §8: Apple Maps on iOS, which needs no key, and Google Maps on Android. The Android key is a build secret

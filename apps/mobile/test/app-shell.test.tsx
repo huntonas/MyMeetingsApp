@@ -57,7 +57,7 @@ const LocationPlugin = z.tuple([
       locationWhenInUsePermission: z.string(),
       locationAlwaysAndWhenInUsePermission: z.literal(false),
       locationAlwaysPermission: z.literal(false),
-      motionUsagePermission: z.literal(false),
+      motionUsagePermission: z.string(),
     })
     .strict(),
 ]);
@@ -190,6 +190,15 @@ describe("the app config", () => {
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
     expect(options.locationWhenInUsePermission).toMatch(new RegExp(`^${BRAND.appName} `));
     expect(options.locationWhenInUsePermission).toContain("rounds it to about 1 km");
+  });
+
+  // Apple rejects an upload whose code could reach motion data without a purpose string (ITMS-90683, TestFlight build
+  // 2), even though the app never asks for it; the string says so plainly.
+  it("carries an honest motion purpose string, saying the app never uses motion data", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
+    expect(options.motionUsagePermission).toMatch(new RegExp(`^${BRAND.appName} `));
+    expect(options.motionUsagePermission).toContain("never");
   });
 
   it("takes the Android Google Maps key from the build's environment, and ships none of its own", () => {

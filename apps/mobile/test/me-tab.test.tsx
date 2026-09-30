@@ -88,7 +88,7 @@ describe("the sobriety counter", () => {
     expect(await screen.findByText(INTRO)).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: "Set my sobriety date" })).toHaveProp(
       "accessibilityHint",
-      "Opens a calendar to choose the date",
+      "Opens a date picker to choose the date",
     );
     await fireEvent.press(screen.getByRole("button", { name: "Set my sobriety date" }));
     expect(screen.getByRole("button", { name: "Save this date" })).toHaveProp(
@@ -129,7 +129,7 @@ describe("the sobriety counter", () => {
     await openMe();
     expect(await screen.findByRole("button", { name: "Set a new date" })).toHaveProp(
       "accessibilityHint",
-      "Opens a calendar to choose another date",
+      "Opens a date picker to choose another date",
     );
     await setDate("Set a new date", 2026, 9, 1);
     expect(await screen.findByText("4 days")).toBeOnTheScreen();

@@ -154,7 +154,7 @@ export function SobrietyCard() {
         {picker === false && (
           <Button
             label="Set my sobriety date"
-            hint="Opens a calendar to choose the date"
+            hint="Opens a date picker to choose the date"
             onPress={openPicker}
           />
         )}
@@ -170,7 +170,7 @@ export function SobrietyCard() {
       <Button
         kind="secondary"
         label="Set a new date"
-        hint="Opens a calendar to choose another date"
+        hint="Opens a date picker to choose another date"
         onPress={openPicker}
       />
       <ConfirmButton

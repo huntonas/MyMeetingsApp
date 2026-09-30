@@ -12,6 +12,7 @@ const Version = z.object({ user_version: z.number().int() });
 
 async function migrate(db: AppDatabase): Promise<AppDatabase> {
   const { user_version: current } = Version.parse(await db.getFirstAsync("pragma user_version", []));
+  // Migrations run before appDatabase() resolves, so no inTransaction() can start alongside them.
   for (const [index, statement] of MIGRATIONS.entries()) {
     if (index < current) continue;
     await db.withTransactionAsync(async () => {
@@ -36,4 +37,18 @@ export function appDatabase(): Promise<AppDatabase> {
       throw error;
     });
   return opening;
+}
+
+let turn: Promise<unknown> = Promise.resolve();
+
+// Runs `task` in a transaction once every transaction started before it has finished: SQLite (and expo-sqlite) refuse
+// to begin one inside another, so two at once would lose the second. The one way to write in a transaction.
+export function inTransaction(task: (db: AppDatabase) => Promise<void>): Promise<void> {
+  const run = turn.then(async () => {
+    const db = await appDatabase();
+    await db.withTransactionAsync(() => task(db));
+  });
+  // A failed transaction still hands over the turn.
+  turn = run.catch(() => undefined);
+  return run;
 }

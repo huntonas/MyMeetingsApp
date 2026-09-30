@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
+import { savedCopy } from "@/cache/cached-read";
 import { GENERIC_FAILURE, useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { detailRead } from "@/meetings/detail-read";
@@ -13,6 +14,33 @@ import { Button } from "@/ui/button";
 import { MeetingCard } from "@/ui/meeting-card";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
+
+// The server no longer has the meeting, so its name comes from the copy saved on the phone, when there is one.
+function NoLongerListed({ id, onChanged }: { id: string; onChanged: () => void }) {
+  const [name, setName] = useState<string | null>();
+  useEffect(() => {
+    void savedCopy(detailRead(id)).then((copy) => {
+      setName(copy?.data.meeting.name ?? null);
+    });
+  }, [id]);
+  if (name === undefined) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      <AppText>{`${name ?? "This meeting"} is no longer listed.`}</AppText>
+      <Button
+        kind="secondary"
+        label={name === null ? "Remove" : `Remove ${name}`}
+        hint="Removes it from your saved meetings"
+        onPress={() => {
+          // A failed removal leaves the row as it was, to try again.
+          void setFavorite(id, false)
+            .then(onChanged)
+            .catch(() => undefined);
+        }}
+      />
+    </View>
+  );
+}
 
 // Each saved meeting is read like its page: a copy inside its reuse window is shown without asking the server, so
 // coming back to the tab asks only for the meetings whose copies have aged out.
@@ -30,21 +58,7 @@ function SavedRow({ id, onChanged }: { id: string; onChanged: () => void }) {
   if (state.status === "loading") return <ActivityIndicator accessibilityLabel="Loading a saved meeting" />;
   if (state.status === "failed") {
     if (!state.gone) return <AppText accessibilityRole="alert">{state.message}</AppText>;
-    return (
-      <View style={{ gap: 8 }}>
-        <AppText>This meeting is no longer listed.</AppText>
-        <Button
-          kind="secondary"
-          label="Remove"
-          hint="Removes it from your saved meetings"
-          onPress={() => {
-            void setFavorite(id, false)
-              .catch(() => undefined)
-              .then(onChanged);
-          }}
-        />
-      </View>
-    );
+    return <NoLongerListed id={id} onChanged={onChanged} />;
   }
   const { meeting } = state.data;
   return (

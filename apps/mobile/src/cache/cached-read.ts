@@ -31,7 +31,8 @@ function fallbackReason(error: unknown): FallbackReason | null {
   return null;
 }
 
-async function savedCopy<S extends z.ZodType>(read: CachedRead<S>) {
+// The copy saved for `read`, however old, or null. Never throws.
+export async function savedCopy<S extends z.ZodType>(read: CachedRead<S>) {
   // The cache is best effort: a broken saved copy (a corrupt row, unreadable JSON, a native storage error) is as
   // good as none, so the read still asks the server instead of failing outright.
   const saved = await readCache(read.key).catch(() => null);

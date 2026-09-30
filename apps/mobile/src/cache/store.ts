@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { appDatabase } from "@/db/database";
+import { appDatabase, inTransaction } from "@/db/database";
 
 const Row = z.object({ body: z.string(), saved_at: z.number() });
 
@@ -27,8 +27,7 @@ export async function writeCache(key: string, body: unknown, savedAt: Date = new
 // first can still finish last), and without this an older one finishing late would both overwrite a newer result
 // under a different key and then delete it while pruning.
 export async function writeSearchResult(key: string, body: unknown, savedAt: Date): Promise<void> {
-  const db = await appDatabase();
-  await db.withTransactionAsync(async () => {
+  await inTransaction(async (db) => {
     const newer = await db.getFirstAsync(
       "select 1 from cache_entries where key like 'search:%' and key <> ? and saved_at > ?",
       [key, savedAt.getTime()],

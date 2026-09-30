@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { appDatabase } from "@/db/database";
+import { appDatabase, inTransaction } from "@/db/database";
 import { type LatLng, roundForSearch } from "@/location/geo";
 
 export type RecentPlace = LatLng & { label: string };
@@ -12,8 +12,7 @@ const Row = z.object({ label: z.string(), latitude: z.number(), longitude: z.num
 // and a typed home address is then never stored more precisely than about 1 km.
 export async function rememberPlace(label: string, point: LatLng): Promise<void> {
   const { latitude, longitude } = roundForSearch(point);
-  const db = await appDatabase();
-  await db.withTransactionAsync(async () => {
+  await inTransaction(async (db) => {
     // `label` collates without case, so "place 3" replaces "Place 3" and the newest spelling is kept.
     await db.runAsync("delete from recent_places where label = ?", [label]);
     await db.runAsync("insert into recent_places (label, latitude, longitude, used_at) values (?, ?, ?, ?)", [

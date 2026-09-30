@@ -132,7 +132,19 @@ export default defineConfig([
         "error",
         { name: "fetch", message: "Use getJson/postJson from @/api/client." },
       ],
+      "no-restricted-properties": [
+        "error",
+        {
+          property: "withTransactionAsync",
+          message: "Use inTransaction() from @/db/database, which runs one transaction at a time.",
+        },
+      ],
     },
+  },
+  {
+    // Migrations run while the database opens, before inTransaction() can be called.
+    files: ["apps/mobile/src/db/database.ts"],
+    rules: { "no-restricted-properties": "off" },
   },
   {
     // The one place allowed to call fetch directly.

@@ -1,6 +1,8 @@
 import type { AppDatabase } from "@/db/database";
 import { appDatabase } from "@/db/database";
 import { MIGRATIONS } from "@/db/migrations";
+import { readCache, writeCache } from "@/cache/store";
+import { meetingMoved } from "@/meetings/merged";
 import type * as DatabaseModule from "@/db/database";
 import type * as ExpoSqliteModule from "expo-sqlite";
 
@@ -105,6 +107,28 @@ describe("appDatabase: upgrading a phone installed before favorites", () => {
     expect(await upgraded.getAllAsync("select label from recent_places", [])).toEqual([
       { label: "Nashville, TN" },
     ]);
+  });
+});
+
+describe("transactions", () => {
+  it("take turns, so two at once both land", async () => {
+    await writeCache("meeting:a", {});
+    await writeCache("meeting:b", {});
+    await Promise.allSettled([meetingMoved("a", "a2"), meetingMoved("b", "b2")]);
+    expect(await readCache("meeting:a2")).not.toBeNull();
+    expect(await readCache("meeting:b2")).not.toBeNull();
+    expect(await readCache("meeting:a")).toBeNull();
+    expect(await readCache("meeting:b")).toBeNull();
+  });
+
+  it("still take turns after one fails", async () => {
+    const db = await appDatabase();
+    jest.spyOn(db, "withTransactionAsync").mockRejectedValueOnce(new Error("disk full"));
+    await writeCache("meeting:a", {});
+    await writeCache("meeting:b", {});
+    const moves = await Promise.allSettled([meetingMoved("a", "a2"), meetingMoved("b", "b2")]);
+    expect(moves.map((move) => move.status)).toEqual(["rejected", "fulfilled"]);
+    expect(await readCache("meeting:b2")).not.toBeNull();
   });
 });
 

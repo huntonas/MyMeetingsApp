@@ -4,6 +4,7 @@ import path from "node:path";
 import { z } from "zod";
 
 const EasJson = z.object({
+  submit: z.record(z.string(), z.object({ ios: z.object({ ascAppId: z.string() }) })),
   build: z.record(
     z.string(),
     z.looseObject({ env: z.record(z.string(), z.string()).optional(), pnpm: z.string().optional() }),
@@ -20,6 +21,10 @@ describe("EAS build profiles", () => {
     const { build } = easJson();
     expect(build.testflight?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp-staging.vercel.app");
     expect(build.production?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp.vercel.app");
+  });
+
+  it("submits TestFlight builds to the App Store Connect app EAS created on the first submit", () => {
+    expect(easJson().submit.testflight?.ios.ascAppId).toBe("6817873804");
   });
 
   // EAS installs this pnpm itself. With corepack enabled as well, its install collided with corepack's shim and the

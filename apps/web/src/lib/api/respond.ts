@@ -3,16 +3,34 @@ import type { z } from "zod";
 
 import { logError } from "@/lib/log";
 
-// Add a policy here when the first route that needs it lands.
+// How long the CDN may serve a copy (s-maxage), then keep serving it stale while it refetches, in seconds. null is
+// never cached. Add a policy here when the first route that needs it lands.
 const CACHE_POLICIES = {
-  none: "no-store",
-  vocabulary: "public, s-maxage=3600, stale-while-revalidate=86400",
-  config: "public, s-maxage=300, stale-while-revalidate=600",
-  meetingDetail: "public, s-maxage=300, stale-while-revalidate=600",
-  onlineMeetings: "public, s-maxage=900, stale-while-revalidate=3600",
+  none: null,
+  vocabulary: { sMaxAge: 3600, staleWhileRevalidate: 86_400 },
+  config: { sMaxAge: 300, staleWhileRevalidate: 600 },
+  meetingDetail: { sMaxAge: 300, staleWhileRevalidate: 600 },
+  onlineMeetings: { sMaxAge: 900, staleWhileRevalidate: 3600 },
 } as const;
 
 type CachePolicy = keyof typeof CACHE_POLICIES;
+
+function cacheControl(policy: CachePolicy): string {
+  const lifetimes = CACHE_POLICIES[policy];
+  if (lifetimes === null) return "no-store";
+  return `public, s-maxage=${String(lifetimes.sMaxAge)}, stale-while-revalidate=${String(lifetimes.staleWhileRevalidate)}`;
+}
+
+const staleSeconds = (lifetimes: { sMaxAge: number; staleWhileRevalidate: number }) =>
+  lifetimes.sMaxAge + lifetimes.staleWhileRevalidate;
+
+// The longest the CDN can go on serving a meeting response (its details, or the online list with its tag counts)
+// after the data behind it changed. The site's and admin notices' "the app catches up" promises are built from it.
+export const MEETING_CACHE_MINUTES =
+  Math.max(...[CACHE_POLICIES.meetingDetail, CACHE_POLICIES.onlineMeetings].map(staleSeconds)) / 60;
+
+// The same for the tag list (vocabulary), which the admin notices about new, retired and restored tags promise.
+export const VOCABULARY_CACHE_HOURS = staleSeconds(CACHE_POLICIES.vocabulary) / 3600;
 
 const ERROR_STATUS: Record<ErrorCode, number> = {
   invalid_request: 400,
@@ -40,7 +58,7 @@ export function jsonResponse<Schema extends z.ZodType>(
 ): Response {
   return Response.json(schema.parse(data), {
     status,
-    headers: { "Cache-Control": CACHE_POLICIES[cachePolicy] },
+    headers: { "Cache-Control": cacheControl(cachePolicy) },
   });
 }
 

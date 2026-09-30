@@ -12,6 +12,7 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 - Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, created with `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`. Since 2026-09-29 it is connected to **Production only** (reconnected with no per-deployment branching, no prefix, Sensitive off so `vercel env run` can read the URLs); Preview has its own variables (see "Preview databases").
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
   - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
+- **Restore history:** the privacy policy says deleted data can remain in Neon's restore history for at most 30 days (owner decision 3). Keep the production project's restore window at 30 days or less, and record the configured window here: _not yet recorded_.
 
 Needs the dashboard (no CLI or API for these): see "Preview databases" below.
 
@@ -47,6 +48,9 @@ Preview deployments are protected, so use `vercel curl` (or a deployment protect
 - `/api/v1/vocabulary` returns 200 with every starter tag, including `old-timers`, and `cache-control: public, s-maxage=3600, stale-while-revalidate=86400`.
 - `/api/v1/config` returns 200 with the configured versions and switches.
 - In the Neon console, `preview`'s parent is `seed` and its last restore is the build's time.
+- `/`, `/privacy`, `/terms` and `/support` return 200 and set no cookie.
+- `/robots.txt` disallows `/metrics` and `/api/`.
+- `/metrics` returns 401 without credentials and 200 with them.
 
 ## Phase 2: meeting sync
 
@@ -122,7 +126,7 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 - `DEVICE_ID_PEPPER`: sensitive, different in every environment (generate each with `openssl rand -hex 32`). The production and preview values live in `apps/web/.env.secrets` (see "Local secrets file"), because Vercel won't show a sensitive value again. It can never be rotated: every device hash and submitter id derives from it, and `db:block-device` needs it.
 - `REQUIRE_ATTESTATION=off` in Production and Preview until Phase 6. Any other value refuses every write, because no platform verifier exists yet.
-- `SUGGESTION_MODEL`: a model the AI Gateway lists with `zdr: "all"`, currently `openai/gpt-5-nano` (owner decision 2026-09-29: the gateway's free tier doesn't include `anthropic/claude-haiku-4.5`; switching back needs paid gateway credits and only this variable). Check a model with `curl -fsSL https://ai-gateway.vercel.sh/v1/models | jq '.data[] | select(.id=="openai/gpt-5-nano") | .zdr'`. The AI Gateway needs a card on the Vercel team. Without the variable, suggestions stay pending and each request logs a warning.
+- `SUGGESTION_MODEL`: a model the AI Gateway lists with `zdr: "all"`, currently `openai/gpt-5-nano` (owner decision 2026-09-29: the gateway's free tier doesn't include `anthropic/claude-haiku-4.5`; switching back needs paid gateway credits and only this variable). Check a model with `curl -fsSL https://ai-gateway.vercel.sh/v1/models | jq '.data[] | select(.id=="openai/gpt-5-nano") | .zdr'`. The AI Gateway needs a card on the Vercel team. Without the variable, suggestions stay pending and each request logs a warning. The privacy policy names the current model (`THIRD_PARTIES` in `apps/web/src/content/privacy-inventory.ts`), so changing `SUGGESTION_MODEL` means updating that entry in the same change.
 - The AI Gateway authenticates with Vercel OIDC; no API key is set on Vercel.
 
 ### Maintenance cron
@@ -130,6 +134,8 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 `/api/cron/maintenance` runs nightly at 08:07 UTC (off the quarter hour, so it never starts alongside a feed sync): it purges `tag_audit` rows older than 7 days, `rate_limits` rows older than yesterday (UTC), suggestion device links older than 30 days and devices inactive for 13 months (blocked devices are kept), then recounts every meeting's tags. Run it by hand from Settings → Cron Jobs → Run. The response is counts only.
 
 ### Blocking a device
+
+Normally, block from `/metrics/swings`: open the flag, then choose Block next to each phone behind it. The CLI below does the same thing and stays for when the site is down.
 
 Find the device's hash in `tag_audit` for the flagged meeting (Neon SQL editor on production; rows last 7 days). Move `apps/web/.env.local` aside, then from `apps/web`:
 
@@ -140,13 +146,62 @@ vercel env run -e production -- sh -c 'DEVICE_ID_PEPPER="$0" pnpm db:block-devic
 
 `vercel env run` supplies the production `DATABASE_URL` but can't read the sensitive pepper, so it comes from `.env.secrets`. Restore `.env.local` afterwards. Blocking excludes the device's tags on every meeting and refuses its future writes; the `devices` row is kept, even through delete-mine and the 13-month purge.
 
+If the page answers that a block stopped part-way, choose Block again. If the phone already shows as blocked there, its tags were excluded but the last step (rewriting the `devices` row so it shares no transaction id with the excluded rows) didn't run: finish it with the CLI above, using the full hash from `tag_audit` whose first 12 characters the page shows. Running a block again is safe; it repeats every step.
+
 ### Local secrets file
 
 `apps/web/.env.secrets` (git-ignored, mode 600, never loaded automatically) holds the values Vercel stores as sensitive and can't show again: `DEVICE_ID_PEPPER_PRODUCTION`, `DEVICE_ID_PEPPER_PREVIEW` and `NEON_API_KEY`. It is the only readable copy of the production pepper, so keep an encrypted backup. Losing it doesn't stop production, but nothing could then block a device, and a deleted Vercel variable couldn't be restored. Local development uses its own pepper in `.env.local`.
 
+Phase 4 adds four more sensitive values to the same file, the same way: `METRICS_USER_PRODUCTION`, `METRICS_PASSWORD_PRODUCTION`, `METRICS_USER_PREVIEW` and `METRICS_PASSWORD_PREVIEW` (see "Phase 4: website and metrics" below). Losing these doesn't stop production either, but nobody could sign in to `/metrics` until they're reset with `vercel env rm` / `vercel env add` and a new password saved in both places.
+
 ### Privacy
 
 Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, `rate_limits`, `suggestions`, `ai_decisions`, `tag_swings`, `meeting_aliases`) hold production data only on `main`. **Production device data never reaches `seed` or `preview`:** `seed` is never refreshed from `main`, and `preview` is restored from `seed` on every preview build.
+
+## Phase 4: website and metrics
+
+### Variables
+
+- `SITE_URL`: the canonical origin, already set to `https://mymeetingapp.vercel.app` in Production and Preview (not sensitive). It is baked into static pages, `robots.txt` and the sitemap at build time (`src/lib/site-url.ts`), so a change needs a redeploy. A missing or malformed value fails the build.
+- `METRICS_USER` / `METRICS_PASSWORD`: sensitive, different in Production and Preview. The password must be at least 16 characters (`MIN_PASSWORD_LENGTH` in `src/lib/admin-auth.ts`); a shorter one, or either variable being unset, refuses every sign-in. Generate the password with `openssl rand -base64 30` and save it in the password manager, then set both with `vercel env add METRICS_USER production --sensitive` and `vercel env add METRICS_PASSWORD production --sensitive` (repeat for `preview` with a different password). Like the peppers, the readable copies also go in `apps/web/.env.secrets` (see "Local secrets file" above), because Vercel won't show a sensitive value again.
+
+### Signing in to /metrics
+
+- Open `/metrics`; the browser asks for the user name and password.
+- **Owner step: a Vercel Firewall rate-limit rule.** In the dashboard → the project → Firewall → Rules, add a custom rule: the path starts with `/metrics`, rate-limited by IP address, a 60-second window, about 30 requests, action Deny (429). This is the per-visitor limit; the app itself stores no IP address for a sign-in attempt (spec §2). **Status (2026-09-29): not yet created — the owner deferred it.** Until it exists, only the site-wide backstop applies; if a burst locks the owner out, clear it with the SQL below.
+- Backstop: the app also keeps one site-wide count of failed sign-ins, in Postgres, with no IP, device or user name attached. After 200 failed sign-ins in a UTC day, everyone is refused (429) until midnight UTC, even with the right credentials. A test burst against a preview or production counts toward this same total. Clear it in the Neon SQL editor:
+  ```sql
+  delete from rate_limits where bucket = 'metrics_login';
+  ```
+
+### Weekly review
+
+- `/metrics`: an overview of phone, tagging and feed totals, and any feed needing attention.
+- `/metrics/suggestions`: approve, merge or reject each pending suggestion. Reviewing removes the device link.
+- `/metrics/swings`: open each flag, block the phones behind it if it's spam, then close the flag. If the page answers that a block stopped part-way (`block_unfinished`), choose Block again; it's safe to repeat, and the CLI fallback for when the site is down is in "Blocking a device" above.
+- Opt-out emails go to `/metrics/opt-outs`. For a feed, also add `opted_out: true` to its entry in `tools/feed-discovery/registry.yaml` in a pull request, so the registry records it.
+- `/metrics/vocabulary`: retire or restore tags.
+
+### Privacy policy upkeep
+
+- The policy renders `apps/web/src/content/privacy-inventory.ts`, and `privacy-policy.test.tsx` checks it against SPEC.md §2 and §13 and the schema.
+- When `SUGGESTION_MODEL` changes, update the suggestion-screening entry in `THIRD_PARTIES`.
+- The policy and terms say "Draft, pending legal review" until the §16 legal review is done.
+- **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 30 days (owner decision 3). Keep the production project's restore window at 30 days or less. Configured window: _not yet recorded_ (see "Restore history" under "One-time setup" above; the owner records the actual value there once checked in the Neon console). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
+- **Support email, every quarter:** the policy says we delete support email within 90 days after it's resolved, and that deleted mail can remain in Google's trash and recovery for up to about 55 days after that. Each quarter, never more than 90 days after the last pass, delete every resolved support thread in the Google Workspace mailbox for `admin@goodersoftwarellc.com`, then empty Trash. (Deleting only threads resolved more than 90 days ago, once a quarter, would let a thread wait up to about 180 days.) Never copy an email address or message anywhere else, or link it to a device or tags.
+
+### Connecting mymeetingapp.com later (not done in Phase 4)
+
+1. Vercel → the project → Settings → Domains: add `mymeetingapp.com`, and add `www.mymeetingapp.com` redirecting to it.
+2. At the registrar, set the DNS records Vercel shows (an A record for the apex and a CNAME for `www`), or point the nameservers at Vercel.
+3. Wait until Vercel shows the domain as valid, with a certificate.
+4. Replace `SITE_URL` for Production (and Preview) with `https://mymeetingapp.com`: `vercel env rm SITE_URL production`, then `vercel env add SITE_URL production`.
+5. Redeploy production, because the static pages, `robots.txt` and the sitemap carry `SITE_URL` from the build.
+6. Check that `https://mymeetingapp.com/robots.txt` names `https://mymeetingapp.com/sitemap.xml`, and that `/privacy`'s canonical link uses the new domain.
+7. `mymeetingapp.vercel.app` keeps working. Once the new domain is live, you can redirect it from the Vercel domain settings.
+8. The feed User-Agent already names `mymeetingapp.com` (`BRAND.domain`), so nothing changes there. Update the store listings' privacy and support URLs if they were already submitted.
+
+This step is deliberately out of Phase 4 (owner decision 2026-09-29: no domain yet); Phase 4 ends with the site live on the Vercel address.
 
 ## Rules
 

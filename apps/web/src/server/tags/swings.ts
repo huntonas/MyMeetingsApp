@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { Executor } from "@/db/client";
 import { tagSwings } from "@/db/schema";
+import { RETENTION } from "@/server/retention";
 
 const MIN_NEW_DEVICES = 5;
 const MAX_PRIOR_DEVICES = 10;
@@ -14,7 +15,7 @@ export async function flagTagSwings(meetingId: string, executor: Executor): Prom
     with counted as (
       select tag_ids, confirmed_at > now() - interval '48 hours' as recent
       from tag_submissions
-      where meeting_id = ${meetingId}::uuid and not excluded and confirmed_at > now() - interval '180 days'
+      where meeting_id = ${meetingId}::uuid and not excluded and confirmed_at > now() - make_interval(days => ${RETENTION.countWindowDays}::int)
     ),
     prior as (select count(*)::int as devices from counted where not recent),
     gained as (

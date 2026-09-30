@@ -4,7 +4,9 @@ import { check, index, integer, pgTable, serial, text, timestamp } from "drizzle
 import { tags } from "@/db/schema/tags";
 import { sqlStringList } from "@/db/sql";
 
-const SUGGESTION_STATUSES = ["pending", "merged", "rejected"] as const;
+const SUGGESTION_STATUSES = ["pending", "approved", "merged", "rejected"] as const;
+// The statuses that name a tag: approved (it became a new tag) and merged (into an existing one).
+const TAGGED_STATUSES = ["approved", "merged"] as const;
 export const AI_DECISIONS = ["merge", "reject", "pending"] as const;
 
 // Spec §5: the text is kept; the device link lasts only until review or 30 days, whichever comes first.
@@ -14,6 +16,7 @@ export const suggestions = pgTable(
     id: serial("id").primaryKey(),
     text: text("text").notNull(),
     status: text("status", { enum: SUGGESTION_STATUSES }).notNull().default("pending"),
+    // The tag it became (approved) or joined (merged).
     mergedTagId: integer("merged_tag_id").references(() => tags.id),
     deviceHash: text("device_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -24,7 +27,7 @@ export const suggestions = pgTable(
     check("suggestions_text_check", sql`char_length(${table.text}) between 2 and 40`),
     check(
       "suggestions_merged_tag_check",
-      sql`(${table.status} = 'merged') = (${table.mergedTagId} is not null)`,
+      sql`(${table.status} in (${sqlStringList(TAGGED_STATUSES)})) = (${table.mergedTagId} is not null)`,
     ),
     index("suggestions_device_idx").on(table.deviceHash),
   ],

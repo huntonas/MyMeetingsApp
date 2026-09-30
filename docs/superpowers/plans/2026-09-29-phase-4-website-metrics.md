@@ -60,9 +60,10 @@ Each item has a recommendation, and the plan is written to follow it so work isn
    - The e2e script builds with `DATABASE_URL=` (empty), so it also enforces "nothing queries the database at build time".
    - CI swaps its bare build step for it, which adds roughly two minutes.
    - It isn't part of `pnpm check`. Tasks that touch the proxy, pages or Server Actions run it explicitly, and every phase ends with it.
-9. **CSRF.** `proxy.ts` refuses any non-GET/HEAD request to `/metrics` whose `Origin` doesn't match the host (`x-forwarded-host`, else `host`), and one with no `Origin`, before any credentials are checked.
-   - Basic credentials ride along on cross-site requests, so this is the real protection.
-   - Next.js checks Server Actions the same way, but it logs the mismatched header values. Refusing first keeps them out of the logs.
+9. **CSRF.** `proxy.ts` refuses any non-GET/HEAD request whose `Origin` doesn't match the host (`x-forwarded-host`, else `host`), and one with no `Origin`, on every path but `/api/` (and Next's built assets), before any credentials are checked. Nothing is logged.
+   - Basic credentials ride along on cross-site requests, so this is the real protection for `/metrics`.
+   - Next.js checks Server Actions the same way on every page, but it logs the requests it refuses. Refusing first keeps them out of the logs.
+   - `/api/` is left out: the mobile app calls it with no `Origin`, and crons use GET.
 10. **`proxy.ts` is the one file that may import `NextResponse`,** for `NextResponse.next({ headers })`. ESLint exempts only that file.
 11. **Admin actions re-check the credentials** inside every Server Action (`adminAction`), as the Next.js docs advise, so moving an action can never leave it unguarded. They answer with a 303 redirect to the same page plus `?notice=<code>`, and the page shows a fixed message for that code.
 12. **Suggestion review.**
@@ -74,10 +75,11 @@ Each item has a recommendation, and the plan is written to follow it so work isn
     - The page shows each hash's first 12 characters. Blocking re-checks that the hash is one of these devices, then calls `blockDevice`.
     - This is the only admin page that shows anything per device, and only for one meeting (§6).
 14. **Opt-outs.**
-    - A group opt-out takes effect at once. Cached meeting responses catch up within 5 minutes.
-    - A feed opt-out takes effect at the next sync, within 15 minutes (the sync's existing `archiveOptedOutFeeds`).
+    - A group opt-out takes effect at once on our server. The app catches up within `CATCH_UP_MINUTES.app` (75): the online list carries tag counts and is cached for s-maxage plus stale-while-revalidate.
+    - A feed opt-out takes effect at the next sync (the sync's existing `archiveOptedOutFeeds`), and the app catches up within `CATCH_UP_MINUTES.feedOptOut` (90). Meetings other feeds also publish stay, from those feeds (`recomputeMeetings`).
+    - `catch-up.test.tsx` derives both from the Cache-Control headers and `vercel.ts`, so the promises can't drift from them.
     - Opting a feed back in clears `last_success_at` and `last_attempt_at`, so it's fetched on the next sync.
-15. **Vocabulary.** Retire and restore only; nothing is ever deleted (§5). New tags arrive through suggestion approval. The app's cached vocabulary catches up within an hour.
+15. **Vocabulary.** Retire and restore only; nothing is ever deleted (§5). New tags arrive through suggestion approval. The app's cached vocabulary catches up within `VOCABULARY_CACHE_HOURS` (25: s-maxage plus stale-while-revalidate), which the notices state and `catch-up.test.tsx` checks.
 16. **Metric definitions.**
     - "Active in 7/30 days": `last_seen_date` within the last 7/30 UTC days, today included.
     - "Tag submissions this week": non-excluded rows confirmed in the last 7 days, re-confirmations included.

@@ -56,7 +56,7 @@ export default defineConfig([
   },
   {
     files: ["apps/web/**/*.{ts,tsx}"],
-    ignores: ["apps/web/src/lib/api/respond.ts"],
+    ignores: ["apps/web/src/lib/api/respond.ts", "apps/web/src/proxy.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -80,8 +80,9 @@ export default defineConfig([
       ],
     },
   },
+  // respond.ts is the one JSON sender; proxy.ts lets allowed requests through with NextResponse.next().
   {
-    files: ["apps/web/src/lib/api/respond.ts"],
+    files: ["apps/web/src/lib/api/respond.ts", "apps/web/src/proxy.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }] },
   },
   {

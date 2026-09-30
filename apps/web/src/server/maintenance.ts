@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
 import { utcToday } from "@/db/sql";
+import { RETENTION } from "@/server/retention";
 import { recountAllTags } from "@/server/tags/counts";
 
 export const MaintenanceSummary = z.object({
@@ -25,18 +26,21 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
   const purges = await db.transaction(async (tx) => {
     const audit = await tx
       .delete(tagAudit)
-      .where(lt(tagAudit.at, sql`now() - interval '7 days'`))
+      .where(lt(tagAudit.at, sql`now() - make_interval(days => ${RETENTION.auditDays}::int)`))
       .returning({ id: tagAudit.id });
     // Two days: today's and yesterday's UTC windows stay.
     const limits = await tx
       .delete(rateLimits)
-      .where(lt(rateLimits.windowStart, sql`${utcToday} - 1`))
+      .where(lt(rateLimits.windowStart, sql`${utcToday} - ${RETENTION.rateLimitDays - 1}::int`))
       .returning({ bucket: rateLimits.bucket });
     const unlinked = await tx
       .update(suggestions)
       .set({ deviceHash: null })
       .where(
-        and(isNotNull(suggestions.deviceHash), lt(suggestions.createdAt, sql`now() - interval '30 days'`)),
+        and(
+          isNotNull(suggestions.deviceHash),
+          lt(suggestions.createdAt, sql`now() - make_interval(days => ${RETENTION.suggestionLinkDays}::int)`),
+        ),
       )
       .returning({ id: suggestions.id });
     const purged = await tx
@@ -44,7 +48,10 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
       .where(
         and(
           eq(devices.blocked, false),
-          lt(devices.lastSeenDate, sql`(${utcToday} - interval '13 months')::date`),
+          lt(
+            devices.lastSeenDate,
+            sql`(${utcToday} - make_interval(months => ${RETENTION.inactiveDeviceMonths}::int))::date`,
+          ),
         ),
       )
       .returning({ deviceHash: devices.deviceHash });

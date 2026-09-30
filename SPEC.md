@@ -28,9 +28,9 @@ Hosting: **Vercel Pro** for the Next.js app, **Neon** for the database.
 
 These override convenience everywhere. Flag any conflict instead of working around it.
 
-- **No accounts.** No name, email, phone, or login anywhere.
-- **The server knows meetings, not people.** The server must not be able to list the meetings one device has tagged, apart from a 7-day abuse-review log (section 6).
-- **Personal data never leaves the phone:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text.
+- **No accounts.** The app and site never ask for a name, email, phone, or login. Only someone who chooses to email support gives us an email address (section 13).
+- **The server knows meetings, not people.** Nothing in our database links a device to the meetings it tagged, apart from a 7-day abuse-review log (section 6): tag rows carry only a per-meeting submitter ID, so a copy of the database alone can't join one device's tags across meetings. Each tag write computes the device's submitter ID for that one meeting; the server finds one device's rows across meetings (from its hash and the pepper) only for delete-mine and for blocking a device, and never stores or returns that list. The platform's request logs (Vercel) hold IP addresses with paths that can name a meeting (section 13).
+- **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple or Google, to find a place).
 - **Device IDs are stored only as a keyed hash:** `device_hash = HMAC-SHA256(k_device, platform + ":" + rawId)`. The raw ID is never stored or logged. Keys are derived from `DEVICE_ID_PEPPER` via HKDF. The pepper can't be rotated without breaking every existing link, so treat it as permanent.
 - **Tag rows use a per-meeting submitter ID:** `submitter_id = HMAC-SHA256(k_submitter, device_hash + ":" + meetingId)`. The same device always gets the same ID for the same meeting, so it can edit or delete its tags at any time, but rows can't be joined across meetings.
 - **Location for search:** the phone rounds coordinates to 2 decimal places (about 1 km) before sending them, only in the body of the search request. The server uses them for that query only. Never stored, logged, placed in URLs, or used as cache keys beyond the rounded value.
@@ -39,7 +39,7 @@ These override convenience everywhere. Flag any conflict instead of working arou
 - **No ads, no analytics SDKs, no tracking,** and no cookies or analytics on the website (no Vercel Web Analytics or Speed Insights).
 - **Metrics show totals only,** never per-device rows.
 - **Don't log** IP addresses beyond the platform's short-term request logs, and never log request headers or bodies. Error handlers must strip headers before logging.
-- **Third parties that receive data** must each be listed in the privacy policy: Vercel (hosting, request logs), Neon (database), Apple and Google (maps, platform geocoder, app attestation), and the AI provider used for suggestion screening (zero data retention).
+- **Third parties that receive data** must each be listed in the privacy policy: Vercel (hosting, request logs), Neon (database), Apple and Google (maps, platform geocoder, app attestation), Google Workspace (email sent to the support address), and the AI provider used for suggestion screening (zero data retention).
 
 ## 3. Meeting data
 
@@ -255,10 +255,10 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 ## 10. Metrics and admin (`/metrics`)
 
-- Protected by HTTP Basic Auth in `proxy.ts` (Next.js 16's replacement for middleware), constant-time credential comparison, HTTPS only, `noindex`, `no-store`, rate-limited failed logins.
+- Protected by HTTP Basic Auth in `proxy.ts` (Next.js 16's replacement for middleware), constant-time credential comparison, HTTPS only, `noindex`, `no-store`, rate-limited failed logins. A Vercel Firewall rule on `/metrics` limits each visitor, so the app stores no IP address. As a backstop, failed logins are also counted in `rate_limits` under one site-wide `metrics_login` bucket: after 200 in a UTC day, every sign-in is refused until the next day.
 - Admin actions use Server Actions (Next.js checks the request origin) so Basic Auth can't be abused through CSRF.
 - Server components query Postgres directly; no public metrics endpoint.
-- **Shows:** active devices (7 and 30 days, from `last_seen_date`), new tag submissions this week, share with the attendance check, meetings with at least one tag vs. total, pending suggestions, submissions per day (14 days), top tags (30 days), platform split, per-feed sync health (flag feeds without a successful sync in 30 hours).
+- **Shows:** active devices (7 and 30 days, from `last_seen_date`), new tag submissions this week, share with the attendance check, meetings with at least one tag vs. total, pending suggestions, submissions per day (14 days), top tags (30 days), platform split, per-feed sync health (flag feeds whose last attempt failed, or that have been tried without a success for 8 days: the weekly sync plus its one-day retry).
 - **Admin views:** suggestion review, AI decision log, flagged tag swings (with the 7-day audit rows needed to block), block device, per-meeting `tags_disabled`, feed `opted_out`.
 
 ## 11. Store requirements
@@ -291,21 +291,22 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 
 ## 13. Data inventory (source of truth for the privacy policy)
 
-| Stored on server    | Contents                                                                   | Linked to                                               | Retention                                                                      |
-| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key | nothing else                                            | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6) |
-| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                         | one meeting only                                        | until edited/deleted; counts only use 180 days                                 |
-| `tag_counts`        | meeting, tag, device count, near-meeting count                             | one meeting only                                        | rebuilt on every tag write and nightly                                         |
-| `tag_audit`         | device hash, meeting, action, time                                         | device + meeting                                        | 7 days                                                                         |
-| `tag_swings`        | meeting, tag, new and prior device counts, flagged/reviewed time           | one meeting only                                        | kept                                                                           |
-| `meeting_aliases`   | merged-away meeting id, surviving meeting id                               | meetings only                                           | kept                                                                           |
-| `rate_limits`       | device hash, bucket, count                                                 | device only                                             | 2 days                                                                         |
-| `suggestions`       | text, status, merged tag; device hash until reviewed                       | device (temporary)                                      | text kept; device link ≤ 30 days; deleted by delete-mine while still linked    |
-| `ai_decisions`      | suggestion text, AI decision, reason, model, time                          | a suggestion (device link via the suggestion ≤ 30 days) | kept; deleted with its suggestion by delete-mine                               |
-| Search request      | rounded lat/lng (~1 km)                                                    | nothing                                                 | not stored; used for one query                                                 |
-| Vercel request logs | IP, path, time                                                             | nothing we control                                      | Vercel plan retention                                                          |
+| Stored on server    | Contents                                                                                                    | Linked to                                               | Retention                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key                                  | nothing else                                            | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6)        |
+| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                                                          | one meeting only                                        | until edited/deleted; counts only use 180 days                                        |
+| `tag_counts`        | meeting, tag, device count, near-meeting count                                                              | one meeting only                                        | rebuilt on every tag write and nightly                                                |
+| `tag_audit`         | device hash, meeting, action, time                                                                          | device + meeting                                        | 7 days                                                                                |
+| `tag_swings`        | meeting, tag, new and prior device counts, flagged/reviewed time                                            | one meeting only                                        | kept                                                                                  |
+| `meeting_aliases`   | merged-away meeting id, surviving meeting id                                                                | meetings only                                           | kept                                                                                  |
+| `rate_limits`       | device hash, bucket, count (plus one site-wide count of failed /metrics sign-ins, with no device)           | device only (the sign-in count: nothing)                | 2 days                                                                                |
+| `suggestions`       | text, status (pending, approved, merged, rejected), the tag it became or joined; device hash until reviewed | device (temporary)                                      | text kept; device link ≤ 30 days; deleted by delete-mine while still linked           |
+| `ai_decisions`      | suggestion text, AI decision, reason, model, time                                                           | a suggestion (device link via the suggestion ≤ 30 days) | kept; deleted with its suggestion by delete-mine                                      |
+| Search request      | rounded lat/lng (~1 km)                                                                                     | nothing                                                 | not stored; used for one query                                                        |
+| Vercel request logs | IP, path, time                                                                                              | nothing we control                                      | Vercel plan retention                                                                 |
+| Support email       | sender's email address, message (in Google Workspace); kept only to answer and act on it                    | nothing else (never tags)                               | until resolved, then deleted within 90 days; Google trash and recovery ≤ 55 days more |
 
-| Stays on the phone                                                                                                                                                                        |     |
+| Stays on the phone (never reaches our server)                                                                                                                                             |     |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
 | exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features |     |
 

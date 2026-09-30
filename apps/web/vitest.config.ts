@@ -10,6 +10,8 @@ export default defineConfig({
       DATABASE_URL: "postgres://mma:mma@localhost:5433/mma_test",
       // A fixed test-only pepper: hashes in tests are hand-computed literals that depend on it.
       DEVICE_ID_PEPPER: "test-pepper-not-a-secret-0123456789abcdef",
+      // Every absolute URL a test expects starts with this.
+      SITE_URL: "https://mymeetingapp.test",
     },
     globalSetup: ["./test/global-setup.ts"],
     // Database tests share one database, so test files run one at a time.

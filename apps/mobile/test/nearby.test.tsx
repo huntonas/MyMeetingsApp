@@ -117,6 +117,17 @@ describe("Nearby without location", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  // Spec §2 and the privacy page: typed text goes to the platform geocoder (Apple's, Google's or, on some Android
+  // phones, the phone maker's), never to us; it doesn't stay on the phone.
+  it("says truthfully where typed text and location go", async () => {
+    await launchNearby();
+    expect(
+      screen.getByText(
+        "What you type goes only to Apple's or Google's map service, or on some Android phones the phone maker's, to find the place, never to us. Your exact location stays on this phone; a search sends us only a point rounded to about 1 km.",
+      ),
+    ).toBeOnTheScreen();
+  });
+
   it("finds a typed place on the phone, sends only the rounded point, and sorts by exact distance", async () => {
     api.reply(SEARCH, { meetings: [far, near] });
     await launchNearby();

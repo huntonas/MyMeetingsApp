@@ -55,6 +55,22 @@ describe("search", () => {
   });
 });
 
+// expo/fetch defaults to sending cookies; Node's fetch (used in tests) has no jar to show them, so the spy (which calls
+// through to the real request) checks what the app asks for.
+describe("cookies", () => {
+  it.each([
+    ["getJson", () => fetchVocabulary()],
+    ["postJson", () => searchMeetings({ lat: 36.16, lng: -86.78, radiusKm: 25 })],
+  ] as const)("%s asks fetch to omit them", async (_name, call) => {
+    const spy = jest.spyOn(globalThis, "fetch");
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v1/meetings/search", { meetings: [] });
+    await call();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[1]?.credentials).toBe("omit");
+  });
+});
+
 describe("failures", () => {
   it("turns the server's error envelope into its code and plain-language message", async () => {
     const message = "We couldn't find that meeting. It may have been removed from the meeting list.";

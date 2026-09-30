@@ -66,8 +66,9 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearc
         <Button label="Use my location" kind="secondary" onPress={onNearMe} />
       </View>
       <AppText variant="small" tone="muted">
-        What you type and your exact location stay on this phone. A search sends only a point rounded to about
-        1 km.
+        {
+          "What you type goes only to Apple's or Google's map service, or on some Android phones the phone maker's, to find the place, never to us. Your exact location stays on this phone; a search sends us only a point rounded to about 1 km."
+        }
       </AppText>
       {recent.length > 0 && (
         <View style={{ gap: 8 }}>

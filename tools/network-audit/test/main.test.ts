@@ -42,6 +42,26 @@ describe("run", () => {
     expect(log).toHaveBeenCalledWith("PASS: nothing private reached the server");
   });
 
+  it("prints every user-agent the server saw, for a person to confirm", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const withAgent = {
+      request: {
+        ...SEARCH_ENTRY.request,
+        headers: [{ name: "user-agent", value: "mymeetingapp/1 CFNetwork/1568.100.1 Darwin/24.0.0" }],
+      },
+    };
+    const file = await harFile([withAgent]);
+    await run(["--har", file, ...BASE_ARGS]);
+    expect(log).toHaveBeenCalledWith("user-agent: mymeetingapp/1 CFNetwork/1568.100.1 Darwin/24.0.0");
+  });
+
+  it("says when no user-agent was sent", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const file = await harFile([SEARCH_ENTRY]);
+    await run(["--har", file, ...BASE_ARGS]);
+    expect(log).toHaveBeenCalledWith("user-agent: none");
+  });
+
   it("prints a FAIL line without repeating the leaked value or the query string", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const file = await harFile([

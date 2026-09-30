@@ -67,6 +67,8 @@ export async function run(args: string[]): Promise<AuditReport> {
   console.log(
     `${String(report.serverRequests)} requests to ${server}; other hosts: ${report.otherHosts.join(", ") || "none"}`,
   );
+  // The version digits can't be fully pinned, so a person confirms the user-agent the server saw.
+  console.log(`user-agent: ${report.userAgents.join(", ") || "none"}`);
   for (const finding of report.findings) console.log(`FAIL ${finding.request}: ${finding.problem}`);
   if (report.lookAt.length > 0) {
     console.log("Look at these (informational, doesn't fail the run):");

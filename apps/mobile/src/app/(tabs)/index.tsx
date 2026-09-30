@@ -7,7 +7,7 @@ import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { useUpgradeRequired } from "@/config/upgrade";
 import { currentPosition } from "@/location/current-position";
 import { findPlace } from "@/location/find-place";
-import { SEARCH_RADIUS_KM } from "@/location/geo";
+import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from "@/location/geo";
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
@@ -20,6 +20,7 @@ import { MeetingCard } from "@/ui/meeting-card";
 import { OnlineNowList } from "@/ui/online-now-list";
 import { Pill } from "@/ui/pill";
 import { PlaceSearch } from "@/ui/place-search";
+import { ResultsMap } from "@/ui/results-map";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { UpgradeNotice } from "@/ui/upgrade-notice";
@@ -63,20 +64,81 @@ function FilterPills() {
   );
 }
 
-function Results({ origin, onChangePlace }: { origin: SearchOrigin; onChangePlace: () => void }) {
+type ResultsView = "list" | "map";
+
+interface ResultsProps {
+  origin: SearchOrigin;
+  view: ResultsView;
+  onView: (view: ResultsView) => void;
+  onMapMove: (region: MapRegion) => void;
+  onChangePlace: () => void;
+}
+
+function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProps) {
   const colors = useColors();
   const { state, refresh } = useCachedRead(searchRead(origin));
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
   const { filters, setFilters } = useFilters();
+  // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
+  // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.
+  const [mapRegion, setMapRegion] = useState(() => regionAround(origin.point, origin.radiusKm));
+  // The person's dot shows only on a search near them (location is allowed by then), and stays through their pans.
+  const [nearPerson] = useState(origin.kind === "me");
   const heading = (
     <View style={{ gap: 12 }}>
       <AppText variant="title" accessibilityRole="header">
         {`Near ${origin.label}`}
       </AppText>
       <Button kind="secondary" label="Change place" onPress={onChangePlace} />
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Pill
+          role="button"
+          label="List"
+          selected={view === "list"}
+          onPress={() => {
+            onView("list");
+          }}
+        />
+        <Pill
+          role="button"
+          label="Map"
+          selected={view === "map"}
+          onPress={() => {
+            onView("map");
+          }}
+        />
+      </View>
     </View>
   );
+  const savedNote = state.status === "ready" && state.savedAt !== null && (
+    <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />
+  );
+  // The map stays mounted while a pan's search loads or fails, so the person's view never jumps.
+  if (view === "map") {
+    return (
+      <Screen scroll={false}>
+        {heading}
+        {savedNote}
+        {state.status === "failed" && <AppText accessibilityRole="alert">{state.message}</AppText>}
+        <FilterPills />
+        <ResultsMap
+          initialRegion={mapRegion}
+          meetings={
+            state.status === "ready"
+              ? state.data.meetings.filter((meeting) => matchesFilters(meeting, filters))
+              : []
+          }
+          onMove={(region) => {
+            setMapRegion(region);
+            onMapMove(region);
+          }}
+          showsUser={nearPerson}
+        />
+        {state.status === "loading" && <ActivityIndicator accessibilityLabel="Searching" />}
+      </Screen>
+    );
+  }
   if (state.status === "loading")
     return (
       <Screen>
@@ -91,7 +153,6 @@ function Results({ origin, onChangePlace }: { origin: SearchOrigin; onChangePlac
         <AppText accessibilityRole="alert">{state.message}</AppText>
       </Screen>
     );
-  const savedNote = state.savedAt !== null && <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />;
   const sorted = byExactDistance(state.data.meetings, origin.point);
   // Spec §8: no in-person meetings here is said plainly, with the online meetings instead of an empty screen.
   if (sorted.length === 0) {
@@ -148,6 +209,7 @@ function Nearby() {
   // Each search remounts the results, so searching the same place again reads again (a stale copy refreshes).
   const [searchCount, setSearchCount] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
+  const [view, setView] = useState<ResultsView>("list");
   // Finding a place or a position can take up to 15 seconds. Only the latest thing the person asked for may land: a
   // slow answer to an earlier one must not replace it.
   const latest = useRef(0);
@@ -163,6 +225,24 @@ function Nearby() {
     setOrigin(next);
     setSearchCount((count) => count + 1);
   }, []);
+
+  // Spec §8: panning searches around the new map center, with the radius from the visible area. It changes the origin
+  // without remounting the results, so the map stays as the person left it. useCachedRead reads only when the rounded
+  // center or the radius changes, so a small drag sends nothing.
+  const moveMap = useCallback(
+    (region: MapRegion) => {
+      // A move is the newest request, so it takes a ticket like every other action. (Today every slow lookup starts
+      // from the place screen, where no map is shown, so nothing can be in flight to overtake it.)
+      begin();
+      setOrigin({
+        kind: "map",
+        label: "this map area",
+        point: { latitude: region.latitude, longitude: region.longitude },
+        radiusKm: radiusForRegion(region),
+      });
+    },
+    [begin],
+  );
 
   const searchNearMe = useCallback(
     async (when: "tap" | "launch") => {
@@ -218,6 +298,9 @@ function Nearby() {
       <Results
         key={searchCount}
         origin={origin}
+        view={view}
+        onView={setView}
+        onMapMove={moveMap}
         onChangePlace={() => {
           setOrigin(null);
         }}

@@ -8,6 +8,13 @@ const BOLD = `${FONTS}/700Bold/AtkinsonHyperlegible_700Bold.ttf`;
 // BRAND.appName (packages/shared/src/brand.ts); app-shell.test.tsx fails if the two differ.
 const APP_NAME = "mymeetingapp";
 
+// Read when the config is built, so each build takes the key from its own environment. expo-modules-core widens
+// process.env to `any`; the typeof check narrows it back, as in src/config/server-url.ts.
+function googleMapsAndroidKey(): string | undefined {
+  const key: unknown = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+  return typeof key === "string" ? key : undefined;
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: APP_NAME,
@@ -38,6 +45,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         motionUsagePermission: false,
       },
     ],
+    // Spec §8: Apple Maps on iOS, which needs no key, and Google Maps on Android. The Android key is a build secret
+    // (an EAS secret, or exported in the shell for a local build), never committed; without it the Android map is
+    // blank.
+    ["react-native-maps", { androidGoogleMapsApiKey: googleMapsAndroidKey() }],
     [
       "expo-font",
       {

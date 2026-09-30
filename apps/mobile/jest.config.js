@@ -35,6 +35,7 @@ module.exports = {
     "^expo-application$": "<rootDir>/test/native/expo-application.ts",
     "^expo-location$": "<rootDir>/test/native/expo-location.ts",
     "^@modules/native-location$": "<rootDir>/test/native/native-location.ts",
+    "^react-native-maps$": "<rootDir>/test/native/react-native-maps.tsx",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
 };

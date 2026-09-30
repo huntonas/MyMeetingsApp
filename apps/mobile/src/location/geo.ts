@@ -40,3 +40,9 @@ export function radiusForRegion(region: MapRegion): number {
   const halfWidth = (region.longitudeDelta / 2) * KM_PER_DEGREE * Math.cos(toRadians(region.latitude));
   return Math.min(100, Math.max(1, Math.ceil(Math.hypot(halfHeight, halfWidth))));
 }
+
+// The map's first view: a square around the point, as tall as the search is wide.
+export function regionAround(point: LatLng, radiusKm: number): MapRegion {
+  const latitudeDelta = (radiusKm * 2) / KM_PER_DEGREE;
+  return { ...point, latitudeDelta, longitudeDelta: latitudeDelta / Math.cos(toRadians(point.latitude)) };
+}

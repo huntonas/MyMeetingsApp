@@ -50,6 +50,12 @@ const LocationPlugin = z.tuple([
     .strict(),
 ]);
 
+// react-native-maps' config plugin options. iOS uses Apple Maps, which needs no key; only Android's Google Maps does.
+const MapsPlugin = z.tuple([
+  z.literal("react-native-maps"),
+  z.object({ androidGoogleMapsApiKey: z.string().optional() }).strict(),
+]);
+
 // Launch reads the config and the tag list.
 const LAUNCH_READS = 2;
 
@@ -129,6 +135,18 @@ describe("the app config", () => {
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
     expect(options.locationWhenInUsePermission).toMatch(new RegExp(`^${BRAND.appName} `));
     expect(options.locationWhenInUsePermission).toContain("rounds it to about 1 km");
+  });
+
+  it("takes the Android Google Maps key from the build's environment, and ships none of its own", () => {
+    const mapsKey = () => {
+      const config = Config.parse(appConfig(CONTEXT));
+      return MapsPlugin.parse(config.plugins.find((plugin) => plugin[0] === "react-native-maps"))[1]
+        .androidGoogleMapsApiKey;
+    };
+    jest.replaceProperty(process, "env", { ...process.env, GOOGLE_MAPS_ANDROID_API_KEY: undefined });
+    expect(mapsKey()).toBeUndefined();
+    jest.replaceProperty(process, "env", { ...process.env, GOOGLE_MAPS_ANDROID_API_KEY: "key-from-eas" });
+    expect(mapsKey()).toBe("key-from-eas");
   });
 
   it("keeps its version parseable as the semantic version appVersion() expects (owner ruling M3)", () => {

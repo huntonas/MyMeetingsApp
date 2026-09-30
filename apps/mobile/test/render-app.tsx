@@ -1,8 +1,12 @@
 import path from "node:path";
 
+import { waitFor } from "@testing-library/react-native";
 import { renderRouter } from "expo-router/testing-library";
 
+import { readCache } from "@/cache/store";
+
 import { CLOCK_ONLY } from "./clock";
+import { permissionChecks } from "./native/expo-location";
 
 const APP_DIR = path.join(__dirname, "..", "src", "app");
 
@@ -14,4 +18,16 @@ export async function renderApp(initialUrl = "/") {
   await rendered;
   jest.useFakeTimers({ ...CLOCK_ONLY, now: Date.now() });
   return { getPathname: () => rendered.getPathname() };
+}
+
+// Opens Nearby and waits for launch to settle (the config and tag list read and saved, and Nearby's look at whether
+// location was allowed), so nothing from launch lands in the middle of what a test does next.
+export async function launchNearby() {
+  const app = await renderApp("/");
+  await waitFor(async () => {
+    expect(await readCache("config")).not.toBeNull();
+    expect(await readCache("vocabulary")).not.toBeNull();
+    expect(permissionChecks()).toBeGreaterThan(0);
+  });
+  return app;
 }

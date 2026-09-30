@@ -10,7 +10,6 @@ import { resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, nearbyMeeting, VOCABULARY } from "./fixtures";
 import {
-  permissionChecks,
   permissionRequests,
   positionOptions,
   positionsDelivered,
@@ -19,7 +18,7 @@ import {
   setPermissionAnswer,
 } from "./native/expo-location";
 import { answered, lookups, setPlace } from "./native/native-location";
-import { renderApp } from "./render-app";
+import { launchNearby, renderApp } from "./render-app";
 
 let api: TestApi;
 const SEARCH = "/api/v1/meetings/search";
@@ -64,17 +63,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await api.close();
 });
-
-// Opens Nearby and waits for launch to settle (the config and tag list read and saved, and Nearby's look at whether
-// location was allowed), so nothing from launch lands in the middle of what a test does next.
-async function launch() {
-  await renderApp("/");
-  await waitFor(async () => {
-    expect(await readCache("config")).not.toBeNull();
-    expect(await readCache("vocabulary")).not.toBeNull();
-    expect(permissionChecks()).toBeGreaterThan(0);
-  });
-}
 
 async function searchFor(text: string) {
   await fireEvent.changeText(await screen.findByLabelText("Search for a place"), text);
@@ -121,7 +109,7 @@ function spyOnAppState() {
 
 describe("Nearby without location", () => {
   it("asks for nothing at launch", async () => {
-    await launch();
+    await launchNearby();
     expect(screen.getByText(PROMPT)).toBeOnTheScreen();
     expect(permissionRequests()).toBe(0);
     expect(positionOptions()).toEqual([]);
@@ -131,7 +119,7 @@ describe("Nearby without location", () => {
 
   it("finds a typed place on the phone, sends only the rounded point, and sorts by exact distance", async () => {
     api.reply(SEARCH, { meetings: [far, near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByText("Near Maryville, TN")).toBeOnTheScreen();
     const cards = await screen.findAllByRole("button", { name: /Group, Mon/ });
@@ -154,7 +142,7 @@ describe("Nearby without location", () => {
   });
 
   it("a place the geocoder can't find sends nothing to the server", async () => {
-    await launch();
+    await launchNearby();
     await searchFor("Atlantis");
     expect(
       await screen.findByText(
@@ -166,7 +154,7 @@ describe("Nearby without location", () => {
   });
 
   it("asks for a place when the box is empty, without looking anything up", async () => {
-    await launch();
+    await launchNearby();
     await searchFor("   ");
     expect(await screen.findByText("Type a city, zip code or address.")).toBeOnTheScreen();
     expect(lookups).toEqual([]);
@@ -174,7 +162,7 @@ describe("Nearby without location", () => {
 
   it("searches a recent place again without the geocoder", async () => {
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Maryville, TN");
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
@@ -186,7 +174,7 @@ describe("Nearby without location", () => {
 
   it("forgets recent places when asked", async () => {
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Maryville, TN");
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
@@ -201,7 +189,7 @@ describe("Nearby without location", () => {
     api.reply(SEARCH, { meetings: [near] });
     const slow = later<unknown>();
     setPlace("Slowtown", slow.promise);
-    await launch();
+    await launchNearby();
     await searchFor("Slowtown");
     await searchFor("Maryville, TN");
     expect(await screen.findByText("Near Maryville, TN")).toBeOnTheScreen();
@@ -219,7 +207,7 @@ describe("Nearby without location", () => {
 describe("stale answers", () => {
   it("drops a slow place lookup once a recent place has been chosen", async () => {
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
@@ -240,7 +228,7 @@ describe("stale answers", () => {
     api.reply(SEARCH, { meetings: [near] });
     const slow = later<unknown>();
     setPlace("Slowtown", slow.promise);
-    await launch();
+    await launchNearby();
     await searchFor("Slowtown");
     await searchFor("Maryville, TN");
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
@@ -258,7 +246,7 @@ describe("stale answers", () => {
     const slow = later<{ latitude: number; longitude: number }>();
     setDevicePosition(slow.promise);
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
     slow.resolve({ latitude: 36.162749, longitude: -86.781602 });
@@ -274,7 +262,7 @@ describe("stale answers", () => {
     setLocationPermission("granted");
     const slow = later<{ latitude: number; longitude: number }>();
     setDevicePosition(slow.promise);
-    await launch();
+    await launchNearby();
     await fireEvent.changeText(screen.getByLabelText("Search for a place"), "Mary");
     slow.resolve({ latitude: 36.162749, longitude: -86.781602 });
     await waitFor(() => {
@@ -291,7 +279,7 @@ describe("recent places are best effort", () => {
     const db = await appDatabase();
     jest.spyOn(db, "withTransactionAsync").mockRejectedValueOnce(new Error("disk full"));
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
   });
@@ -300,7 +288,7 @@ describe("recent places are best effort", () => {
 describe("Nearby with location", () => {
   it("asks on the tap, then searches around the rounded point", async () => {
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(await screen.findByText("Near you")).toBeOnTheScreen();
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
@@ -311,7 +299,7 @@ describe("Nearby with location", () => {
   it("explains a refused permission and keeps place search", async () => {
     const openSettings = jest.spyOn(Linking, "openSettings").mockResolvedValue();
     setPermissionAnswer("denied");
-    await launch();
+    await launchNearby();
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(
       await screen.findByText(
@@ -326,7 +314,7 @@ describe("Nearby with location", () => {
 
   it("says so when the phone can't find itself, and offers no Settings", async () => {
     setDevicePosition("fails");
-    await launch();
+    await launchNearby();
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(
       await screen.findByText("We couldn't get your location just now. Try again, or search by place."),
@@ -338,7 +326,7 @@ describe("Nearby with location", () => {
   it("starts near the person when location was allowed before, without any dialog", async () => {
     setLocationPermission("granted");
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     expect(await screen.findByText("Near you")).toBeOnTheScreen();
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
     expect(permissionRequests()).toBe(0);
@@ -365,7 +353,7 @@ describe("results", () => {
       ],
     });
     api.reply("/api/v1/meetings/online?day=2", { meetings: [] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     expect(
       await screen.findByText("No in-person meetings within 16 miles of Maryville, TN."),
@@ -375,7 +363,7 @@ describe("results", () => {
 
   it("narrows the list by time of day, and clears the filters from the list", async () => {
     api.reply(SEARCH, { meetings: [far, near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
     await chooseFilters("Time filters", ["Evening"]);
@@ -398,7 +386,7 @@ describe("results", () => {
 
   it("narrows by day, type and what people say, and the filter sheet clears them", async () => {
     api.reply(SEARCH, { meetings: [far, near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
     await chooseFilters("Tag filters", ["Quiet"]);
@@ -438,7 +426,7 @@ describe("results", () => {
   it("labels a saved search shown offline", async () => {
     setNow("2026-10-05T20:00:00Z");
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
     setNow("2026-10-05T21:20:00Z");
@@ -457,7 +445,7 @@ describe("results", () => {
   it("labels a saved empty search shown offline, above the online fallback", async () => {
     setNow("2026-10-05T20:00:00Z");
     api.reply(SEARCH, { meetings: [] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("No in-person meetings within 16 miles of Maryville, TN.");
     setNow("2026-10-05T21:20:00Z");
@@ -474,7 +462,7 @@ describe("results", () => {
   });
 
   it("says so when a search fails with no saved copy", async () => {
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
@@ -486,7 +474,7 @@ describe("results", () => {
     const playAppState = spyOnAppState();
     setNow("2026-10-05T20:00:00Z");
     api.reply(SEARCH, { meetings: [near] });
-    await launch();
+    await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
     setNow("2026-10-05T21:20:00Z");

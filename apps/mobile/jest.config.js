@@ -1,6 +1,9 @@
 // Tests read the API from a real local server on this fixed port. Expo may inline EXPO_PUBLIC_* values when it
 // transforms a file, so the value is set here, before any transform, and test files share one worker.
 process.env.EXPO_PUBLIC_SERVER_URL = "http://127.0.0.1:3197";
+// jest-expo's winter runtime installs a stub fetch backed by fake native classes unless this is set, which would
+// never reach the real server above. The app ships expo/fetch; tests use Node's fetch instead.
+process.env.EXPO_PUBLIC_USE_RN_FETCH = "1";
 
 // pnpm keeps packages under node_modules/.pnpm/<name>@<version>/node_modules/<name>; these must still be transformed.
 const TRANSFORMED = [

@@ -112,7 +112,16 @@ export default defineConfig([
       // The app logs nothing: no location, search text or device IDs can end up in a device log.
       "no-console": "error",
       "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
+      "no-restricted-globals": [
+        "error",
+        { name: "fetch", message: "Use getJson/postJson from @/api/client." },
+      ],
     },
+  },
+  {
+    // The one place allowed to call fetch directly.
+    files: ["apps/mobile/src/api/client.ts"],
+    rules: { "no-restricted-globals": "off" },
   },
   {
     // The Expo config lives at the workspace root.

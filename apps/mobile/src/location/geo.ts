@@ -8,6 +8,9 @@ export interface MapRegion extends LatLng {
   longitudeDelta: number;
 }
 
+// Searches from the search box or "Use my location" (decision 7): 25 km, about 16 miles.
+export const SEARCH_RADIUS_KM = 25;
+
 const KM_PER_DEGREE = 111.32;
 const EARTH_RADIUS_KM = 6371.0088;
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;

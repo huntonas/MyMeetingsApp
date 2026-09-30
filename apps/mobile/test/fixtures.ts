@@ -1,5 +1,6 @@
 import {
   AppConfigResponse,
+  MeetingSearchResponse,
   MeetingSummary,
   STARTER_VOCABULARY,
   type VocabularyResponse,
@@ -33,6 +34,16 @@ const BASE = MeetingSummary.parse({
 
 export function meeting(change: Partial<MeetingSummary> = {}): MeetingSummary {
   return MeetingSummary.parse({ ...BASE, ...change });
+}
+
+type SearchMeeting = MeetingSearchResponse["meetings"][number];
+
+// A search result: a meeting plus its distance from the rounded point the server was sent.
+export function nearbyMeeting(change: Partial<SearchMeeting> = {}): SearchMeeting {
+  const parsed = MeetingSearchResponse.parse({ meetings: [{ ...BASE, distanceKm: 1.2, ...change }] })
+    .meetings[0];
+  if (parsed === undefined) throw new Error("unreachable: one meeting in, one out");
+  return parsed;
 }
 
 export const VOCABULARY: VocabularyResponse = { tags: [...STARTER_VOCABULARY] };

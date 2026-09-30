@@ -106,3 +106,20 @@ export function occurrenceEnd(meeting: Scheduled, occurrence: Occurrence): Date 
 export function listedTime(time: string): string {
   return clockLabel(hourOf(time), minuteOf(time));
 }
+
+// A meeting's own weekday, as listed; Sunday first, as MeetingSummary.day counts.
+export const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+// "Mon 7:00 PM": the listed day and time on a card in any meeting list.
+export function shortWhen(meeting: Pick<MeetingSummary, "day" | "time">): string {
+  return `${WEEKDAYS_SHORT[meeting.day] ?? ""} ${listedTime(meeting.time)}`;
+}

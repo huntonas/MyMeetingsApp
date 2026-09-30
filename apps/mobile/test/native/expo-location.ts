@@ -9,6 +9,7 @@ let answer: "granted" | "denied" | "dismissed" = "granted";
 // Where the phone is, or that it can't find itself ("fails") or never answers ("hangs", say no GPS fix indoors).
 let position: { latitude: number; longitude: number } | "fails" | "hangs" = NASHVILLE;
 let requests = 0;
+let checks = 0;
 let reads: unknown[] = [];
 
 export const Accuracy = { Balanced: 3 } as const;
@@ -30,6 +31,10 @@ export function setDevicePosition(next: typeof position): void {
 export function permissionRequests(): number {
   return requests;
 }
+// How many times the app looked at the permission without asking for it.
+export function permissionChecks(): number {
+  return checks;
+}
 // How many times the app asked the phone where it is.
 export function positionReads(): number {
   return reads.length;
@@ -44,12 +49,14 @@ export function resetLocation(): void {
   answer = "granted";
   position = NASHVILLE;
   requests = 0;
+  checks = 0;
   reads = [];
 }
 
 const response = () => ({ status, granted: status === "granted", canAskAgain, expires: "never" });
 
 export function getForegroundPermissionsAsync() {
+  checks += 1;
   return Promise.resolve(response());
 }
 

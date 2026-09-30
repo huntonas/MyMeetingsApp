@@ -1,5 +1,12 @@
 import { onlineNow } from "@/meetings/online-now";
-import { lastOccurrence, listedTime, nextStart, occurrenceEnd, type Scheduled } from "@/meetings/schedule";
+import {
+  lastOccurrence,
+  listedTime,
+  nextStart,
+  occurrenceEnd,
+  type Scheduled,
+  shortWhen,
+} from "@/meetings/schedule";
 
 import { meeting } from "./fixtures";
 
@@ -99,6 +106,14 @@ describe("occurrences in the meeting's own zone", () => {
     ["19:00", "7:00 PM"],
   ])("lists %s as %s", (time, label) => {
     expect(listedTime(time)).toBe(label);
+  });
+
+  it.each([
+    [0, "07:05", "Sun 7:05 AM"],
+    [1, "19:00", "Mon 7:00 PM"],
+    [6, "00:00", "Sat 12:00 AM"],
+  ])("lists day %d at %s as %s on a card", (day, time, label) => {
+    expect(shortWhen({ day, time })).toBe(label);
   });
 });
 

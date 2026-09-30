@@ -68,6 +68,24 @@ describe("run", () => {
     expect(log).toHaveBeenCalledWith("1 problem(s) found");
   });
 
+  it("prints a 'Look at these' section without failing the run (M5)", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const file = await harFile([
+      {
+        request: {
+          method: "GET",
+          url: "https://maps.example.com/tile?lat=35.9614&lng=-83.9217",
+          headers: [],
+        },
+      },
+      SEARCH_ENTRY,
+    ]);
+    const report = await run(["--har", file, ...BASE_ARGS]);
+    expect(report.findings).toEqual([]);
+    expect(log).toHaveBeenCalledWith("PASS: nothing private reached the server");
+    expect(log).toHaveBeenCalledWith("Look at these (informational, doesn't fail the run):");
+  });
+
   it("explains itself when the capture or server is missing", async () => {
     await expect(run(["--server", "mymeetingapp.vercel.app"])).rejects.toThrow(
       /^Usage: pnpm --filter network-audit check-har/,

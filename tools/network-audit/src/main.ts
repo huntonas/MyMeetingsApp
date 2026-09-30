@@ -68,6 +68,10 @@ export async function run(args: string[]): Promise<AuditReport> {
     `${String(report.serverRequests)} requests to ${server}; other hosts: ${report.otherHosts.join(", ") || "none"}`,
   );
   for (const finding of report.findings) console.log(`FAIL ${finding.request}: ${finding.problem}`);
+  if (report.lookAt.length > 0) {
+    console.log("Look at these (informational, doesn't fail the run):");
+    for (const note of report.lookAt) console.log(`  ${note}`);
+  }
   console.log(
     report.findings.length === 0
       ? "PASS: nothing private reached the server"

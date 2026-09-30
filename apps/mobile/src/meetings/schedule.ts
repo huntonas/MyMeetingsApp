@@ -1,7 +1,7 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 
 import { type CivilDate, shiftDays } from "@/time/civil-date";
-import { clockLabel } from "@/time/clock";
+import { clockLabel, phoneClockLabel } from "@/time/clock";
 
 export type Scheduled = Pick<MeetingSummary, "day" | "time" | "endTime"> & { timezone: string };
 export interface Occurrence {
@@ -119,7 +119,7 @@ export function shortWhen(meeting: Pick<MeetingSummary, "day" | "time">): string
 // same day and time as the listing.
 export function yourTime(meeting: Scheduled, now: Date): string | null {
   const start = nextStart(meeting, lastOccurrence(meeting, now));
-  const onPhone = `${WEEKDAYS[start.getDay()] ?? ""} at ${clockLabel(start.getHours(), start.getMinutes())}`;
+  const onPhone = `${WEEKDAYS[start.getDay()] ?? ""} at ${phoneClockLabel(start)}`;
   if (onPhone === `${WEEKDAYS[meeting.day] ?? ""} at ${listedTime(meeting.time)}`) return null;
   return `That's ${onPhone} your time.`;
 }

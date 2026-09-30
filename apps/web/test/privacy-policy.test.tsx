@@ -208,6 +208,18 @@ describe("the privacy policy matches SPEC.md §2", () => {
     expect(THIRD_PARTIES.map((party) => party.specName).sort()).toEqual(named.sort());
   });
 
+  it("names, among the third parties, every service the search box text can go to", () => {
+    const personal =
+      section("2. Privacy rules")
+        .split("\n")
+        .find((line) => line.includes("**Personal data never reaches our server:**")) ?? "";
+    const searchBox = ON_PHONE.find((item) => item.specItem === "search box text")?.text ?? "";
+    const google = THIRD_PARTIES.find((party) => party.specName === "Google")?.role ?? "";
+    expect(personal).toContain("the phone maker's location service");
+    expect(searchBox).toContain("the phone maker's location service");
+    expect(google).toContain("the phone maker's location service");
+  });
+
   it("says suggestion screening keeps nothing", () => {
     const screening = THIRD_PARTIES.find(
       (party) => party.specName === "the AI provider used for suggestion screening",

@@ -232,6 +232,18 @@ describe("cachedRead: two searches racing to save", () => {
   });
 });
 
+describe("cachedRead: a phone clock moved back", () => {
+  it("still saves new searches after one was stamped in what is now the future", async () => {
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    setNow(minutesAfter(SAVED, 600).toISOString());
+    await cachedRead(searchRead("search:1,1,25"));
+    setNow(SAVED);
+    await cachedRead(searchRead("search:2,2,25"));
+    expect(await readCache("search:2,2,25")).not.toBeNull();
+    expect(await readCache("search:1,1,25")).toBeNull();
+  });
+});
+
 describe("cachedRead treats its own cache as best effort", () => {
   it("still asks the server when the saved copy is corrupt", async () => {
     const db = await appDatabase();

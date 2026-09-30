@@ -1,5 +1,6 @@
 import { VocabularyResponse } from "@mymeetingapp/shared";
-import { createContext, type ReactNode, useContext, useEffect, useMemo } from "react";
+import { usePathname } from "expo-router";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef } from "react";
 
 import { fetchVocabulary } from "@/api/reads";
 import { onReturnToForeground } from "@/app-state/return-to-foreground";
@@ -21,6 +22,14 @@ const Tags = createContext<ReadonlyMap<string, VocabularyTag>>(new Map());
 export function VocabularyProvider({ children }: { children: ReactNode }) {
   const { state, refresh } = useCachedRead(VOCABULARY_READ);
   useEffect(() => onReturnToForeground(refresh), [refresh]);
+  // After a failed read (an offline first launch, with nothing saved), every screen change tries again, so tag names
+  // come back once the connection does rather than only after a trip to the background.
+  const failed = useRef(false);
+  failed.current = state.status === "failed";
+  const pathname = usePathname();
+  useEffect(() => {
+    if (failed.current) refresh();
+  }, [pathname, refresh]);
   const tags = useMemo(
     () => new Map(state.status === "ready" ? state.data.tags.map((tag) => [tag.slug, tag] as const) : []),
     [state],

@@ -17,25 +17,24 @@ const HAND_OFFS = {
     failure: "This phone couldn't open messages. The number is shown above.",
   },
   web: { hint: "Opens in your browser", failure: "This phone couldn't open that link." },
+  settings: {
+    hint: "Opens this app's settings",
+    failure:
+      "This phone couldn't open Settings. You can turn location on for mymeetingapp in the Settings app.",
+  },
 } as const;
 
-type HandOff = keyof typeof HAND_OFFS;
+type HandOffProps = { label: string; kind?: "primary" | "secondary" } & (
+  { to: "settings" } | { to: Exclude<keyof typeof HAND_OFFS, "settings">; url: string }
+);
 
 // The one way the app leaves for another app. `url` is only ever a fixed address, a directionsUrl, a `tel:` built by
-// dialable, or a server URL that passed the shared WebUrl schema (http or https).
-export function HandOffButton({
-  to,
-  label,
-  url,
-  kind,
-}: {
-  to: HandOff;
-  label: string;
-  url: string;
-  kind?: "primary" | "secondary";
-}) {
+// dialable, or a server URL that passed the shared WebUrl schema (http or https); "settings" opens this app's own
+// page in the phone's Settings, and needs none.
+export function HandOffButton(props: HandOffProps) {
+  const { label, kind } = props;
   const [failed, setFailed] = useState(false);
-  const { hint, failure } = HAND_OFFS[to];
+  const { hint, failure } = HAND_OFFS[props.to];
   return (
     <View style={{ gap: 4 }}>
       <Button
@@ -44,7 +43,8 @@ export function HandOffButton({
         hint={hint}
         onPress={() => {
           setFailed(false);
-          Linking.openURL(url).catch(() => {
+          const opening = props.to === "settings" ? Linking.openSettings() : Linking.openURL(props.url);
+          opening.catch(() => {
             setFailed(true);
           });
         }}

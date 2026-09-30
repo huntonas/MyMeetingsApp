@@ -264,7 +264,7 @@ export const THIRD_PARTIES: readonly { specName: string; name: string; role: str
   {
     specName: "Google",
     name: "Google",
-    role: "On Android, Google Maps draws the map and gives directions, Android's geocoder turns a place you type into a map point, and, once switched on, Play Integrity confirms that requests come from the real app.",
+    role: "On Android, Google Maps draws the map and gives directions, Android's geocoder turns a place you type into a map point (on some Android phones, the phone maker's location service does this instead), and, once switched on, Play Integrity confirms that requests come from the real app.",
   },
   {
     specName: "Google Workspace",

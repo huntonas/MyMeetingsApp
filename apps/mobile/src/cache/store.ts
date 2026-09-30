@@ -44,9 +44,11 @@ export async function writeCache(key: string, body: unknown, savedAt: Date = new
 // under a different key and then delete it while pruning.
 export async function writeSearchResult(key: string, body: unknown, savedAt: Date): Promise<void> {
   await inTransaction(async (db) => {
+    // A row stamped later than now was saved before the phone's clock moved back; it isn't newer, and counting it
+    // would stop every later search being saved.
     const newer = await db.getFirstAsync(
-      "select 1 from cache_entries where key like 'search:%' and key <> ? and saved_at > ?",
-      [key, savedAt.getTime()],
+      "select 1 from cache_entries where key like 'search:%' and key <> ? and saved_at > ? and saved_at <= ?",
+      [key, savedAt.getTime(), Date.now()],
     );
     if (newer !== null) return;
     await db.runAsync("insert or replace into cache_entries (key, body, saved_at) values (?, ?, ?)", [

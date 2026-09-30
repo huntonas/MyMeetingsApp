@@ -53,8 +53,21 @@ describe("the landing page's content", () => {
 
   it("lists crisis help", () => {
     const text = renderText(<HomePage />);
-    expect(text).toContain("call or text 988");
-    expect(text).toContain("1-800-662-4357");
+    for (const words of [
+      "988 Suicide & Crisis Lifeline",
+      "call or text 988",
+      "any time.",
+      "SAMHSA National Helpline",
+      "1-800-662-4357",
+      "free and confidential, 24 hours a day.",
+      "Alcoholics Anonymous has its own meeting finder at aa.org",
+    ]) {
+      expect(text).toContain(words);
+    }
+    const html = renderToStaticMarkup(<HomePage />);
+    for (const href of ["tel:988", "tel:18006624357", "https://www.aa.org/find-aa"]) {
+      expect(html).toContain(`href="${href}"`);
+    }
   });
 
   it("describes the app to search engines as a free MobileApplication", () => {

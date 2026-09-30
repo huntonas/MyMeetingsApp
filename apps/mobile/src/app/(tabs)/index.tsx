@@ -1,7 +1,7 @@
 import type { MeetingSearchResponse } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Linking, View } from "react-native";
+import { ActivityIndicator, FlatList, View } from "react-native";
 
 import { useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
@@ -17,6 +17,7 @@ import { byExactDistance, describedOrigin, type SearchOrigin, searchRead } from 
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
+import { HandOffButton } from "@/ui/hand-off-button";
 import { MeetingCard } from "@/ui/meeting-card";
 import { OnlineNowList } from "@/ui/online-now-list";
 import { Pill } from "@/ui/pill";
@@ -330,9 +331,7 @@ function Nearby() {
         onStart={begin}
       />
       {problem !== null && <AppText accessibilityRole="alert">{problem}</AppText>}
-      {problem === DENIED && (
-        <Button kind="secondary" label="Open Settings" onPress={() => void Linking.openSettings()} />
-      )}
+      {problem === DENIED && <HandOffButton to="settings" kind="secondary" label="Open Settings" />}
     </Screen>
   );
 }

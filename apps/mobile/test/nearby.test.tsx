@@ -183,6 +183,20 @@ describe("Nearby without location", () => {
     expect(lookups).toEqual(["Maryville, TN"]);
   });
 
+  it("asks before forgetting recent places, and keeps them on “Keep them”", async () => {
+    api.reply(SEARCH, { meetings: [near] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await screen.findByText("Near Maryville, TN");
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Clear recent places" }));
+    expect(screen.getByText("Clear your recent places from this phone?")).toBeOnTheScreen();
+    expect(await recentLabels()).toEqual(["Maryville, TN"]);
+    await fireEvent.press(screen.getByRole("button", { name: "Keep them" }));
+    expect(screen.getByRole("button", { name: "Maryville, TN" })).toBeOnTheScreen();
+    expect(await recentLabels()).toEqual(["Maryville, TN"]);
+  });
+
   it("forgets recent places when asked", async () => {
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
@@ -190,6 +204,7 @@ describe("Nearby without location", () => {
     await screen.findByText("Near Maryville, TN");
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Clear recent places" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Clear them" }));
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Maryville, TN" })).toBeNull();
     });
@@ -317,10 +332,25 @@ describe("Nearby with location", () => {
         "Location is off for mymeetingapp. Search by city, zip code or address instead, or turn location on in Settings.",
       ),
     ).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole("button", { name: "Open Settings" }));
+    const settings = screen.getByRole("button", { name: "Open Settings" });
+    expect(settings).toHaveProp("accessibilityHint", "Opens this app's settings");
+    await fireEvent.press(settings);
     expect(openSettings).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Search for a place")).toBeOnTheScreen();
     expect(searches()).toHaveLength(0);
+  });
+
+  it("says so when the phone can't open Settings", async () => {
+    jest.spyOn(Linking, "openSettings").mockRejectedValue(new Error("no settings"));
+    setPermissionAnswer("denied");
+    await launchNearby();
+    await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Open Settings" }));
+    expect(
+      await screen.findByText(
+        "This phone couldn't open Settings. You can turn location on for mymeetingapp in the Settings app.",
+      ),
+    ).toBeOnTheScreen();
   });
 
   it("says so when the phone can't find itself, and offers no Settings", async () => {
@@ -522,6 +552,24 @@ describe("results", () => {
     expect(screen.getByText("Near your earlier location")).toBeOnTheScreen();
     expect(screen.queryByText("Near Maryville, TN")).toBeNull();
     api = await startApi();
+  });
+
+  it("reads the tag list again on the next screen change after it failed, without waiting for a foreground", async () => {
+    api.reply("/api/v1/vocabulary", { problem: "offline" }, 500);
+    api.reply(SEARCH, { meetings: [near] });
+    await renderApp("/");
+    await searchFor("Maryville, TN");
+    expect(
+      await screen.findByRole("button", { name: "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's" }),
+    ).toBeOnTheScreen();
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await fireEvent.press(screen.getByLabelText("Me"));
+    await fireEvent.press(await screen.findByLabelText("Nearby"));
+    expect(
+      await screen.findByRole("button", {
+        name: "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
+      }),
+    ).toBeOnTheScreen();
   });
 
   it("reads the search again when the app comes back after the reuse window", async () => {

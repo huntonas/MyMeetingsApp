@@ -1,6 +1,5 @@
 import { appDatabase } from "@/db/database";
-
-const DAY_MS = 86_400_000;
+import { DAY_MS } from "@/time/civil-date";
 
 // Decision 4: a meeting's saved copy is kept 30 days unless the meeting is saved; an online list, 7 days. The last
 // search is replaced by the next one, and the tag list and config are single rows, so neither needs pruning.

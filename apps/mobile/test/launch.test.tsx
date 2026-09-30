@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { Linking } from "react-native";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { AppState, type AppStateStatus, Linking } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
 import { saveSobrietyDate } from "@/sobriety/sobriety-date";
@@ -83,6 +83,30 @@ describe("forced upgrade", () => {
     api.reply("/api/v1/config", CONFIG);
     await renderApp("/");
     await expectNotBlocked();
+  });
+
+  it("reads the config again when the app comes back, so a raised minimum applies without a relaunch", async () => {
+    const listeners = new Set<(state: AppStateStatus) => void>();
+    jest.spyOn(AppState, "addEventListener").mockImplementation((_type, listener) => {
+      listeners.add(listener);
+      return {
+        remove: () => {
+          listeners.delete(listener);
+        },
+      };
+    });
+    const play = async (state: AppStateStatus) => {
+      await act(() => {
+        for (const listener of listeners) listener(state);
+      });
+    };
+    api.reply("/api/v1/config", CONFIG);
+    await renderApp("/");
+    await expectNotBlocked();
+    api.reply("/api/v1/config", tooOld);
+    await play("background");
+    await play("active");
+    expect(await screen.findByText("Please update mymeetingapp")).toBeOnTheScreen();
   });
 
   it("compares the installed version", async () => {

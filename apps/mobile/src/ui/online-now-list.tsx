@@ -6,7 +6,7 @@ import { fetchOnlineMeetings } from "@/api/reads";
 import { useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { onlineNow, type TimedMeeting } from "@/meetings/online-now";
-import { clockLabel } from "@/time/clock";
+import { phoneClockLabel } from "@/time/clock";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { MeetingCard } from "@/ui/meeting-card";
@@ -19,9 +19,6 @@ const onlineRead = (day: number) =>
     schema: OnlineMeetingsResponse,
     fetch: () => fetchOnlineMeetings(day),
   }) as const;
-
-// The phone's own clock: the Online tab converts every meeting to it.
-const local = (start: Date) => clockLabel(start.getHours(), start.getMinutes());
 
 function Section({
   title,
@@ -39,7 +36,7 @@ function Section({
         {title}
       </AppText>
       {items.map(({ meeting, start }) => (
-        <MeetingCard key={meeting.id} meeting={meeting} when={`${verb} ${local(start)}`} />
+        <MeetingCard key={meeting.id} meeting={meeting} when={`${verb} ${phoneClockLabel(start)}`} />
       ))}
     </View>
   );

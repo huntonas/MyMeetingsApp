@@ -6,6 +6,7 @@ import { useColors } from "@/theme/colors";
 import { TEXT_STYLES } from "@/theme/type";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
+import { ConfirmButton } from "@/ui/confirm-button";
 
 interface PlaceSearchProps {
   onPlace: (text: string) => void;
@@ -85,10 +86,14 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearc
               }}
             />
           ))}
-          <Button
-            kind="secondary"
+          <ConfirmButton
             label="Clear recent places"
-            onPress={() => {
+            hint="Asks before deleting your recent places from this phone"
+            question="Clear your recent places from this phone?"
+            confirmLabel="Clear them"
+            confirmHint="Deletes your recent places from this phone"
+            cancelLabel="Keep them"
+            onConfirm={() => {
               // Best effort: if clearing fails, the list stays as it is.
               void forgetRecentPlaces()
                 .then(() => {

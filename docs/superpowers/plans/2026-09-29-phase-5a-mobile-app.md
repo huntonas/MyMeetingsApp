@@ -228,7 +228,7 @@ Each item has a recommendation, and the plan is written to follow it so work isn
 1. **Offline with a stale saved copy, or offline on a fresh install with no copy at all.** The app must show the saved copy with the time it was saved and say it couldn't reach the server, or, with no copy, say so plainly. It must never spin forever or show an empty list as if nothing existed. Pinned in Task 4 ("shows a stale saved copy with its time when the server can't be reached", "says plainly when there's no saved copy and the server can't be reached") and Task 8 ("labels a saved search shown offline").
 2. **A place the geocoder can't find, or a blank search box.** The app must say it couldn't find the place and send nothing to our server. Pinned in Task 7 ("finds nothing for blank text without asking the geocoder") and Task 8 ("a place the geocoder can't find sends nothing to the server").
 3. **Location permission denied after tapping "Use my location".** The app must explain, offer Settings, keep the search box working, and never prompt at launch. Pinned in Task 8 ("asks for nothing at launch", "explains a refused permission and keeps place search").
-4. **Meetings across midnight, daylight-saving changes and other time zones.** "Happening now" must include a Sunday 11:30 PM–12:30 AM Pacific meeting at 12:15 AM Monday, place a New York meeting in Central time, and resolve the fall-back and spring-forward nights. Pinned in Task 6 ("counts a meeting that crosses midnight as happening after midnight", "takes the earlier instant … when clocks fall back", "moves a time the clocks skip an hour later", and "shows what's happening now and soon, in the phone's local time") and Task 10 ("says when a meeting in another zone is on the phone's clock").
+4. **Meetings across midnight, daylight-saving changes and other time zones.** "Happening now" must include a Sunday 11:30 PM–12:30 AM Pacific meeting at 12:15 AM Monday, place a New York meeting in Central time, and resolve the fall-back and spring-forward nights. Pinned in Task 6 ("counts a meeting that crosses midnight as happening after midnight", "takes the later instant, matching Postgres, … when clocks fall back", "moves a time the clocks skip an hour later", and "shows what's happening now and soon, in the phone's local time") and Task 10 ("says when a meeting in another zone is on the phone's clock").
 5. **A saved meeting that merged into another, or was removed from the listings.** A merged meeting must stay saved under its new id, with its saved copy moved. A removed one must say it's no longer listed and offer to remove it, without crashing the Saved tab. Pinned in Task 10 ("follows a merged meeting to its new id") and Task 11 ("a merged saved meeting stays saved under its new id", "a meeting no longer listed can be removed").
 
 ---
@@ -2406,9 +2406,9 @@ describe("occurrences in the meeting's own zone", () => {
     expect(iso(nextStart(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
   });
 
-  it("takes the earlier instant for a time that happens twice when clocks fall back", () => {
+  it("takes the later instant, matching Postgres, for a time that happens twice when clocks fall back", () => {
     const meetingAt = { day: 0, time: "01:30", endTime: null, timezone: "America/New_York" };
-    expect(iso(nextStart(meetingAt, new Date("2026-10-31T12:00:00Z")))).toBe("2026-11-01T05:30:00.000Z");
+    expect(iso(nextStart(meetingAt, new Date("2026-10-31T12:00:00Z")))).toBe("2026-11-01T06:30:00.000Z");
   });
 
   it("moves a time the clocks skip an hour later, as the server does", () => {
@@ -2527,7 +2527,7 @@ const hourOf = (time: string) => Number(time.slice(0, 2));
 const minuteOf = (time: string) => Number(time.slice(3, 5));
 
 // The instant a local date and time happen in a zone. A time the clocks skip (spring forward) resolves an hour later,
-// as Postgres does for the tagging window; a time that happens twice (fall back) is the earlier one.
+// as Postgres does for the tagging window; a time that happens twice (fall back) is the later instant, matching Postgres.
 function zonedInstant(date: CivilDate, time: string, timeZone: string): Date {
   const guess = Date.UTC(date.year, date.month - 1, date.day, hourOf(time), minuteOf(time));
   const firstOffset = offsetMinutes(new Date(guess), timeZone);

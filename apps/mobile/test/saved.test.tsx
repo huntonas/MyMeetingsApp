@@ -93,7 +93,7 @@ describe("the Save heart on a meeting's page", () => {
     expect(await favoriteIds()).toEqual([SURVIVOR]);
   });
 
-  it("keeps the heart as it was when saving fails", async () => {
+  it("keeps the heart as it was when saving fails, and says so", async () => {
     api.reply(PATH, { meeting: meeting() });
     await renderApp(`/meeting/${ID}`);
     expect(await screen.findByLabelText("Welcoming 14 people")).toBeOnTheScreen();
@@ -105,6 +105,9 @@ describe("the Save heart on a meeting's page", () => {
         expect.any(Number),
       ]);
     });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Something went wrong on this phone. Try again.",
+    );
     expect(await favoriteIds()).toEqual([]);
     expect(screen.getByRole("button", { name: "Save" })).toBeOnTheScreen();
   });

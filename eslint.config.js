@@ -9,7 +9,7 @@ const SQLITE_IMPORT = { name: "expo-sqlite", message: "Use appDatabase() from @/
 const LOCATION_IMPORTS = [
   {
     name: "expo-location",
-    message: "Use currentPosition() or locationAlreadyAllowed() from @/location/current-position.",
+    message: "Use currentPosition() from @/location/current-position.",
   },
   { name: "@modules/native-location", message: "Use findPlace() from @/location/find-place." },
 ];

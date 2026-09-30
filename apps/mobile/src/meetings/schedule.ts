@@ -1,13 +1,9 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 
+import { type CivilDate, shiftDays } from "@/time/civil-date";
 import { clockLabel } from "@/time/clock";
 
 export type Scheduled = Pick<MeetingSummary, "day" | "time" | "endTime"> & { timezone: string };
-interface CivilDate {
-  year: number;
-  month: number;
-  day: number;
-}
 export interface Occurrence {
   date: CivilDate;
   start: Date;
@@ -67,11 +63,6 @@ function zonedInstant(date: CivilDate, time: string, timeZone: string): Date {
   const after = wall - offsetAt(wall + DAY, timeZone);
   if (after + offsetAt(after, timeZone) === wall) return new Date(after);
   return new Date(wall - offsetAt(wall - DAY, timeZone));
-}
-
-function shiftDays(date: CivilDate, days: number): CivilDate {
-  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
-  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate() };
 }
 
 const weekdayOf = (date: CivilDate) => new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay();

@@ -2,9 +2,11 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react-nati
 import { Linking } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
+import { saveSobrietyDate } from "@/sobriety/sobriety-date";
 
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
+import { setNow } from "./clock";
 import { CONFIG } from "./fixtures";
 import { setAppVersion } from "./native/expo-application";
 import { renderApp } from "./render-app";
@@ -57,13 +59,16 @@ describe("forced upgrade", () => {
     // A clean cache forces the Me render's own read to finish (and get saved) before the wait below resolves,
     // rather than reusing the row the Saved render already left behind.
     await resetAppData();
+    await saveSobrietyDate({ year: 2025, month: 10, day: 5 });
+    setNow("2026-10-05T17:00:00Z");
     api.reply("/api/v1/config", tooOld);
     await renderApp("/me");
     await waitFor(async () => {
       expect(await readCache("config")).not.toBeNull();
     });
     expect(screen.queryByText("Please update mymeetingapp")).toBeNull();
-    expect(screen.getByText("Your sobriety counter and help live here.")).toBeOnTheScreen();
+    expect(await screen.findByText("365 days")).toBeOnTheScreen();
+    expect(screen.getByText("988 Suicide & Crisis Lifeline")).toBeOnTheScreen();
   });
 
   it("still requires the upgrade offline, from the last config the phone saw", async () => {

@@ -39,6 +39,7 @@ module.exports = {
     "^expo-location$": "<rootDir>/test/native/expo-location.ts",
     "^@modules/native-location$": "<rootDir>/test/native/native-location.ts",
     "^react-native-maps$": "<rootDir>/test/native/react-native-maps.tsx",
+    "^@react-native-community/datetimepicker$": "<rootDir>/test/native/datetimepicker.tsx",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
 };

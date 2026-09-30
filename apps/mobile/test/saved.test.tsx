@@ -6,10 +6,10 @@ import { appDatabase } from "@/db/database";
 import { favoriteIds, setFavorite } from "@/saved/favorites";
 
 import { startApi, type TestApi } from "./api-server";
-import { resetAppData } from "./app-data";
+import { failStatements, resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, VOCABULARY } from "./fixtures";
-import { renderApp } from "./render-app";
+import { launchReadsLanded, renderApp } from "./render-app";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const SURVIVOR = "9b2e4c1a-5d6f-4a7b-8c9d-0e1f2a3b4c5d";
@@ -35,32 +35,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await api.close();
 });
-
-// For a screen with no tag chips to wait on: the tag list, read at every launch, has landed (as in launch.test.tsx).
-async function launchReadsLanded() {
-  await waitFor(async () => {
-    expect(await readCache("vocabulary")).not.toBeNull();
-  });
-}
-
-// Fails only the statements starting with `sql`, as a full disk or a damaged table would; everything else runs.
-async function failStatements(method: "runAsync" | "getAllAsync", sql: string) {
-  const db = await appDatabase();
-  if (method === "runAsync") {
-    const real = db.runAsync.bind(db);
-    return jest
-      .spyOn(db, "runAsync")
-      .mockImplementation((source, params) =>
-        source.startsWith(sql) ? Promise.reject(new Error("disk full")) : real(source, params),
-      );
-  }
-  const real = db.getAllAsync.bind(db);
-  return jest
-    .spyOn(db, "getAllAsync")
-    .mockImplementation((source, params) =>
-      source.startsWith(sql) ? Promise.reject(new Error("disk error")) : real(source, params),
-    );
-}
 
 const meetingRequests = () =>
   api.requests.filter((r) => r.path.startsWith("/api/v1/meetings/")).map((r) => r.path);

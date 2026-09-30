@@ -31,3 +31,12 @@ export async function launchNearby() {
   });
   return app;
 }
+
+// For a screen with no tag chips to wait on: launch's reads (the config and the tag list) have landed, so nothing
+// from launch updates the screen after the test ends.
+export async function launchReadsLanded() {
+  await waitFor(async () => {
+    expect(await readCache("config")).not.toBeNull();
+    expect(await readCache("vocabulary")).not.toBeNull();
+  });
+}

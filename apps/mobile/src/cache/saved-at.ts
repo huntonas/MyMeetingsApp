@@ -1,6 +1,5 @@
+import { MONTHS_SHORT } from "@/time/civil-date";
 import { clockLabel } from "@/time/clock";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 function dayStart(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -15,5 +14,5 @@ export function savedAtLabel(savedAt: Date, now: Date): string {
   if (days === 0) return `today at ${time}`;
   if (days === 1) return `yesterday at ${time}`;
   const year = savedAt.getFullYear() === now.getFullYear() ? "" : `, ${String(savedAt.getFullYear())}`;
-  return `on ${MONTHS[savedAt.getMonth()] ?? ""} ${String(savedAt.getDate())}${year} at ${time}`;
+  return `on ${MONTHS_SHORT[savedAt.getMonth()] ?? ""} ${String(savedAt.getDate())}${year} at ${time}`;
 }

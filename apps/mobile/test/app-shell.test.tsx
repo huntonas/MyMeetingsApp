@@ -149,7 +149,7 @@ describe("the app config", () => {
     expect(mapsKey()).toBe("key-from-eas");
   });
 
-  it("keeps its version parseable as the semantic version appVersion() expects (owner ruling M3)", () => {
+  it("keeps its version parseable as the semantic version installedVersion() expects (owner ruling M3)", () => {
     const config = Config.parse(appConfig(CONTEXT));
     expect(SemVer.safeParse(config.version).success).toBe(true);
   });

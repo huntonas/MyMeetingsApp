@@ -21,7 +21,9 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearc
   const [recent, setRecent] = useState<RecentPlace[]>([]);
   useEffect(() => {
     // Best effort: without a readable list, the search box still works.
-    void recentPlaces().then(setRecent, () => undefined);
+    void recentPlaces()
+      .then(setRecent)
+      .catch(() => undefined);
   }, []);
   return (
     <View style={{ gap: 12 }}>
@@ -86,12 +88,12 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearc
             kind="secondary"
             label="Clear recent places"
             onPress={() => {
-              void forgetRecentPlaces().then(
-                () => {
+              // Best effort: if clearing fails, the list stays as it is.
+              void forgetRecentPlaces()
+                .then(() => {
                   setRecent([]);
-                },
-                () => undefined,
-              );
+                })
+                .catch(() => undefined);
             }}
           />
         </View>

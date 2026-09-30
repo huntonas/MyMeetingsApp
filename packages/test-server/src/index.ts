@@ -70,7 +70,11 @@ export async function startServer(
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, "127.0.0.1", resolve);
+    // Only a failure to listen belongs to this promise; a later error must not be swallowed by it.
+    server.listen(port, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
   });
   const { port: boundPort } = server.address() as AddressInfo;
   return {

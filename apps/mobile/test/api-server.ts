@@ -18,16 +18,19 @@ export interface TestApi {
 // app treats as unreachable, so a test can't pass on a request it didn't expect.
 export async function startApi(): Promise<TestApi> {
   const replies = new Map<string, { status: number; json: unknown } | "hang" | Promise<unknown>>();
+  // Every reply closes its connection: tests close and restart this server on the same port, and Node's fetch would
+  // otherwise reuse a kept-alive socket to the closed one, failing a POST (never retried) as unreachable.
+  const CLOSE = { connection: "close" };
   const jsonReply = (status: number, body: unknown) => ({
     status,
     body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...CLOSE },
   });
   const server = await startServer(
     (path) => {
       const reply = replies.get(path);
       if (reply === "hang") return new Promise<never>(() => undefined);
-      if (reply === undefined) return { status: 599, body: `no reply set for ${path}` };
+      if (reply === undefined) return { status: 599, body: `no reply set for ${path}`, headers: CLOSE };
       if (reply instanceof Promise) return reply.then((body) => jsonReply(200, body));
       return jsonReply(reply.status, reply.json);
     },

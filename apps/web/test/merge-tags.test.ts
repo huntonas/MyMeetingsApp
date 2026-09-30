@@ -10,7 +10,7 @@ import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 import { recountTags } from "@/server/tags/counts";
 
-import { resetDb, untilWaitingOnLock } from "./db";
+import { backendPid, resetDb, untilWaitingOnLock } from "./db";
 import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
 import { countsOf, insertSubmission, meetingIdOfSlug, seedDuplicateCopies } from "./tag-fixtures";
 
@@ -143,18 +143,24 @@ describe("mergeDuplicateMeetings racing a tag write", () => {
     const { older, newer } = await seedDuplicateCopies();
     // Stands in for POST /tags, which holds its meeting row (findTaggableMeeting) until it commits.
     const write = await pool.connect();
-    await write.query("begin");
-    await write.query("select 1 from meetings where id = $1 for key share", [newer]);
-    let settled = false;
-    const merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled = true));
-    await untilWaitingOnLock(() => settled);
-    await write.query(
-      `insert into tag_submissions (meeting_id, submitter_id, scope_meeting_id, tag_ids, near_meeting)
-       select $1, repeat('a', 64), $1, array[id], false from tags where slug = 'quiet'`,
-      [newer],
-    );
-    await write.query("commit");
-    write.release();
+    let merge: Promise<void> | undefined;
+    try {
+      await write.query("begin");
+      await write.query("select 1 from meetings where id = $1 for key share", [newer]);
+      let settled = false;
+      merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled = true));
+      await untilWaitingOnLock(await backendPid(write), () => settled);
+      await write.query(
+        `insert into tag_submissions (meeting_id, submitter_id, scope_meeting_id, tag_ids, near_meeting)
+         select $1, repeat('a', 64), $1, array[id], false from tags where slug = 'quiet'`,
+        [newer],
+      );
+      await write.query("commit");
+    } finally {
+      // Only undoes anything if the test failed before its commit: the lock never outlives the test.
+      await write.query("rollback");
+      write.release();
+    }
     await merge;
     const rows = await db.select().from(tagSubmissions);
     expect(rows.map((row) => row.meetingId)).toEqual([older]);
@@ -175,19 +181,28 @@ describe("mergeDuplicateMeetings racing the nightly maintenance", () => {
     });
     // Stalls the merge after it has locked both meetings, before it moves their tags and audit rows.
     const holder = await pool.connect();
-    await holder.query("begin");
-    await holder.query("select 1 from tag_submissions where submitter_id = $1 for update", [moving]);
-    let mergeSettled = false;
-    const merge = db
-      .transaction((tx) => mergeDuplicateMeetings([newer], tx))
-      .finally(() => (mergeSettled = true));
-    await untilWaitingOnLock(() => mergeSettled);
-    let nightlySettled = false;
-    const nightly = runMaintenance().finally(() => (nightlySettled = true));
-    await untilWaitingOnLock(() => nightlySettled, 2);
-    await holder.query("commit");
-    holder.release();
-    await Promise.all([merge, nightly]);
+    let racing: Promise<unknown> | undefined;
+    try {
+      await holder.query("begin");
+      await holder.query("select 1 from tag_submissions where submitter_id = $1 for update", [moving]);
+      const holderPid = await backendPid(holder);
+      let mergeSettled = false;
+      const merge = db
+        .transaction((tx) => mergeDuplicateMeetings([newer], tx))
+        .finally(() => (mergeSettled = true));
+      racing = merge;
+      await untilWaitingOnLock(holderPid, () => mergeSettled);
+      let nightlySettled = false;
+      const nightly = runMaintenance().finally(() => (nightlySettled = true));
+      racing = Promise.all([merge, nightly]);
+      await untilWaitingOnLock(holderPid, () => nightlySettled, 2);
+      await holder.query("commit");
+    } finally {
+      // Only undoes anything if the test failed before its commit: the lock never outlives the test.
+      await holder.query("rollback");
+      holder.release();
+    }
+    await racing;
     expect((await db.select().from(tagSubmissions)).map((row) => row.meetingId)).toEqual([older, older]);
     expect(await countsOf(older)).toEqual([["quiet", 2, 0]]);
     expect(await db.select().from(tagAudit)).toEqual([]);

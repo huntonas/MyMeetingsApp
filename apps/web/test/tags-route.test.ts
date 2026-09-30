@@ -9,7 +9,7 @@ import { seedVocabulary } from "@/db/seed-vocabulary";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
-import { resetDb, untilWaitingOnLock } from "./db";
+import { backendPid, resetDb, untilWaitingOnLock } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -218,7 +218,7 @@ describe("POST /api/v1/tags", () => {
     await admin.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [DEVICE_A_HASH]);
     let settled = false;
     const write = post({ meetingId, tags: ["quiet"] }).finally(() => (settled = true));
-    await untilWaitingOnLock(() => settled);
+    await untilWaitingOnLock(await backendPid(admin), () => settled);
     await admin.query("update devices set blocked = true where device_hash = $1", [DEVICE_A_HASH]);
     await admin.query("commit");
     admin.release();
@@ -248,7 +248,7 @@ describe("POST /api/v1/tags", () => {
         post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }, deviceHeaders(DEVICE_B, "android")),
       ].map((write) => write.finally(() => (settled += 1))),
     );
-    await untilWaitingOnLock(() => settled === 2, 2);
+    await untilWaitingOnLock(await backendPid(holder), () => settled === 2, 2);
     await holder.query("commit");
     holder.release();
     const results = await writes;
@@ -273,17 +273,17 @@ describe("POST /api/v1/tags", () => {
     async function whileMerging(meetingId: string, during: () => Promise<Response>): Promise<Response> {
       let release: () => void = () => undefined;
       const hold = new Promise<void>((resolve) => (release = resolve));
-      let merged: () => void = () => undefined;
-      const mergeDone = new Promise<void>((resolve) => (merged = resolve));
+      let merged: (pid: number) => void = () => undefined;
+      const mergeDone = new Promise<number>((resolve) => (merged = resolve));
       const merge = db.transaction(async (tx) => {
         await mergeDuplicateMeetings([meetingId], tx);
-        merged();
+        merged(await backendPid(tx));
         await hold;
       });
-      await mergeDone;
+      const holder = await mergeDone;
       let settled = false;
       const pending = during().finally(() => (settled = true));
-      await untilWaitingOnLock(() => settled);
+      await untilWaitingOnLock(holder, () => settled);
       release();
       await merge;
       return pending;

@@ -95,6 +95,16 @@ describe("the app shell", () => {
     expect(app.getPathname()).toBe("/");
   });
 
+  it("follows the system's dark appearance with the website's dark tokens and the bundled font", async () => {
+    await render(<AppText variant="label">Welcoming</AppText>);
+    expect(screen.getByText("Welcoming")).toHaveStyle({
+      color: "#eceff1",
+      fontFamily: "AtkinsonHyperlegible-Bold",
+    });
+  });
+});
+
+describe("test harness, not app behaviour: renderApp (test/render-app.tsx)", () => {
   it("keeps timers real once the app has rendered, so a screen can wait on the network", async () => {
     await renderApp("/");
     await waitFor(() => {
@@ -107,14 +117,6 @@ describe("the app shell", () => {
     );
     expect(fired).toBe(true);
   }, 1000);
-
-  it("follows the system's dark appearance with the website's dark tokens and the bundled font", async () => {
-    await render(<AppText variant="label">Welcoming</AppText>);
-    expect(screen.getByText("Welcoming")).toHaveStyle({
-      color: "#eceff1",
-      fontFamily: "AtkinsonHyperlegible-Bold",
-    });
-  });
 });
 
 describe("the app config", () => {

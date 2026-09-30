@@ -234,7 +234,7 @@ describe("personal writes are never undone by someone else's failed transaction"
   });
 });
 
-describe("the fake expo-sqlite (test/native/expo-sqlite.ts) behaves like a real async database", () => {
+describe("test harness, not app behaviour: the fake expo-sqlite (test/native/expo-sqlite.ts) behaves like a real async database", () => {
   it("returns the real last_insert_rowid, not a placeholder", async () => {
     const db = await appDatabase();
     const first = await db.runAsync("insert into cache_entries (key, body, saved_at) values (?, ?, ?)", [

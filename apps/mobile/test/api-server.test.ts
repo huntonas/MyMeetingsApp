@@ -11,7 +11,7 @@ afterEach(async () => {
   await api.close();
 });
 
-describe("startApi", () => {
+describe("test harness, not app behaviour: startApi (test/api-server.ts)", () => {
   it("rejects instead of hanging when the fixed port is already in use", async () => {
     await expect(startApi()).rejects.toThrow();
   });

@@ -9,7 +9,7 @@ import { recomputeMeetings } from "@/server/meetings/recompute";
 import { recountTags } from "@/server/tags/counts";
 import { findTaggableMeeting } from "@/server/tags/taggable-meeting";
 
-import { untilWaitingOnLock } from "./db";
+import { backendPid, untilWaitingOnLock } from "./db";
 import { feedMeeting, insertMeetingWithSources, seedFeed } from "./feed-fixtures";
 
 let nextSubmitter = 1;
@@ -133,23 +133,30 @@ export function elsewhere(n: number): Partial<FeedMeeting> {
 }
 
 // Runs `during` while another tag write on the meeting sits uncommitted just after its recount, as POST /tags
-// leaves it before committing, and lets that write commit once `during` waits on one of its locks.
+// leaves it before committing, and lets that write commit once `during` waits on one of its locks. If the wait fails,
+// the write rolls back instead, so its locks never outlive the test.
 export async function whileTagWriteHolds<T>(meetingId: string, during: () => Promise<T>): Promise<T> {
-  let release: () => void = () => undefined;
-  const hold = new Promise<void>((resolve) => (release = resolve));
-  let ready: () => void = () => undefined;
-  const writeReady = new Promise<void>((resolve) => (ready = resolve));
+  let release: (commit: boolean) => void = () => undefined;
+  const hold = new Promise<boolean>((resolve) => (release = resolve));
+  let ready: (pid: number) => void = () => undefined;
+  const writeReady = new Promise<number>((resolve) => (ready = resolve));
   const write = db.transaction(async (tx) => {
     await findTaggableMeeting(meetingId, tx);
     await recountTags([meetingId], tx);
-    ready();
-    await hold;
+    ready(await backendPid(tx));
+    if (!(await hold)) tx.rollback();
   });
-  await writeReady;
+  const holder = await writeReady;
   let settled = false;
   const pending = during().finally(() => (settled = true));
-  await untilWaitingOnLock(() => settled);
-  release();
+  let commit = false;
+  try {
+    await untilWaitingOnLock(holder, () => settled);
+    commit = true;
+  } finally {
+    release(commit);
+    if (!commit) await Promise.allSettled([write, pending]);
+  }
   await write;
   return pending;
 }

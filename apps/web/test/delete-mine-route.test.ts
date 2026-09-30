@@ -11,7 +11,7 @@ import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
-import { resetDb, untilWaitingOnLock } from "./db";
+import { backendPid, resetDb, untilWaitingOnLock } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -132,7 +132,7 @@ describe("POST /api/v1/tags/delete-mine", () => {
     );
     let settled = false;
     const deleting = deleteMine().finally(() => (settled = true));
-    await untilWaitingOnLock(() => settled);
+    await untilWaitingOnLock(await backendPid(screening), () => settled);
     await screening.query("commit");
     screening.release();
     expect((await deleting).status).toBe(200);
@@ -165,10 +165,11 @@ describe("POST /api/v1/tags/delete-mine", () => {
       await holder.query("select 1 from tag_audit where device_hash = $1 for update", [DEVICE_A_HASH]);
       let deleteSettled = false;
       const deleting = deleteMine().finally(() => (deleteSettled = true));
-      await untilWaitingOnLock(() => deleteSettled);
+      const holderPid = await backendPid(holder);
+      await untilWaitingOnLock(holderPid, () => deleteSettled);
       let nightlySettled = false;
       const nightly = runMaintenance().finally(() => (nightlySettled = true));
-      await untilWaitingOnLock(() => nightlySettled, 2);
+      await untilWaitingOnLock(holderPid, () => nightlySettled, 2);
       await holder.query("commit");
       holder.release();
       const [res] = await Promise.all([deleting, nightly]);
@@ -187,9 +188,10 @@ describe("POST /api/v1/tags/delete-mine", () => {
       await holder.query("select 1 from tag_counts where meeting_id = $1 for update", [newer]);
       let settled = 0;
       const deleting = deleteMine().finally(() => (settled += 1));
-      await untilWaitingOnLock(() => settled > 0);
+      const holderPid = await backendPid(holder);
+      await untilWaitingOnLock(holderPid, () => settled > 0);
       const merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled += 1));
-      await untilWaitingOnLock(() => settled > 0, 2);
+      await untilWaitingOnLock(holderPid, () => settled > 0, 2);
       await holder.query("commit");
       holder.release();
       const [res] = await Promise.all([deleting, merge]);

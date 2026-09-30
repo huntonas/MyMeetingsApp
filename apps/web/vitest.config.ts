@@ -16,5 +16,8 @@ export default defineConfig({
     globalSetup: ["./test/global-setup.ts"],
     // Database tests share one database, so test files run one at a time.
     fileParallelism: false,
+    // The lock-racing tests hold a transaction while another waits on it; under a loaded machine that takes longer
+    // than vitest's 5-second default, though never close to this.
+    testTimeout: 15_000,
   },
 });

@@ -193,6 +193,13 @@ describe("findPlace", () => {
     expect(await place.result).toBeNull();
   });
 
+  it("clears its time limit when the geocoder answers first, so no timer is left running", async () => {
+    jest.useFakeTimers(TIMEOUT_ONLY);
+    setPlace("Maryville, TN", { latitude: 35.7565, longitude: -83.9705 });
+    expect(await findPlace("Maryville, TN")).not.toBeNull();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it("treats an answer off the globe as a bug, not a place", async () => {
     setPlace("Broken", { latitude: 200, longitude: 0 });
     await expect(findPlace("Broken")).rejects.toThrow();

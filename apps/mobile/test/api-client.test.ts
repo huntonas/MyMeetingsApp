@@ -1,9 +1,10 @@
-import { MeetingSearchRequest } from "@mymeetingapp/shared";
+import { ZodError } from "zod";
 
 import { ApiError, Unreachable } from "@/api/client";
 import { fetchMeeting, fetchOnlineMeetings, fetchVocabulary, searchMeetings } from "@/api/reads";
 
 import { startApi, type TestApi } from "./api-server";
+import { TIMEOUT_ONLY } from "./clock";
 import { meeting, VOCABULARY } from "./fixtures";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -49,9 +50,8 @@ describe("search", () => {
   });
 
   it("refuses to send a point that isn't rounded", async () => {
-    await expect(searchMeetings({ lat: 36.162, lng: -86.78, radiusKm: 25 })).rejects.toThrow();
+    await expect(searchMeetings({ lat: 36.162, lng: -86.78, radiusKm: 25 })).rejects.toBeInstanceOf(ZodError);
     expect(api.requests).toHaveLength(0);
-    expect(MeetingSearchRequest.safeParse({ lat: 36.162, lng: -86.78, radiusKm: 25 }).success).toBe(false);
   });
 });
 
@@ -76,13 +76,17 @@ describe("failures", () => {
   });
 
   it("gives up on a server that doesn't answer within 15 seconds", async () => {
-    jest.useFakeTimers({
-      doNotFake: ["Date", "nextTick", "setImmediate", "queueMicrotask", "setInterval", "clearInterval"],
-    });
+    jest.useFakeTimers(TIMEOUT_ONLY);
     api.hang("/api/v1/vocabulary");
-    const pending = fetchVocabulary().catch((caught: unknown) => caught);
+    let settled = false;
+    const pending = fetchVocabulary()
+      .catch((caught: unknown) => caught)
+      .finally(() => {
+        settled = true;
+      });
     while (api.requests.length === 0) await new Promise((resolve) => setImmediate(resolve));
     await jest.advanceTimersByTimeAsync(14_999);
+    expect(settled).toBe(false);
     await jest.advanceTimersByTimeAsync(1);
     expect(await pending).toBeInstanceOf(Unreachable);
   });

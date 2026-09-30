@@ -49,9 +49,13 @@ async function request<S extends z.ZodType>(
     controller.abort();
   }, TIMEOUT_MS);
   try {
-    const response = await fetch(`${serverUrl()}${path}`, { ...init, signal: controller.signal }).catch(
-      unreachable,
-    );
+    // expo/fetch defaults credentials to "include": iOS replays cookies from HTTPCookieStorage.shared and Android
+    // from a persistent jar, so any Set-Cookie from the API origin would become a stable identifier. Omit it.
+    const response = await fetch(`${serverUrl()}${path}`, {
+      ...init,
+      credentials: "omit",
+      signal: controller.signal,
+    }).catch(unreachable);
     const body: unknown = await response.json().catch(unreachable);
     return parseReply(response.ok, body, schema);
   } finally {

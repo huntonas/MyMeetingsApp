@@ -68,17 +68,22 @@ export async function startServer(
       });
     });
   });
-  await new Promise<void>((resolve) => server.listen(port, "127.0.0.1", resolve));
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", resolve);
+  });
   const { port: boundPort } = server.address() as AddressInfo;
   return {
     baseUrl: `http://127.0.0.1:${String(boundPort)}`,
     port: boundPort,
     requests,
     close: () =>
-      new Promise<void>((resolve) =>
+      new Promise<void>((resolve) => {
+        // A hanging response leaves its connection open; close() alone waits for it to end on its own.
+        server.closeAllConnections();
         server.close(() => {
           resolve();
-        }),
-      ),
+        });
+      }),
   };
 }

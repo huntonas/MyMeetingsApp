@@ -25,6 +25,7 @@ export default defineConfig([
     "apps/mobile/.expo/",
     "apps/mobile/ios/",
     "apps/mobile/android/",
+    "apps/mobile/modules/*/android/build/",
   ]),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

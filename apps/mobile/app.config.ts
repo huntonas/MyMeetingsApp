@@ -32,8 +32,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // Spec §2: While Using only. `false` leaves the Always and motion purpose strings out of the app entirely.
       "expo-location",
       {
-        locationWhenInUsePermission:
-          "mymeetingapp uses your location to sort nearby meetings. It rounds it to about 1 km before searching, and your exact location never leaves your phone.",
+        locationWhenInUsePermission: `${APP_NAME} uses your location to sort nearby meetings. It rounds it to about 1 km before searching, and your exact location never leaves your phone.`,
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
         motionUsagePermission: false,

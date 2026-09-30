@@ -13,7 +13,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 // Spec §8: Android's own Geocoder needs no location permission (expo-location's wrapper insists on one), so a fresh
-// install with no permission can still search by place. Our server never sees the text.
+// install with no permission can still search by place. The phone sends the text to Google's geocoder (or the phone
+// maker's location service); our server never sees it.
 class NativeLocationModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("NativeLocation")

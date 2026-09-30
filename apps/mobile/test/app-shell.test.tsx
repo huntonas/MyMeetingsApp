@@ -127,6 +127,7 @@ describe("the app config", () => {
     ]);
     expect(config.android.blockedPermissions).toContain("android.permission.ACCESS_BACKGROUND_LOCATION");
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
+    expect(options.locationWhenInUsePermission).toMatch(new RegExp(`^${BRAND.appName} `));
     expect(options.locationWhenInUsePermission).toContain("rounds it to about 1 km");
   });
 

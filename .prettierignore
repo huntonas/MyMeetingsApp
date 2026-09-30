@@ -2,5 +2,6 @@ pnpm-lock.yaml
 **/drizzle/meta/
 apps/mobile/ios/
 apps/mobile/android/
+apps/mobile/modules/*/android/build/
 apps/mobile/.expo/
 apps/mobile/expo-env.d.ts

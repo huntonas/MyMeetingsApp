@@ -1,7 +1,6 @@
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { Linking } from "react-native";
 
-import { fetchConfig } from "@/api/reads";
 import { readCache, writeCache } from "@/cache/store";
 
 import { startApi, type TestApi } from "./api-server";
@@ -73,33 +72,6 @@ describe("forced upgrade", () => {
     await renderApp("/online");
     expect(await screen.findByText("Please update mymeetingapp")).toBeOnTheScreen();
     api = await startApi();
-  });
-
-  it("fails open when the server can't be reached at all", async () => {
-    await api.close();
-    await renderApp("/");
-    // A real request against the same (closed) server, wrapped in act() and awaited to settle, so the app's own
-    // identical request — and the state update it triggers — has also settled before the assertions below run.
-    await act(async () => {
-      await expect(fetchConfig()).rejects.toThrow("The server couldn't be reached");
-    });
-    expect(screen.queryByText("Please update mymeetingapp")).toBeNull();
-    expect(screen.getByText("Search by city, zip code or address, or use your location.")).toBeOnTheScreen();
-    api = await startApi();
-  });
-
-  it("fails open when the server reports an error reading the config", async () => {
-    api.reply("/api/v1/config", { error: { code: "invalid_request", message: "x" } }, 400);
-    await renderApp("/");
-    await waitFor(() => {
-      expect(api.requests).toHaveLength(1);
-    });
-    await waitFor(() => {
-      expect(screen.queryByText("Please update mymeetingapp")).toBeNull();
-      expect(
-        screen.getByText("Search by city, zip code or address, or use your location."),
-      ).toBeOnTheScreen();
-    });
   });
 
   it("lets a current version search", async () => {

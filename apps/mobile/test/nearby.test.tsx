@@ -211,6 +211,30 @@ describe("Nearby without location", () => {
     expect(await recentLabels()).toEqual([]);
   });
 
+  it("clearing recent places forgets the last search too, so nothing typed stays on the phone", async () => {
+    api.reply(SEARCH, { meetings: [near] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await screen.findByText("Near Group");
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Clear recent places" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Clear them" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Maryville, TN" })).toBeNull();
+    });
+    const db = await appDatabase();
+    for (const table of ["cache_entries", "recent_places", "favorites", "settings"]) {
+      const rows = await db.getAllAsync(`select * from ${table}`, []);
+      expect(JSON.stringify(rows)).not.toMatch(/maryville/i);
+    }
+    await api.close();
+    await fireEvent.press(screen.getByRole("button", { name: "Use my location" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.",
+    );
+    api = await startApi();
+  });
+
   it("drops a slow place lookup once a newer search has started", async () => {
     api.reply(SEARCH, { meetings: [near] });
     const slow = later<unknown>();

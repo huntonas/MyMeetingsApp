@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { forgetLastSearch } from "@/cache/store";
 import { appDatabase, inTransaction } from "@/db/database";
 import { type LatLng, roundForSearch } from "@/location/geo";
 
@@ -38,7 +39,11 @@ export async function recentPlaces(): Promise<RecentPlace[]> {
   return z.array(Row).parse(rows);
 }
 
-export async function forgetRecentPlaces(): Promise<void> {
-  const db = await appDatabase();
-  await db.runAsync("delete from recent_places", []);
+// Also forgets the last search, which keeps its typed label too, in the same transaction: afterwards nothing the
+// person typed stays on the phone.
+export function forgetRecentPlaces(): Promise<void> {
+  return inTransaction(async (db) => {
+    await db.runAsync("delete from recent_places", []);
+    await forgetLastSearch(db);
+  });
 }

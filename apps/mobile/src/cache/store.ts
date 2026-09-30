@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { appDatabase, inTransaction } from "@/db/database";
+import { type AppDatabase, appDatabase, inTransaction } from "@/db/database";
 
 const Row = z.object({ body: z.string(), saved_at: z.number() });
 
@@ -58,4 +58,10 @@ export async function writeSearchResult(key: string, body: unknown, savedAt: Dat
     ]);
     await db.runAsync("delete from cache_entries where key like 'search:%' and key <> ?", [key]);
   });
+}
+
+// Forgets the one kept search (its label, rounded point and answer), inside the caller's transaction: clearing recent
+// places leaves nothing the person typed on the phone.
+export async function forgetLastSearch(db: AppDatabase): Promise<void> {
+  await db.runAsync("delete from cache_entries where key like 'search:%'", []);
 }

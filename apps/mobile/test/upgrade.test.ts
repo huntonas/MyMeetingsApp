@@ -1,7 +1,7 @@
 import type { AppConfigResponse } from "@mymeetingapp/shared";
 
 import type { ReadState } from "@/cache/use-cached-read";
-import { upgradeRequired } from "@/config/upgrade";
+import { upgradeRequired } from "@/config/upgrade-required";
 
 import { CONFIG } from "./fixtures";
 

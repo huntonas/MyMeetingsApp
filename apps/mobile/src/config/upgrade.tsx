@@ -1,24 +1,14 @@
-import { AppConfigResponse, isOlderVersion, SemVer } from "@mymeetingapp/shared";
+import { AppConfigResponse } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext } from "react";
 
 import { fetchConfig } from "@/api/reads";
-import type { ReadState } from "@/cache/use-cached-read";
 import { useCachedRead } from "@/cache/use-cached-read";
-import { appPlatform, appVersion } from "@/config/app-version";
+import { appVersion } from "@/config/app-version";
+import { upgradeRequired } from "@/config/upgrade-required";
 
 const UpgradeRequired = createContext(false);
 
 const CONFIG_READ = { kind: "config", key: "config", schema: AppConfigResponse, fetch: fetchConfig } as const;
-
-// The gate's whole decision, as a pure function: not required unless the read is genuinely "ready", and never
-// required for an installed version this build can't even parse (owner ruling M3) — fail open rather than crash.
-// Exported so the decision table can pin it directly; UpgradeProvider below is its only production caller.
-export function upgradeRequired(state: ReadState<AppConfigResponse>, installed: string): boolean {
-  if (state.status !== "ready") return false;
-  const parsed = SemVer.safeParse(installed);
-  if (!parsed.success) return false;
-  return isOlderVersion(parsed.data, state.data.minSupportedVersion[appPlatform()]);
-}
 
 // appVersion() throws when the native build's own version string doesn't parse; upgradeRequired only ever sees the
 // resulting string, so that throw is caught here, at the one place parsing happens, and "" (itself unparseable)

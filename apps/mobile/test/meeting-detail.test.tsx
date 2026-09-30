@@ -160,7 +160,7 @@ describe("the meeting page", () => {
     setNow("2026-10-05T12:00:00Z");
     api.reply(PATH, { meeting: meeting({ timezone: "America/New_York" }) });
     await renderApp(`/meeting/${ID}`);
-    expect(await screen.findByText(`${WHEN} (New York time)`)).toBeOnTheScreen();
+    expect(await screen.findByText(`${WHEN} (Eastern Time)`)).toBeOnTheScreen();
     expect(screen.getByText("That's Monday at 11:00 AM your time.")).toBeOnTheScreen();
   });
 

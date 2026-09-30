@@ -69,9 +69,7 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
     meeting.timezone === null ? null : yourTime({ ...meeting, timezone: meeting.timezone }, new Date());
   // When the phone's clock differs, the listed time says whose clock it's on.
   const when =
-    phoneTime === null || meeting.timezone === null
-      ? listed
-      : `${listed} (${zoneName(meeting.timezone)} time)`;
+    phoneTime === null || meeting.timezone === null ? listed : `${listed} (${zoneName(meeting.timezone)})`;
   const directions = directionsUrl(meeting, appPlatform());
   return (
     <>

@@ -124,8 +124,13 @@ export function yourTime(meeting: Scheduled, now: Date): string | null {
   return `That's ${onPhone} your time.`;
 }
 
-// A zone as people name it: the city in its IANA name ("America/New_York" is "New York"). Not Intl's timeZoneName,
-// whose wording depends on the phone's ICU version and the date.
+// A zone as people name it, for "(Eastern Time)" after a listed time: Intl's generic name, which unlike its standard
+// and daylight names doesn't change with the date. Hermes supports "longGeneric" on iOS and Android. When the engine
+// has no name for the zone, only an offset ("GMT+00:00") or nothing, the city in its IANA name stands in ("UTC time").
 export function zoneName(timezone: string): string {
-  return (timezone.split("/").at(-1) ?? timezone).replace(/_/g, " ");
+  const generic = new Intl.DateTimeFormat("en-US", { timeZone: timezone, timeZoneName: "longGeneric" })
+    .formatToParts()
+    .find((part) => part.type === "timeZoneName")?.value;
+  if (generic !== undefined && !/^(GMT|UTC)/.test(generic)) return generic;
+  return `${(timezone.split("/").at(-1) ?? timezone).replace(/_/g, " ")} time`;
 }

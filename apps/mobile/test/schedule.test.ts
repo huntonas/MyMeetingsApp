@@ -151,12 +151,19 @@ describe("yourTime", () => {
 });
 
 describe("zoneName", () => {
+  // A Maryville, TN meeting is on Eastern Time, not "New York time".
   it.each([
-    ["America/New_York", "New York"],
-    ["America/Argentina/Buenos_Aires", "Buenos Aires"],
-    ["Pacific/Honolulu", "Honolulu"],
-  ])("names %s after its city, %s", (timezone, name) => {
+    ["America/New_York", "Eastern Time"],
+    ["America/Chicago", "Central Time"],
+    ["America/Denver", "Mountain Time"],
+    ["America/Los_Angeles", "Pacific Time"],
+  ])("names %s by its generic name, %s", (timezone, name) => {
     expect(zoneName(timezone)).toBe(name);
+  });
+
+  // Intl has no name for UTC, only an offset ("GMT+00:00"), so the zone's own name is used.
+  it("falls back to the zone's own name when Intl gives only an offset", () => {
+    expect(zoneName("UTC")).toBe("UTC time");
   });
 });
 

@@ -190,7 +190,7 @@ describe("the Online tab", () => {
     await renderApp("/online");
     expect(
       await screen.findByText(
-        "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
+        "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByText(NOTHING_ON)).toBeNull();

@@ -307,13 +307,43 @@ describe("the person's own dot", () => {
 });
 
 describe("the map's notices", () => {
-  it("says so when a pan's search fails, and keeps the map", async () => {
+  it("offline, a pan's search shows the last search, named by its place, and keeps the map", async () => {
+    setNow("2026-10-05T20:40:00Z");
     const { map } = await openMap();
     api.reply(SEARCH, { problem: "not the API's error envelope" }, 500);
     await moveTo(map, PAN);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
-    );
+    expect(
+      await screen.findByText(
+        "Showing your last search, near Maryville, TN, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByTestId("results-map")).toBe(map);
+  });
+
+  it("offline, names a last search made by panning as the map area searched, not this one", async () => {
+    setNow("2026-10-05T20:40:00Z");
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
+    api.reply(SEARCH, { problem: "not the API's error envelope" }, 500);
+    await moveTo(map, { latitude: 35.91, longitude: -84.11, latitudeDelta: 0.2, longitudeDelta: 0.3 });
+    expect(
+      await screen.findByText(
+        "Showing your last search, near the map area you searched, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("Near the map area you searched")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+  });
+
+  it("says so when a pan's search fails with the server in trouble, and keeps the map", async () => {
+    const { map } = await openMap();
+    api.reply(SEARCH, { error: { code: "server_error", message: "Something went wrong on our end." } }, 500);
+    await moveTo(map, PAN);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong on our end.");
     expect(screen.getByTestId("results-map")).toBe(map);
     // The earlier area's markers would read as this area's meetings.
     expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();

@@ -4,13 +4,29 @@ import { appDatabase, inTransaction } from "@/db/database";
 
 const Row = z.object({ body: z.string(), saved_at: z.number() });
 
-export async function readCache(key: string): Promise<{ body: unknown; savedAt: Date } | null> {
-  const db = await appDatabase();
-  const row = await db.getFirstAsync("select body, saved_at from cache_entries where key = ?", [key]);
+type Saved = { body: unknown; savedAt: Date } | null;
+
+function parseRow(row: unknown): Saved {
   if (row === null) return null;
   const { body, saved_at } = Row.parse(row);
   const parsed: unknown = JSON.parse(body);
   return { body: parsed, savedAt: new Date(saved_at) };
+}
+
+export async function readCache(key: string): Promise<Saved> {
+  const db = await appDatabase();
+  return parseRow(await db.getFirstAsync("select body, saved_at from cache_entries where key = ?", [key]));
+}
+
+// The one search kept offline (spec §8), whatever its key.
+export async function readLastSearch(): Promise<Saved> {
+  const db = await appDatabase();
+  return parseRow(
+    await db.getFirstAsync(
+      "select body, saved_at from cache_entries where key like 'search:%' order by saved_at desc limit 1",
+      [],
+    ),
+  );
 }
 
 export async function writeCache(key: string, body: unknown, savedAt: Date = new Date()): Promise<void> {

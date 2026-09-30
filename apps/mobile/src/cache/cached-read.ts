@@ -3,7 +3,7 @@ import type { z } from "zod";
 
 import { ApiError, Unreachable } from "@/api/client";
 import { type CacheKind, isFresh } from "@/cache/freshness";
-import { readCache, writeCache, writeSearchResult } from "@/cache/store";
+import { readCache, readLastSearch, writeCache, writeSearchResult } from "@/cache/store";
 
 export interface CachedRead<S extends z.ZodType> {
   kind: CacheKind;
@@ -32,10 +32,17 @@ function fallbackReason(error: unknown): FallbackReason | null {
 }
 
 // The copy saved for `read`, however old, or null. Never throws.
-export async function savedCopy<S extends z.ZodType>(read: CachedRead<S>) {
+export function savedCopy<S extends z.ZodType>(read: CachedRead<S>) {
+  return parsedCopy(read, readCache(read.key));
+}
+
+async function parsedCopy<S extends z.ZodType>(
+  read: CachedRead<S>,
+  reading: Promise<{ body: unknown; savedAt: Date } | null>,
+) {
   // The cache is best effort: a broken saved copy (a corrupt row, unreadable JSON, a native storage error) is as
   // good as none, so the read still asks the server instead of failing outright.
-  const saved = await readCache(read.key).catch(() => null);
+  const saved = await reading.catch(() => null);
   if (saved === null) return null;
   // A copy saved by an older app version may not match today's contract; then it's as good as missing.
   const parsed = read.schema.safeParse(saved.body);
@@ -61,7 +68,13 @@ export async function cachedRead<S extends z.ZodType>(
     return { data, savedAt: null };
   } catch (error) {
     const reason = fallbackReason(error);
-    if (reason !== null && saved !== null) return { data: saved.data, savedAt: saved.savedAt, reason };
+    // Spec §8 keeps only the last search offline, so offline a search anywhere new has no copy of its own: the last
+    // search is better than nothing, and its data says where it was made (the screen must describe it by that).
+    const fallback =
+      saved ??
+      (reason === "unreachable" && read.kind === "search" ? await parsedCopy(read, readLastSearch()) : null);
+    if (reason !== null && fallback !== null)
+      return { data: fallback.data, savedAt: fallback.savedAt, reason };
     throw error;
   }
 }

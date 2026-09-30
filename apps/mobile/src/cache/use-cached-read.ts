@@ -10,8 +10,9 @@ export type ReadState<T> =
   | ({ status: "ready" } & CachedResult<T>)
   | { status: "failed"; message: string; gone: boolean };
 
+// About this read only: the phone may well hold other saved copies (a search elsewhere, other meetings).
 const NO_COPY =
-  "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.";
+  "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.";
 
 // Anything else (a bug, a native module throwing) is ours, not the server's or the connection's; say so plainly
 // instead of leaving the screen on "Loading" forever.

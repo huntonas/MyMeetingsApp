@@ -13,7 +13,7 @@ import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
 import { matchesFilters, NO_FILTERS, useFilters } from "@/search/filters";
-import { byExactDistance, type SearchOrigin, searchRead } from "@/search/nearby";
+import { byExactDistance, describedOrigin, type SearchOrigin, searchRead } from "@/search/nearby";
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
@@ -75,17 +75,22 @@ interface ResultsProps {
   onChangePlace: () => void;
 }
 
-function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProps) {
+function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: ResultsProps) {
   const colors = useColors();
-  const { state, refresh } = useCachedRead(searchRead(origin));
+  const { state, refresh } = useCachedRead(searchRead(asked));
+  // Offline, the answer may be the last search standing in for this one; everything below describes where it was made.
+  const origin =
+    state.status === "ready"
+      ? describedOrigin(state.data, asked)
+      : { label: asked.label, point: asked.point, radiusKm: asked.radiusKm, lastSearch: false };
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
   const { filters, setFilters } = useFilters();
   // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
   // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.
-  const [mapRegion, setMapRegion] = useState(() => regionAround(origin.point, origin.radiusKm));
+  const [mapRegion, setMapRegion] = useState(() => regionAround(asked.point, asked.radiusKm));
   // The person's dot shows only on a search near them (location is allowed by then), and stays through their pans.
-  const [nearPerson] = useState(origin.kind === "me");
+  const [nearPerson] = useState(asked.kind === "me");
   // The last meetings found, kept on the map while a pan's search loads so the markers don't flash off and on. Updated
   // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
   const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
@@ -121,7 +126,11 @@ function Results({ origin, view, onView, onMapMove, onChangePlace }: ResultsProp
     </View>
   );
   const savedNote = state.status === "ready" && state.savedAt !== null && (
-    <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />
+    <SavedCopyNote
+      savedAt={state.savedAt}
+      reason={state.reason}
+      near={origin.lastSearch ? origin.label : undefined}
+    />
   );
   // Spec §8: no in-person meetings here is said plainly, on the list and on the map.
   const noneNearby = `No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`;

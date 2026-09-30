@@ -461,13 +461,56 @@ describe("results", () => {
     api = await startApi();
   });
 
-  it("says so when a search fails with no saved copy", async () => {
+  it("says so when a search fails on a fresh install, with nothing saved", async () => {
     await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
+      "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.",
     );
     expect(screen.getByRole("button", { name: "Change place" })).toBeOnTheScreen();
+  });
+
+  it("offline, a search somewhere new shows the last search, described by where it was made", async () => {
+    setNow("2026-10-05T20:40:00Z");
+    api.reply(SEARCH, { meetings: [far, near] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await screen.findByText("Near Group");
+    setNow("2026-10-05T21:00:00Z");
+    await api.close();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
+    expect(
+      await screen.findByText(
+        "Showing your last search, near Maryville, TN, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(screen.queryByText("Near you")).toBeNull();
+    // Measured from the last search's rounded point (35.76, -83.97), not from where the phone is now.
+    const cards = screen.getAllByRole("button", { name: /Group, Mon/ });
+    expect(cards[0]).toHaveAccessibleName("Near Group, Mon 8:00 AM, 0.2 mi, St. Luke's, Quiet 2 people");
+    expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.3 mi, St. Luke's, Welcoming 14 people");
+    api = await startApi();
+  });
+
+  it("offline, names a last search made near the person by when, not as “you”", async () => {
+    setNow("2026-10-05T20:40:00Z");
+    setLocationPermission("granted");
+    api.reply(SEARCH, { meetings: [near] });
+    await launchNearby();
+    await screen.findByText("Near Group");
+    await api.close();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await searchFor("Maryville, TN");
+    expect(
+      await screen.findByText(
+        "Showing your last search, near your earlier location, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("Near your earlier location")).toBeOnTheScreen();
+    expect(screen.queryByText("Near Maryville, TN")).toBeNull();
+    api = await startApi();
   });
 
   it("reads the search again when the app comes back after the reuse window", async () => {

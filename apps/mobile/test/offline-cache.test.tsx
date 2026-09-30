@@ -142,6 +142,38 @@ describe("cachedRead", () => {
     expect(await readCache("vocabulary")).not.toBeNull();
   });
 
+  it("offline, answers a search with no copy of its own with the last search saved", async () => {
+    setNow(SAVED);
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await cachedRead(searchRead("search:36.16,-86.78,25"));
+    setNow(minutesAfter(SAVED, 20).toISOString());
+    await api.close();
+    expect(await cachedRead(searchRead("search:35.96,-83.92,25"))).toEqual({
+      data: VOCABULARY,
+      savedAt: new Date(SAVED),
+      reason: "unreachable",
+    });
+    api = await startApi();
+  });
+
+  it("never answers with another search's copy when the server itself answers with trouble", async () => {
+    setNow(SAVED);
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await cachedRead(searchRead("search:36.16,-86.78,25"));
+    api.reply("/api/v1/vocabulary", { error: { code: "server_error", message: "message" } }, 500);
+    await expect(cachedRead(searchRead("search:35.96,-83.92,25"))).rejects.toMatchObject({
+      code: "server_error",
+    });
+  });
+
+  it("never answers another kind of read with the last search's copy", async () => {
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await cachedRead(searchRead("search:36.16,-86.78,25"));
+    await api.close();
+    await expect(cachedRead(vocabularyRead)).rejects.toThrow("The server couldn't be reached");
+    api = await startApi();
+  });
+
   it("stamps the saved time from before the fetch starts, not from when it answers", async () => {
     setNow(SAVED);
     const slowRead = {
@@ -264,7 +296,7 @@ describe("useCachedRead with SavedCopyNote", () => {
     await render(<VocabularyCount />);
     expect(
       await screen.findByText(
-        "We couldn't reach mymeetingapp, and there's no saved copy on this phone yet. Check your connection and try again.",
+        "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
     api = await startApi();

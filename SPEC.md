@@ -214,7 +214,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 
 **Version 1 (MVP):**
 
-- **Meeting search:** list and map views (react-native-maps: Apple Maps on iOS, Google Maps on Android). Filter by day, time, official types, and tags on the phone. The server returns meetings sorted by distance from the rounded point; the phone re-sorts by exact distance using the real location, which never leaves the phone. Directions hand off to Apple Maps or Google Maps.
+- **Meeting search:** list and map views (react-native-maps: Apple Maps on iOS, Google Maps on Android). Filter by day, time, official types, and tags on the phone. Filters start as today, from now on: today's day and the current part of the day plus every later one, following the clock until the person changes a filter; "Clear filters" shows every meeting (owner decision, 2026-09-30). The server returns meetings sorted by distance from the rounded point; the phone re-sorts by exact distance using the real location, which never leaves the phone. Directions hand off to Apple Maps or Google Maps.
 - **Without location:** a fresh install with no location permission shows a search box and an "Use my location" button. Nothing is requested at launch.
 - **Searching another area** (traveling, planning ahead, or not sharing location):
   - The search box accepts a city, zip, or address, resolved with the platform geocoder (iOS `CLGeocoder`, Android `Geocoder`). Our server never receives the query text, only the rounded result point.

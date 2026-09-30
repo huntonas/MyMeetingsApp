@@ -12,7 +12,13 @@ import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from 
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
-import { matchesFilters, NO_FILTERS, useFilters } from "@/search/filters";
+import {
+  anyFilterChosen,
+  type MeetingFilters,
+  matchesFilters,
+  NO_FILTERS,
+  useFilters,
+} from "@/search/filters";
 import { byExactDistance, describedOrigin, type SearchOrigin, searchRead } from "@/search/nearby";
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
@@ -40,8 +46,7 @@ const notFound = (text: string) =>
 // stops the search the person asked for.
 const ignoreRecentPlaceFailure = () => undefined;
 
-function FilterPills() {
-  const { filters } = useFilters();
+function FilterPills({ filters }: { filters: MeetingFilters }) {
   const pills = [
     { name: "Day", spoken: "Day", count: filters.days.length },
     { name: "Time", spoken: "Time", count: filters.times.length },
@@ -64,6 +69,11 @@ function FilterPills() {
       ))}
     </View>
   );
+}
+
+function countLine(count: number, filtered: boolean): string {
+  if (!filtered) return `${String(count)} ${count === 1 ? "meeting" : "meetings"}`;
+  return `${String(count)} ${count === 1 ? "meeting matches" : "meetings match"} your filters`;
 }
 
 type ResultsView = "list" | "map";
@@ -135,16 +145,19 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
   );
   // Spec §8: no in-person meetings here is said plainly, on the list and on the map.
   const noneNearby = `No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`;
+  const clearFilters = (
+    <Button
+      kind="secondary"
+      label="Clear filters"
+      onPress={() => {
+        setFilters(NO_FILTERS);
+      }}
+    />
+  );
   const noMatches = (
     <>
       <AppText>No meetings match your filters.</AppText>
-      <Button
-        kind="secondary"
-        label="Clear filters"
-        onPress={() => {
-          setFilters(NO_FILTERS);
-        }}
-      />
+      {clearFilters}
     </>
   );
   // The map stays mounted while a pan's search loads or fails, so the person's view never jumps. Everything that comes
@@ -155,7 +168,7 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
     return (
       <Screen scroll={false}>
         {heading}
-        <FilterPills />
+        <FilterPills filters={filters} />
         <View style={{ flex: 1 }}>
           <ResultsMap
             initialRegion={mapRegion}
@@ -223,6 +236,8 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
     );
   }
   const shown = sorted.filter((meeting) => matchesFilters(meeting, filters));
+  // Filters start chosen (today, from now on), so the count says it's filtered, and Clear filters is always at hand.
+  const filtered = anyFilterChosen(filters);
   return (
     <FlatList
       data={shown}
@@ -233,10 +248,9 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
         <View style={{ gap: 12 }}>
           {heading}
           {savedNote}
-          <FilterPills />
-          {shown.length > 0 && (
-            <AppText tone="muted">{`${String(shown.length)} ${shown.length === 1 ? "meeting" : "meetings"}`}</AppText>
-          )}
+          <FilterPills filters={filters} />
+          {shown.length > 0 && <AppText tone="muted">{countLine(shown.length, filtered)}</AppText>}
+          {shown.length > 0 && filtered && clearFilters}
           {shown.length === 0 && noMatches}
         </View>
       }

@@ -66,7 +66,7 @@ const halfPlaced = nearbyMeeting({
 const hill = nearbyMeeting({
   id: "44444444-4444-4444-8444-444444444444",
   name: "Hill Group",
-  day: 2,
+  day: 1,
   time: "18:30",
   latitude: 35.81,
   longitude: -83.91,
@@ -74,7 +74,7 @@ const hill = nearbyMeeting({
 const ridge = nearbyMeeting({
   id: "55555555-5555-4555-8555-555555555555",
   name: "Ridge Group",
-  day: 3,
+  day: 1,
   time: "12:00",
   latitude: 35.91,
   longitude: -84.11,
@@ -85,7 +85,12 @@ const PAN: MapRegion = { latitude: 35.8012, longitude: -83.9021, latitudeDelta: 
 const PAN_BODY = { lat: 35.8, lng: -83.9, radiusKm: 18 };
 const FIRST_BODY = { lat: 35.76, lng: -83.97, radiusKm: 25 };
 
+// Filters start as today, from now on: just after midnight on a Monday (Chicago, the suite's zone), every Monday
+// meeting is in view. A test about other days or times sets its own.
+const MONDAY_JUST_AFTER_MIDNIGHT = "2026-10-05T05:30:00Z";
+
 beforeEach(async () => {
+  setNow(MONDAY_JUST_AFTER_MIDNIGHT);
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
@@ -167,7 +172,7 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    expect(await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(screen.getByText("Near this map area")).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
@@ -182,7 +187,7 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
     await moveTo(map, { latitude: 35.8049, longitude: -83.9049, latitudeDelta: 0.2, longitudeDelta: 0.3 });
     await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
@@ -209,11 +214,11 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
     await fireEvent(map, "regionChangeComplete", { ...PAN, latitudeDelta: 0.17 });
     await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
-    expect(screen.getByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
   });
 
   it("lays out nothing around the map that comes or goes with a search, so the map never resizes", async () => {
@@ -237,7 +242,7 @@ describe("the results map", () => {
     expect(await screen.findByLabelText("Searching")).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
     answerPan({ meetings: [hill] });
-    expect(await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
   });
 
@@ -254,8 +259,9 @@ describe("the results map", () => {
 
   it("says when no marker matches the filters, and clears them from the map", async () => {
     await openMap();
-    await fireEvent.press(screen.getByRole("button", { name: "Day filters" }));
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Tuesday" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Day filters, 1 chosen" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Monday" }));
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Tuesday" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
@@ -276,7 +282,7 @@ describe("the results map", () => {
     });
     api.reply(SEARCH, { meetings: [ridge] });
     await moveTo(map, { latitude: 35.9, longitude: -84.1, latitudeDelta: 0.2, longitudeDelta: 0.3 });
-    expect(await screen.findByRole("button", { name: "Ridge Group, Wed 12:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
     answerFirstPan({ meetings: [hill] });
     // The first pan's answer has arrived and been saved on the phone; it must not take the screen.
     await waitFor(async () => {
@@ -291,20 +297,20 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
     await fireEvent.press(screen.getByRole("button", { name: "List" }));
     expect(await screen.findByText("Hill Group")).toBeOnTheScreen();
     expect(screen.queryByTestId("results-map")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
-    expect(await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(mapProps().initialRegion).toEqual(PAN);
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
   });
 
   it("shows only the meetings that match the filters", async () => {
     await openMap();
-    await fireEvent.press(screen.getByRole("button", { name: "Time filters" }));
-    await fireEvent.press(await screen.findByRole("checkbox", { name: "Evening" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Time filters, 4 chosen" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Morning" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Near Group, Mon 8:00 AM" })).toBeNull();
@@ -370,7 +376,7 @@ describe("the map's notices", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Tue 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
     api.reply(SEARCH, { problem: "not the API's error envelope" }, 500);
     await moveTo(map, { latitude: 35.91, longitude: -84.11, latitudeDelta: 0.2, longitudeDelta: 0.3 });
     expect(
@@ -379,7 +385,7 @@ describe("the map's notices", () => {
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near the map area you searched")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Hill Group, Tue 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
   });
 
   it("says so when a pan's search fails with the server in trouble, and keeps the map", async () => {

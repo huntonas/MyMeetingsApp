@@ -53,7 +53,12 @@ const near = nearbyMeeting({
   tags: [{ slug: "quiet", count: 2 }],
 });
 
+// Filters start as today, from now on: just after midnight on a Monday (Chicago, the suite's zone), every Monday
+// meeting is in view. A test about other days or times sets its own.
+const MONDAY_JUST_AFTER_MIDNIGHT = "2026-10-05T05:30:00Z";
+
 beforeEach(async () => {
+  setNow(MONDAY_JUST_AFTER_MIDNIGHT);
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
@@ -139,7 +144,7 @@ describe("Nearby without location", () => {
       "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
     );
     expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.4 mi, St. Luke's, Welcoming 14 people");
-    expect(screen.getByText("2 meetings")).toBeOnTheScreen();
+    expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
     expect(lookups).toEqual(["Maryville, TN"]);
     expect(searchBodies()).toEqual([{ lat: 35.76, lng: -83.97, radiusKm: 25 }]);
     for (const request of api.requests) {
@@ -431,15 +436,16 @@ describe("results", () => {
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    await chooseFilters("Time filters", ["Evening"]);
+    // Just after midnight, every part of the day is still ahead; leave only the evening.
+    await chooseFilters("Time filters, 4 chosen", ["Morning", "Afternoon", "Night"]);
     await waitFor(() => {
       expect(screen.queryByText("Near Group")).toBeNull();
     });
     expect(screen.getByText("Far Group")).toBeOnTheScreen();
-    expect(screen.getByText("1 meeting")).toBeOnTheScreen();
+    expect(screen.getByText("1 meeting matches your filters")).toBeOnTheScreen();
     await chooseFilters("Time filters, 1 chosen", ["Evening", "Night"]);
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
-    await chooseFilters("Day filters", ["Monday"]);
+    await chooseFilters("Day filters, 1 chosen", ["Tuesday"]);
     await chooseFilters("Type filters", ["Open"]);
     await chooseFilters("Tag filters", ["Quiet"]);
     expect(await screen.findByRole("button", { name: "Tag filters, 1 chosen" })).toBeOnTheScreen();
@@ -461,12 +467,12 @@ describe("results", () => {
     expect(screen.getByText("Near Group")).toBeOnTheScreen();
     await chooseFilters("Type filters", ["Women"]);
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
-    await chooseFilters("Day filters", ["Monday"]);
-    await chooseFilters("Time filters", ["Morning"]);
+    await chooseFilters("Day filters, 1 chosen", ["Tuesday"]);
+    await chooseFilters("Time filters, 4 chosen", ["Morning"]);
 
-    await fireEvent.press(await screen.findByRole("button", { name: "Day filters, 1 chosen" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Day filters, 2 chosen" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Clear filters" }));
-    for (const choice of ["Quiet", "Women", "Monday", "Morning"]) {
+    for (const choice of ["Quiet", "Women", "Monday", "Tuesday", "Afternoon", "Evening", "Night"]) {
       expect(screen.getByRole("checkbox", { name: choice })).not.toBeChecked();
     }
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
@@ -479,6 +485,107 @@ describe("results", () => {
     expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
   });
 
+  describe("filters start as today, from now on (owner decision, 2026-09-30)", () => {
+    const late = nearbyMeeting({
+      id: "33333333-3333-4333-8333-333333333333",
+      name: "Late Group",
+      day: 1,
+      time: "21:30",
+      latitude: 35.7567,
+      longitude: -83.9707,
+      distanceKm: 1.7,
+    });
+    const tuesday = nearbyMeeting({
+      id: "44444444-4444-4444-8444-444444444444",
+      name: "Tuesday Group",
+      day: 2,
+      time: "19:00",
+      latitude: 35.7568,
+      longitude: -83.9708,
+      distanceKm: 1.8,
+    });
+    const ALL = ["Near Group", "Far Group", "Late Group", "Tuesday Group"];
+
+    async function searchAt(iso: string) {
+      setNow(iso);
+      api.reply(SEARCH, { meetings: [far, near, late, tuesday] });
+      await launchNearby();
+      await searchFor("Maryville, TN");
+    }
+
+    async function expectListed(names: string[]) {
+      await waitFor(() => {
+        for (const name of ALL) {
+          if (names.includes(name)) expect(screen.getByText(name)).toBeOnTheScreen();
+          else expect(screen.queryByText(name)).toBeNull();
+        }
+      });
+    }
+
+    it("at 6 PM on a Monday, chooses Monday and the evening and night", async () => {
+      await searchAt("2026-10-05T23:00:00Z");
+      await expectListed(["Far Group", "Late Group"]);
+      expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
+      expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeSelected();
+      expect(screen.getByRole("button", { name: "Time filters, 2 chosen" })).toBeSelected();
+      expect(screen.getByRole("button", { name: "Type filters" })).not.toBeSelected();
+      expect(screen.getByRole("button", { name: "Tag filters" })).not.toBeSelected();
+      await fireEvent.press(screen.getByRole("button", { name: "Time filters, 2 chosen" }));
+      for (const choice of ["Monday", "Evening", "Night"])
+        expect(await screen.findByRole("checkbox", { name: choice })).toBeChecked();
+      for (const choice of ["Tuesday", "Morning", "Afternoon"])
+        expect(screen.getByRole("checkbox", { name: choice })).not.toBeChecked();
+    });
+
+    it("late at night, chooses only the night", async () => {
+      await searchAt("2026-10-06T03:30:00Z");
+      await expectListed(["Late Group"]);
+      expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
+      expect(screen.getByRole("button", { name: "Time filters, 1 chosen" })).toBeOnTheScreen();
+      expect(screen.getByText("1 meeting matches your filters")).toBeOnTheScreen();
+    });
+
+    // Night runs past midnight, so in its early hours the whole day is still ahead.
+    it("after midnight, chooses the night and every later part of the day", async () => {
+      await searchAt("2026-10-05T06:00:00Z");
+      await expectListed(["Near Group", "Far Group", "Late Group"]);
+      expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
+    });
+
+    it("Clear filters shows every meeting, and a new search doesn't choose them again", async () => {
+      await searchAt("2026-10-05T23:00:00Z");
+      await expectListed(["Far Group", "Late Group"]);
+      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      await expectListed(ALL);
+      expect(screen.getByText("4 meetings")).toBeOnTheScreen();
+      expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+      expectNoFiltersChosen();
+      await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+      await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
+      await expectListed(ALL);
+      expectNoFiltersChosen();
+    });
+
+    it("moves on to the new day while the app stays open, until the person chooses", async () => {
+      const playAppState = spyOnAppState();
+      await searchAt("2026-10-06T04:50:00Z");
+      await expectListed(["Late Group"]);
+      setNow("2026-10-06T05:10:00Z");
+      await playAppState("background");
+      await playAppState("active");
+      await expectListed(["Tuesday Group"]);
+      expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
+
+      await chooseFilters("Day filters, 1 chosen", ["Monday"]);
+      await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
+      setNow("2026-10-06T23:00:00Z");
+      await playAppState("background");
+      await playAppState("active");
+      await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
+      expect(screen.getByRole("button", { name: "Day filters, 2 chosen" })).toBeOnTheScreen();
+    });
+  });
+
   it("puts Help in the filter sheet's header", async () => {
     await renderApp("/filters");
     expect(await screen.findByRole("button", { name: "Help now: crisis lines" })).toBeOnTheScreen();
@@ -489,18 +596,18 @@ describe("results", () => {
   });
 
   it("labels a saved search shown offline", async () => {
-    setNow("2026-10-05T20:00:00Z");
+    setNow("2026-10-05T06:00:00Z");
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    setNow("2026-10-05T21:20:00Z");
+    setNow("2026-10-05T07:20:00Z");
     await api.close();
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
     expect(
       await screen.findByText(
-        "Showing the copy saved today at 3:00 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing the copy saved today at 1:00 AM. We couldn't reach mymeetingapp, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Group")).toBeOnTheScreen();
@@ -536,18 +643,18 @@ describe("results", () => {
   });
 
   it("offline, a search somewhere new shows the last search, described by where it was made", async () => {
-    setNow("2026-10-05T20:40:00Z");
+    setNow("2026-10-05T06:40:00Z");
     api.reply(SEARCH, { meetings: [far, near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    setNow("2026-10-05T21:00:00Z");
+    setNow("2026-10-05T07:00:00Z");
     await api.close();
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(
       await screen.findByText(
-        "Showing your last search, near Maryville, TN, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing your last search, near Maryville, TN, saved today at 1:40 AM. We couldn't reach mymeetingapp, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
@@ -560,7 +667,7 @@ describe("results", () => {
   });
 
   it("offline, names a last search made near the person by when, not as “you”", async () => {
-    setNow("2026-10-05T20:40:00Z");
+    setNow("2026-10-05T06:40:00Z");
     setLocationPermission("granted");
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
@@ -570,7 +677,7 @@ describe("results", () => {
     await searchFor("Maryville, TN");
     expect(
       await screen.findByText(
-        "Showing your last search, near your earlier location, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing your last search, near your earlier location, saved today at 1:40 AM. We couldn't reach mymeetingapp, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near your earlier location")).toBeOnTheScreen();
@@ -598,12 +705,12 @@ describe("results", () => {
 
   it("reads the search again when the app comes back after the reuse window", async () => {
     const playAppState = spyOnAppState();
-    setNow("2026-10-05T20:00:00Z");
+    setNow("2026-10-05T06:00:00Z");
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    setNow("2026-10-05T21:20:00Z");
+    setNow("2026-10-05T07:20:00Z");
     api.reply(SEARCH, { meetings: [far, near] });
     await playAppState("background");
     await playAppState("active");
@@ -611,7 +718,7 @@ describe("results", () => {
     expect(searches()).toHaveLength(2);
     // The tag list is read again on the same return; let it land before the test ends.
     await waitFor(async () => {
-      expect((await readCache("vocabulary"))?.savedAt).toEqual(new Date("2026-10-05T21:20:00Z"));
+      expect((await readCache("vocabulary"))?.savedAt).toEqual(new Date("2026-10-05T07:20:00Z"));
     });
   });
 });

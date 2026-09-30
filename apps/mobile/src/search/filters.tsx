@@ -2,6 +2,7 @@ import type { MeetingSummary } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
 import type { MeetingTypeCode } from "@/meetings/type-labels";
+import { useNow } from "@/time/use-now";
 
 // On the meeting's listed time. Night runs past midnight.
 export const TIMES_OF_DAY = {
@@ -41,18 +42,38 @@ export function toggled<T>(list: readonly T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-const Filters = createContext<{ filters: MeetingFilters; setFilters: (next: MeetingFilters) => void }>({
-  filters: NO_FILTERS,
+// Owner decision, 2026-09-30: today's meetings from now on. The phone's weekday, and the part of the day it is now plus
+// every later one. Night runs past midnight, so in its early hours the whole day is still ahead.
+function startingFilters(now: Date): MeetingFilters {
+  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const times = TIME_ORDER.filter(
+    (name) => inTime(time, TIMES_OF_DAY[name]) || TIMES_OF_DAY[name].from > time,
+  );
+  return { ...NO_FILTERS, days: [now.getDay()], times };
+}
+
+// The person's own choice, or null until they make one.
+const Filters = createContext<{ chosen: MeetingFilters | null; setFilters: (next: MeetingFilters) => void }>({
+  chosen: null,
   setFilters: () => undefined,
 });
 
 // Held in memory only; filters are never saved (decision 9).
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [filters, setFilters] = useState(NO_FILTERS);
-  const value = useMemo(() => ({ filters, setFilters }), [filters]);
+  const [chosen, setFilters] = useState<MeetingFilters | null>(null);
+  const value = useMemo(() => ({ chosen, setFilters }), [chosen]);
   return <Filters.Provider value={value}>{children}</Filters.Provider>;
 }
 
+// Until the person changes a filter, the filters are the starting ones for this moment, so they follow the clock (a new
+// day, a later part of the day). Once they change one, Clear filters included, their choice stands while the app runs.
 export function useFilters() {
-  return useContext(Filters);
+  const { chosen, setFilters } = useContext(Filters);
+  const now = useNow();
+  const filters = useMemo(() => chosen ?? startingFilters(now), [chosen, now]);
+  return { filters, setFilters };
+}
+
+export function anyFilterChosen({ days, times, types, tags }: MeetingFilters): boolean {
+  return days.length + times.length + types.length + tags.length > 0;
 }

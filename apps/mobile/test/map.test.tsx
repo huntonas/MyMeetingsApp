@@ -330,6 +330,113 @@ describe("the results map", () => {
   });
 });
 
+describe("going back after moving the map", () => {
+  const backTo = (name: string) => screen.getByRole("button", { name: `Back to ${name}` });
+
+  it("returns to the searched place: its heading, its search and its view", async () => {
+    const { map } = await openMap();
+    expect(screen.queryByRole("button", { name: /^Back to/ })).toBeNull();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    // The pan's answer replaces the place's saved copy (only the last search is kept), so going back asks again.
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.getByText("Near this map area")).toBeOnTheScreen();
+    expect(backTo("Maryville, TN")).toHaveProp("accessibilityHint", "Searches near Maryville, TN again");
+    api.reply(SEARCH, { meetings: [far, near] });
+    await fireEvent.press(backTo("Maryville, TN"));
+    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^Back to/ })).toBeNull();
+    expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY, FIRST_BODY]);
+    const { initialRegion } = mapProps();
+    expect(initialRegion.latitude).toBe(35.7565);
+    expect(initialRegion.longitude).toBe(-83.9705);
+    expect(initialRegion.latitudeDelta).toBeCloseTo(0.4492, 4);
+    // The map comes back around the place; its first region report, with no touch, is not a pan.
+    await fireEvent(screen.getByTestId("results-map"), "regionChangeComplete", PAN);
+    await waitForSearchesToSettle();
+    expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY, FIRST_BODY]);
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+  });
+
+  it("goes back to where the search was before the first pan, however many pans since", async () => {
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    api.reply(SEARCH, { meetings: [ridge] });
+    await moveTo(map, { latitude: 35.9, longitude: -84.1, latitudeDelta: 0.2, longitudeDelta: 0.3 });
+    await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" });
+    api.reply(SEARCH, { meetings: [far] });
+    await fireEvent.press(backTo("Maryville, TN"));
+    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(searchBodies().at(-1)).toEqual(FIRST_BODY);
+  });
+
+  it("is offered in the list too, under the heading", async () => {
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await fireEvent.press(screen.getByRole("button", { name: "List" }));
+    expect(await screen.findByText("Hill Group")).toBeOnTheScreen();
+    api.reply(SEARCH, { meetings: [far] });
+    await fireEvent.press(backTo("Maryville, TN"));
+    expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
+    expect(searchBodies().at(-1)).toEqual(FIRST_BODY);
+  });
+
+  // Anything appearing beside the map would resize it, and Apple Maps reports a resize as a new region.
+  it("sits over the map, so appearing after the first pan never resizes it", async () => {
+    const { map } = await openMap();
+    const beforePan = JSON.stringify(besideMap());
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Back to Maryville, TN" });
+    await waitForSearchesToSettle();
+    // Only the heading's words change.
+    expect(JSON.stringify(besideMap())).toBe(beforePan.replace("Near Maryville, TN", "Near this map area"));
+  });
+
+  it("is forgotten when the person searches a new place", async () => {
+    setPlace("Knoxville, TN", { latitude: 35.9606, longitude: -83.9207 });
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Back to Maryville, TN" });
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Knoxville, TN");
+    await fireEvent.press(screen.getByRole("button", { name: "Search" }));
+    expect(await screen.findByText("Near Knoxville, TN")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: /^Back to/ })).toBeNull();
+    api.reply(SEARCH, { meetings: [ridge] });
+    await moveTo(await screen.findByTestId("results-map"), PAN);
+    expect(await screen.findByRole("button", { name: "Back to Knoxville, TN" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Back to Maryville, TN" })).toBeNull();
+  });
+
+  it("returns to a search near the person as near you", async () => {
+    setLocationPermission("granted");
+    await launchNearby();
+    expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Map" }));
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(await screen.findByTestId("results-map"), PAN);
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(backTo("near you")).toHaveProp("accessibilityHint", "Searches near you again");
+    api.reply(SEARCH, { meetings: [far] });
+    await fireEvent.press(backTo("near you"));
+    expect(await screen.findByText("Near you")).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    // The fake phone is in Nashville.
+    const NEAR_YOU_BODY = { lat: 36.16, lng: -86.78, radiusKm: 25 };
+    expect(searchBodies()).toEqual([NEAR_YOU_BODY, PAN_BODY, NEAR_YOU_BODY]);
+    expect(mapProps().showsUserLocation).toBe(true);
+  });
+});
+
 describe("the person's own dot", () => {
   it("isn't shown for a searched place, even after a pan", async () => {
     const { map } = await openMap();

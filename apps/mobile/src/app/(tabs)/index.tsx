@@ -84,9 +84,12 @@ interface ResultsProps {
   onView: (view: ResultsView) => void;
   onMapMove: (region: MapRegion) => void;
   onChangePlace: () => void;
+  // Where the search was before the person first moved the map, while the search is a map area's.
+  backTo: SearchOrigin | null;
+  onBack: (to: SearchOrigin) => void;
 }
 
-function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: ResultsProps) {
+function Results({ origin: asked, view, onView, onMapMove, onChangePlace, backTo, onBack }: ResultsProps) {
   const colors = useColors();
   const { state, refresh } = useCachedRead(searchRead(asked));
   // Offline, the answer may be the last search standing in for this one; everything below describes where it was made.
@@ -110,11 +113,23 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
     () => lastFound.filter((meeting) => matchesFilters(meeting, filters)),
     [lastFound, filters],
   );
+  const backButton = backTo !== null && (
+    <Button
+      kind="secondary"
+      label={`Back to ${backTo.kind === "me" ? "near you" : backTo.label}`}
+      hint={`Searches near ${backTo.label} again`}
+      onPress={() => {
+        onBack(backTo);
+      }}
+    />
+  );
   const heading = (
     <View style={{ gap: 12 }}>
       <AppText variant="title" accessibilityRole="header">
         {`Near ${origin.label}`}
       </AppText>
+      {/* On the map it sits over the map instead: appearing beside it after the first pan would resize the map. */}
+      {view === "list" && backButton}
       <Button kind="secondary" label="Change place" onPress={onChangePlace} />
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Pill
@@ -182,6 +197,7 @@ function Results({ origin: asked, view, onView, onMapMove, onChangePlace }: Resu
           <View
             style={{ position: "absolute", top: 12, left: 12, right: 12, gap: 8, pointerEvents: "box-none" }}
           >
+            {backButton !== false && <View style={[card, { alignSelf: "flex-start" }]}>{backButton}</View>}
             {savedNote}
             {state.status === "failed" && (
               <View style={card}>
@@ -267,6 +283,9 @@ function Nearby() {
   const [searchCount, setSearchCount] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
   const [view, setView] = useState<ResultsView>("list");
+  // The search before the person first moved the map, which "Back to …" returns to; null unless the search is a map
+  // area's. Later pans keep it, and any new search forgets it.
+  const [backTo, setBackTo] = useState<SearchOrigin | null>(null);
   // Finding a place or a position can take up to 15 seconds. Only the latest thing the person asked for may land: a
   // slow answer to an earlier one must not replace it.
   const latest = useRef(0);
@@ -280,20 +299,22 @@ function Nearby() {
 
   const search = useCallback((next: SearchOrigin) => {
     setOrigin(next);
+    setBackTo(null);
     setSearchCount((count) => count + 1);
   }, []);
 
   // Spec §8: panning searches around the new map center, with the radius from the visible area. It changes the origin
   // without remounting the results, so the map stays as the person left it. useCachedRead reads only when the rounded
   // center or the radius changes, so a small drag sends nothing.
-  const moveMap = useCallback((region: MapRegion) => {
+  const moveMap = (region: MapRegion) => {
+    if (origin !== null && origin.kind !== "map") setBackTo(origin);
     setOrigin({
       kind: "map",
       label: "this map area",
       point: { latitude: region.latitude, longitude: region.longitude },
       radiusKm: radiusForRegion(region),
     });
-  }, []);
+  };
 
   const searchNearMe = useCallback(
     async (when: "tap" | "launch") => {
@@ -354,6 +375,13 @@ function Nearby() {
         onMapMove={moveMap}
         onChangePlace={() => {
           setOrigin(null);
+        }}
+        backTo={backTo}
+        // A search like any other (so the map remounts around it, and its first region report isn't a pan), and the
+        // newest request: a slower one still out mustn't land on top of it.
+        onBack={(to) => {
+          begin();
+          search(to);
         }}
       />
     );

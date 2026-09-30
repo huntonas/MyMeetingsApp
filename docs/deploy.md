@@ -52,6 +52,17 @@ Preview deployments are protected, so use `vercel curl` (or a deployment protect
 - `/robots.txt` disallows `/metrics` and `/api/`.
 - `/metrics` returns 401 without credentials and 200 with them.
 
+Staging (`https://mymeetingapp-staging.vercel.app`) is public, so plain `curl` works — no `vercel curl` bypass needed:
+
+- `/api/v1/config` returns 200 with no Vercel login page.
+- `/api/v1/vocabulary` returns the configured tags (26 on 2026-09-30).
+- `POST /api/v1/meetings/search` for a point near Maryville, TN returns meetings (158 on 2026-09-30).
+- `curl -sI` on `/` shows `x-robots-tag: noindex, nofollow`; the same check against production shows none.
+- `/metrics` returns 401 without credentials.
+- `/api/cron/sync-feeds` returns 401 (there's no `CRON_SECRET` on staging, so nothing can ever run a sync there).
+- The deployment's own URL (not the stable `mymeetingapp-staging.vercel.app` domain) still redirects to the Vercel login: only the stable domain carries the Deployment Protection Exception, so a per-deployment preview stays protected.
+- In the Neon console, `staging`'s parent is `seed`, and `preview`'s last restore time is unchanged by a staging build.
+
 ## Phase 2: meeting sync
 
 Phase 2 adds a cron job that runs every 15 minutes and syncs the feeds that are due: each feed is fetched at most once a week, and a failing one is retried after a day. This requires **Vercel Pro** (Hobby plan allows only daily crons). Upgrade the team before deploying Phase 2.
@@ -154,6 +165,8 @@ If the page answers that a block stopped part-way, choose Block again. If the ph
 
 Phase 4 adds four more sensitive values to the same file, the same way: `METRICS_USER_PRODUCTION`, `METRICS_PASSWORD_PRODUCTION`, `METRICS_USER_PREVIEW` and `METRICS_PASSWORD_PREVIEW` (see "Phase 4: website and metrics" below). Losing these doesn't stop production either, but nobody could sign in to `/metrics` until they're reset with `vercel env rm` / `vercel env add` and a new password saved in both places.
 
+Staging (see "Staging (TestFlight backend)" below) adds three more values, generated and appended the same way: `DEVICE_ID_PEPPER_STAGING`, `METRICS_USER_STAGING` and `METRICS_PASSWORD_STAGING`. None of the three is Sensitive on Vercel — a custom environment can't have Sensitive variables at all — so `vercel env pull` could read them back too, but the readable copy stays here as well, for the same block-a-device and sign-in commands used elsewhere in this file.
+
 ### Privacy
 
 Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, `rate_limits`, `suggestions`, `ai_decisions`, `tag_swings`, `meeting_aliases`) hold production data only on `main`. **Production device data never reaches `seed` or `preview`:** `seed` is never refreshed from `main`, and `preview` is restored from `seed` on every preview build.
@@ -202,6 +215,17 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 8. The feed User-Agent already names `mymeetingapp.com` (`BRAND.domain`), so nothing changes there. Update the store listings' privacy and support URLs if they were already submitted.
 
 This step is deliberately out of Phase 4 (owner decision 2026-09-29: no domain yet); Phase 4 ends with the site live on the Vercel address.
+
+## Staging (TestFlight backend)
+
+A long-lived backend for the TestFlight build to talk to, separate from Preview and Production. Full detail: `docs/superpowers/plans/2026-09-30-staging-and-testflight.md`.
+
+- **What it is:** the custom environment `staging` (id `env_GC64iVZ67Rup9wnQ4VvS2alNbBuM`), at `https://mymeetingapp-staging.vercel.app`. Vercel still reports `VERCEL_ENV=preview` for it, but `VERCEL_TARGET_ENV=staging` tells it apart from an actual preview. It's public through a Deployment Protection Exception (Owner, dashboard only), and it stays out of search indexes because `proxy.ts` sends `X-Robots-Tag: noindex, nofollow` on it (Vercel drops its own preview `noindex` once a custom domain is attached).
+- **How to deploy:** push the commit to the `staging` branch (normally `git push origin main:staging`), pushing only commits whose migrations are final — a branch whose migrations are later regenerated would leave staging's database out of step. The build recognizes `VERCEL_TARGET_ENV=staging`, so `resetPreviewBranch()` skips the preview restore, migrates staging's own Neon branch, and then builds.
+- **Database:** the Neon branch `staging` (id `br-weathered-shape-b7p1mjvl`), whose parent is `seed`. It started from the 2026-09-29 meetings snapshot (73,511 active meetings from 233 feeds) with the device tables created empty by migration; testers' own device data accumulates there afterward. It is never restored from `main`, `seed` or `preview`, and production data never reaches it. A periodic refresh from `main` is owner decision 1 and isn't built.
+- **Crons:** none run on staging — Vercel only runs crons against a project's production deployment — and staging has no `CRON_SECRET`, so `/api/cron/sync-feeds` and `/api/cron/maintenance` both refuse every request with 401, the owner included. Maintenance on staging is off until Phase 5b (owner decision 2).
+- **Variables:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `DEVICE_ID_PEPPER`, `METRICS_USER=owner`, `METRICS_PASSWORD`, `SITE_URL=https://mymeetingapp-staging.vercel.app`, `REQUIRE_ATTESTATION=off` and `SUGGESTION_MODEL=openai/gpt-5-nano`. None of them can be Sensitive — Vercel only allows that on Production and Preview — and none is imported from Preview. There is no `CRON_SECRET` and no `NEON_*` variable on staging.
+- **Setting it up again:** create the custom environment, attach the stable domain, create the Neon branch and its database variables, then the remaining variables, then the Owner's Deployment Protection Exception — `2026-09-30-staging-and-testflight.md` Task 3 Steps 2–6, in that order.
 
 ## Rules
 

@@ -271,6 +271,13 @@ describe("cachedRead: a search still in flight during Clear recent places", () =
     await cachedRead(searchRead("search:35.76,-83.97,25"));
     expect(await readCache("search:35.76,-83.97,25")).not.toBeNull();
   });
+
+  it("still saves a fresh search started after an ordinary Clear recent places", async () => {
+    await forgetRecentPlaces();
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await cachedRead(searchRead("search:35.76,-83.97,25"));
+    expect(await readCache("search:35.76,-83.97,25")).not.toBeNull();
+  });
 });
 
 describe("cachedRead treats its own cache as best effort", () => {

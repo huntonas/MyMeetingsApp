@@ -84,6 +84,8 @@ const ridge = nearbyMeeting({
 const PAN: MapRegion = { latitude: 35.8012, longitude: -83.9021, latitudeDelta: 0.2, longitudeDelta: 0.3 };
 const PAN_BODY = { lat: 35.8, lng: -83.9, radiusKm: 18 };
 const FIRST_BODY = { lat: 35.76, lng: -83.97, radiusKm: 25 };
+const RIDGE: MapRegion = { latitude: 35.9, longitude: -84.1, latitudeDelta: 0.2, longitudeDelta: 0.3 };
+const RIDGE_BODY = { lat: 35.9, lng: -84.1, radiusKm: 18 };
 
 // Filters start as today, from now on: early on a Monday morning (Chicago, the suite's zone), every Monday meeting from
 // then on is in view. A test about other days or times sets its own.
@@ -219,6 +221,33 @@ describe("the results map", () => {
     await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
     expect(screen.getByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+  });
+
+  // MapKit can report a region while the fingers are still down, when a pinch or drag pauses; the report as they lift
+  // must still search.
+  it("searches for where a gesture ends after a report mid-gesture", async () => {
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await fireEvent(map, "touchStart");
+    await fireEvent(map, "regionChangeComplete", PAN);
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    api.reply(SEARCH, { meetings: [ridge] });
+    await fireEvent(map, "touchMove");
+    await fireEvent(map, "regionChangeComplete", RIDGE);
+    expect(await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY, RIDGE_BODY]);
+  });
+
+  // Tapping a marker, or the map, touches it without moving it; the region report that can follow (the map making
+  // room for a callout) isn't the person's.
+  it.each(["markerPress", "press"])("doesn't search for a region report after a tap (%s)", async (tap) => {
+    const { map } = await openMap();
+    await fireEvent(map, "touchStart");
+    await fireEvent(map, tap);
+    await fireEvent(map, "regionChangeComplete", PAN);
+    await waitForSearchesToSettle();
+    expect(searchBodies()).toEqual([FIRST_BODY]);
+    expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
   });
 
   it("lays out nothing around the map that comes or goes with a search, so the map never resizes", async () => {

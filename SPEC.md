@@ -30,7 +30,7 @@ These override convenience everywhere. Flag any conflict instead of working arou
 
 - **No accounts.** The app and site never ask for a name, email, phone, or login. Only someone who chooses to email support gives us an email address (section 13).
 - **The server knows meetings, not people.** Nothing in our database links a device to the meetings it tagged, apart from a 7-day abuse-review log (section 6): tag rows carry only a per-meeting submitter ID, so a copy of the database alone can't join one device's tags across meetings. Each tag write computes the device's submitter ID for that one meeting; the server finds one device's rows across meetings (from its hash and the pepper) only for delete-mine and for blocking a device, and never stores or returns that list. The platform's request logs (Vercel) hold IP addresses with paths that can name a meeting (section 13).
-- **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple or Google, to find a place).
+- **Personal data never reaches our server:** sobriety date, favorites, the local record of tagged meetings, liked flags, notes, meeting log, journal, call list, recent searches, and the search box text (the phone sends that text to its platform geocoder, Apple's or Google's, or on some Android phones the phone maker's location service, to find a place).
 - **Device IDs are stored only as a keyed hash:** `device_hash = HMAC-SHA256(k_device, platform + ":" + rawId)`. The raw ID is never stored or logged. Keys are derived from `DEVICE_ID_PEPPER` via HKDF. The pepper can't be rotated without breaking every existing link, so treat it as permanent.
 - **Tag rows use a per-meeting submitter ID:** `submitter_id = HMAC-SHA256(k_submitter, device_hash + ":" + meetingId)`. The same device always gets the same ID for the same meeting, so it can edit or delete its tags at any time, but rows can't be joined across meetings.
 - **Location for search:** the phone rounds coordinates to 2 decimal places (about 1 km) before sending them, only in the body of the search request. The server uses them for that query only. Never stored, logged, placed in URLs, or used as cache keys beyond the rounded value.
@@ -214,14 +214,16 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 
 **Version 1 (MVP):**
 
-- **Meeting search:** list and map views (react-native-maps: Apple Maps on iOS, Google Maps on Android). Filter by day, time, official types, and tags on the phone. The server returns meetings sorted by distance from the rounded point; the phone re-sorts by exact distance using the real location, which never leaves the phone. Directions hand off to Apple Maps or Google Maps.
+- **Meeting search:** list and map views (react-native-maps: Apple Maps on iOS, Google Maps on Android). Filter by day, time, official types, and tags on the phone. Filters start as today, from now on (owner decisions, 2026-09-30): the Day and Time pills read as today and the current part of the day plus every later one, following the clock, and the list shows each meeting whose next start comes before 5 AM, when Night ends, on the day after today's date, so tonight's meetings after midnight are included (and between midnight and 5 AM, all of the new day), and a meeting that began under an hour ago still shows but one that began earlier doesn't (at 10 PM, not that morning's 12:30 AM). The filter groups are independent: choosing only a type or a tag keeps that starting day and time; once the person changes Day or Time themselves, the filters alone decide. "Clear filters" clears every group and shows every meeting. The filters fold away so the meetings start high on the screen (owner decision, 2026-09-30): the heading has a "Change place" link beside it, and the List / Map pills share a row with a "Filters · 2 ▾" pill of the same style (2 being the groups with something chosen, the starting Day and Time included) that opens a panel with the Day, Time, Type and Tags pills and the Soonest / Nearest switch (list only). It starts closed each time Nearby opens, and a line above the list says what's on ("15 meetings · today from now", "8 meetings · 2 filters · nearest"; Soonest, the default, goes unsaid), with a "Clear" link beside it whenever anything is chosen. When nothing is left to show, the message takes that line's place, beside the same "Clear". The map has no such line: its "Clear" is in the open panel, and beside the message over the map while the panel is closed. On the map the open panel sits over the map, so opening it never moves or resizes the map. The server returns meetings sorted by distance from the rounded point; the phone re-sorts them with the Soonest / Nearest switch (owner decision, 2026-09-30). Soonest, the default, orders by each meeting's next start from now (one that began under an hour ago still counts as starting then), with ties going to the nearest; Nearest orders by exact distance using the real location, which never leaves the phone, with ties going to the soonest. The choice is kept in memory only, like the filters, and starts again on Soonest when the app is next opened; the map is unaffected. Directions hand off to Apple Maps or Google Maps.
 - **Without location:** a fresh install with no location permission shows a search box and an "Use my location" button. Nothing is requested at launch.
 - **Searching another area** (traveling, planning ahead, or not sharing location):
   - The search box accepts a city, zip, or address, resolved with the platform geocoder (iOS `CLGeocoder`, Android `Geocoder`). Our server never receives the query text, only the rounded result point.
-  - Meetings are sorted by distance from the searched point.
+  - Distances are measured from the searched point; the list is ordered as above (Soonest by default).
   - Panning the map searches around the new map center (radius from the visible area).
   - Recent searched places are saved on the phone.
   - If no in-person meetings are found, say so plainly and show the online meetings view rather than an empty screen.
+  - Under the starting filters, tomorrow's meetings follow today's under a "Tomorrow" heading (from 5 AM tomorrow to 5 AM the day after, with the chosen types and tags, in the same order), so late at night the list goes on to the morning; the map shows both days. Once the person changes Day or Time, there's no Tomorrow (owner decision, 2026-09-30).
+  - If there are in-person meetings, but none left today under the starting filters, with nothing chosen, say "No more meetings nearby tonight." ("today" before 5 PM) beside "Clear", and go straight on to tomorrow's. If tomorrow has none either, say "No more meetings nearby tonight or tomorrow." and offer an "Online now (N)" link to the Online tab rather than listing the online meetings (owner decision, 2026-09-30).
 - **Online now:** meetings in progress from `/meetings/online`, in the user's local time.
 - **Meeting detail:** time, place, types, all tags with counts, "Tag this meeting" (enabled only in the tagging window for new submissions), and "Edit my tags" / "Remove my tags" whenever this device has tagged it.
 - **Attendance check:** while the app is open and location permission is already granted, opening a meeting's detail during its time (15 min before start to 30 min after end, or 90 min after start if no end time) checks proximity on the phone: within 200 m, plus the location's accuracy, capped at 500 m. The result is stored locally and sent later as `nearMeeting`. The tag flow offers the same check with the explanation: "We check you're near the meeting to stop spam. Your location never leaves your phone." On iOS, if only approximate location is on, request temporary full accuracy (needs `NSLocationTemporaryUsageDescriptionDictionary`). On Android, request precise location for this check.
@@ -229,7 +231,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 - **My tags (local record):** the phone keeps a record of every meeting it tagged, with the tags chosen and dates. Used for the edit/remove buttons and a "Meetings I've tagged" list. Never sent to the server.
 - **Favorites:** on the phone.
 - **Sobriety counter:** date stored on the phone; total days plus years/months/days; milestones at 24 hours, 30/60/90 days, 6 and 9 months, 1 year, and each year after. Resets use neutral "set a new date" wording, with no streak-broken messaging.
-- **Settings:** show the app ID (copyable, for support), delete all my tags, privacy policy and support links, help resources.
+- **Settings:** delete all my tags, privacy policy, support and terms links, help resources, and the app's version. The app never shows its device ID: the server knows a phone only by a keyed hash, and support never asks for it (owner decision, 2026-09-29).
 - **Always reachable:** 988 and the SAMHSA National Helpline (1-800-662-4357).
 - **Offline:** cache the last search results, online meetings, and favorited meetings' details.
 - **Forced upgrade:** check `/config` at launch; below the minimum version, show an upgrade screen but keep offline data (favorites, sobriety counter, crisis numbers) usable.
@@ -310,6 +312,8 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
 | exact location, search box text, recent searches, favorites, sobriety date, local record of tagged meetings, attendance-check results, cached meetings, all later-phase personal features |     |
 
+The phone's own backups (to iCloud, Google, the phone maker's cloud or a computer) may include this data, as they can for most apps. Those backups are the person's, and they never reach our server.
+
 ## 14. Acceptance criteria for MVP
 
 - [ ] A fresh install can find meetings with no account and no location permission (search box → platform geocoder → rounded point).
@@ -337,6 +341,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - Tags editable any time; the window limits new submissions only.
 - Maps: Apple Maps (iOS) / Google Maps (Android), disclosed.
 - Feed sync on Vercel Cron in 15-minute batches.
+- Settings never show the raw device ID (2026-09-29), matching the privacy policy and support page.
 
 ## 16. Before launch (non-engineering)
 

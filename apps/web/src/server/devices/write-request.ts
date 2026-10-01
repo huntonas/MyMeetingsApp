@@ -1,4 +1,4 @@
-import { Platform, SemVer } from "@mymeetingapp/shared";
+import { isOlderVersion, Platform, SemVer } from "@mymeetingapp/shared";
 import { eq, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -24,15 +24,6 @@ export interface WriteDevice {
   deviceHash: string;
 }
 
-function isOlder(version: string, minimum: string): boolean {
-  const [a, b] = [version.split(".").map(Number), minimum.split(".").map(Number)];
-  for (let i = 0; i < 3; i++) {
-    const difference = (a[i] ?? 0) - (b[i] ?? 0);
-    if (difference !== 0) return difference < 0;
-  }
-  return false;
-}
-
 function readDeviceHeaders(req: Request) {
   return parseInput(WriteHeaders, {
     deviceId: req.headers.get("x-device-id") ?? undefined,
@@ -53,7 +44,7 @@ function verifiedDevice(headers: z.infer<typeof WriteHeaders>): WriteDevice {
 // app below the platform's minimum version must upgrade first.
 export function readWriteRequest(req: Request): WriteDevice {
   const headers = readDeviceHeaders(req);
-  if (isOlder(headers.appVersion, readAppConfig().minSupportedVersion[headers.platform])) {
+  if (isOlderVersion(headers.appVersion, readAppConfig().minSupportedVersion[headers.platform])) {
     throw new ApiError("upgrade_required");
   }
   return verifiedDevice(headers);

@@ -137,7 +137,7 @@ Each item has a recommendation, and the plan is written to follow it so work isn
    - A meeting with no end time counts as in progress for 60 minutes. A meeting with no time zone isn't shown there.
 6. **Time math.** A meeting's day and time are in its own zone. `Intl.DateTimeFormat` gives the zone offset (Hermes supports `timeZone`).
    - A local time that doesn't exist (spring forward) resolves as Postgres does, one hour later.
-   - An ambiguous one (fall back) takes the earlier instant.
+   - An ambiguous one (fall back) takes the later instant, as Postgres's `AT TIME ZONE` does (owner ruling M-a, Task 6 review): the server is the authority, so the app and the server follow one rule.
    - Clock times are formatted by hand ("7:00 PM"), so output doesn't depend on the device's ICU version. The app is US English.
 7. **Search radius.**
    - Search box and location searches use 25 km (shown as 16 miles).
@@ -228,7 +228,7 @@ Each item has a recommendation, and the plan is written to follow it so work isn
 1. **Offline with a stale saved copy, or offline on a fresh install with no copy at all.** The app must show the saved copy with the time it was saved and say it couldn't reach the server, or, with no copy, say so plainly. It must never spin forever or show an empty list as if nothing existed. Pinned in Task 4 ("shows a stale saved copy with its time when the server can't be reached", "says plainly when there's no saved copy and the server can't be reached") and Task 8 ("labels a saved search shown offline").
 2. **A place the geocoder can't find, or a blank search box.** The app must say it couldn't find the place and send nothing to our server. Pinned in Task 7 ("finds nothing for blank text without asking the geocoder") and Task 8 ("a place the geocoder can't find sends nothing to the server").
 3. **Location permission denied after tapping "Use my location".** The app must explain, offer Settings, keep the search box working, and never prompt at launch. Pinned in Task 8 ("asks for nothing at launch", "explains a refused permission and keeps place search").
-4. **Meetings across midnight, daylight-saving changes and other time zones.** "Happening now" must include a Sunday 11:30 PM–12:30 AM Pacific meeting at 12:15 AM Monday, place a New York meeting in Central time, and resolve the fall-back and spring-forward nights. Pinned in Task 6 ("counts a meeting that crosses midnight as happening after midnight", "takes the earlier instant … when clocks fall back", "moves a time the clocks skip an hour later", and "shows what's happening now and soon, in the phone's local time") and Task 10 ("says when a meeting in another zone is on the phone's clock").
+4. **Meetings across midnight, daylight-saving changes and other time zones.** "Happening now" must include a Sunday 11:30 PM–12:30 AM Pacific meeting at 12:15 AM Monday, place a New York meeting in Central time, and resolve the fall-back and spring-forward nights. Pinned in Task 6 ("counts a meeting that crosses midnight as happening after midnight", "takes the later instant, matching Postgres, … when clocks fall back", "moves a time the clocks skip an hour later", and "shows what's happening now and soon, in the phone's local time") and Task 10 ("says when a meeting in another zone is on the phone's clock").
 5. **A saved meeting that merged into another, or was removed from the listings.** A merged meeting must stay saved under its new id, with its saved copy moved. A removed one must say it's no longer listed and offer to remove it, without crashing the Saved tab. Pinned in Task 10 ("follows a merged meeting to its new id") and Task 11 ("a merged saved meeting stays saved under its new id", "a meeting no longer listed can be removed").
 
 ---
@@ -1999,7 +1999,7 @@ git commit -m "feat(mobile): on-phone database and an offline cache that keeps t
 - Produces:
   - `appVersion(): string` and `appPlatform(): Platform` from `@/config/app-version`;
   - `UpgradeProvider` and `useUpgradeRequired(): boolean` from `@/config/upgrade`;
-  - `Button` from `@/ui/button`, with props `{ label: string; onPress: () => void; kind?: "primary" | "secondary"; hint?: string }` and at least 44 × 44 points;
+  - `Button` from `@/ui/button`, with props `{ label: string; onPress: () => void; kind?: "primary" | "secondary"; hint?: string }` (`hint` is the `accessibilityHint`, first used by Task 10's `HandOffButton`) and at least 44 × 44 points;
   - `HelpResources` from `@/ui/help-resources`;
   - `HelpNowButton` from `@/ui/help-now-button`;
   - `UpgradeNotice` from `@/ui/upgrade-notice`;
@@ -2406,9 +2406,9 @@ describe("occurrences in the meeting's own zone", () => {
     expect(iso(nextStart(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
   });
 
-  it("takes the earlier instant for a time that happens twice when clocks fall back", () => {
+  it("takes the later instant, matching Postgres, for a time that happens twice when clocks fall back", () => {
     const meetingAt = { day: 0, time: "01:30", endTime: null, timezone: "America/New_York" };
-    expect(iso(nextStart(meetingAt, new Date("2026-10-31T12:00:00Z")))).toBe("2026-11-01T05:30:00.000Z");
+    expect(iso(nextStart(meetingAt, new Date("2026-10-31T12:00:00Z")))).toBe("2026-11-01T06:30:00.000Z");
   });
 
   it("moves a time the clocks skip an hour later, as the server does", () => {
@@ -2527,7 +2527,7 @@ const hourOf = (time: string) => Number(time.slice(0, 2));
 const minuteOf = (time: string) => Number(time.slice(3, 5));
 
 // The instant a local date and time happen in a zone. A time the clocks skip (spring forward) resolves an hour later,
-// as Postgres does for the tagging window; a time that happens twice (fall back) is the earlier one.
+// as Postgres does for the tagging window; a time that happens twice (fall back) is the later instant, matching Postgres.
 function zonedInstant(date: CivilDate, time: string, timeZone: string): Date {
   const guess = Date.UTC(date.year, date.month - 1, date.day, hourOf(time), minuteOf(time));
   const firstOffset = offsetMinutes(new Date(guess), timeZone);
@@ -6678,7 +6678,7 @@ This task runs the app for real: an EAS dev build on the owner's iPhone, the iOS
   - Run `pnpm --filter mobile exec expo install --check`. Expected: "Dependencies are up to date".
   - Run `pnpm --filter mobile exec expo-doctor`. Expected: no failed checks. A warning about the local module's missing `README` can be ignored.
 
-- [ ] **Step 2: Link the EAS project (owner).**
+- [ ] **Step 2: Link the EAS project (owner).** **Superseded:** `2026-09-30-staging-and-testflight.md` Task 7 does this instead, with `development`, `testflight` and `production` profiles (not just `development`). Do the EAS project and `eas.json` setup there; the steps below are historical.
   1. Run `pnpm dlx eas-cli@24.8.0 login` with the owner's Expo account.
   2. From `apps/mobile`, run `pnpm dlx eas-cli@24.8.0 init`. It creates the project and prints its ID. Because the config is `app.config.ts`, it asks you to add the ID by hand: add `owner: "<the Expo account name>"` and `extra: { eas: { projectId: "<the ID it printed>" } }` to the object `app.config.ts` returns.
   3. Create `apps/mobile/eas.json`:
@@ -6719,19 +6719,19 @@ This task runs the app for real: an EAS dev build on the owner's iPhone, the iOS
 
 - [ ] **Step 4: Smoke test on the iPhone, then the simulator.** Delete the app first, so the run starts as a fresh install. Record each result in the "Smoke checklist" table in `docs/mobile.md` (date, build, device, pass or notes). Expected results:
   1. Launch: no location prompt. The Nearby tab shows the search box and "Use my location". The text is Atkinson Hyperlegible (compare the "g" and "l" with the website) in the website's colours. Switching the phone to dark appearance switches the app.
-  2. With location still off, type "Maryville, TN" and tap Search. The list shows meetings near Maryville sorted by distance, in miles, with tag chips ("Welcoming 14"). This is the check for Owner decision 1, the native place lookup, on a real device.
+  2. With location still off, type "Maryville, TN" and tap Search. The list shows meetings near Maryville, soonest first (with a Soonest / Nearest switch above it), with distances in miles, with tag chips ("Welcoming 14"). This is the check for Owner decision 1, the native place lookup, on a real device.
   3. Filter pills: choose Evening; only evening meetings remain. "Clear filters" restores them.
   4. Map: the map shows Apple Maps with markers. Pan to a nearby town; "Near this map area" appears and the list follows. Tap a marker's callout; the meeting page opens.
   5. Meeting page: day and time, "your time" for a meeting in another zone, Directions (Apple Maps opens with the meeting as the destination), "What people say", types, "Listed by …". Tap Save; the heart fills.
   6. "Use my location": the When-In-Use prompt shows the purpose string from `app.config.ts`. Allow it; the list says "Near you".
-  7. Online tab: "Happening now" and "Starting in the next 2 hours", in local time. "Join online" opens Zoom or the browser.
+  7. Online tab: "Happening now" and "Starting in the next 2 hours", in local time. "Join online" opens Zoom or the browser. A New York meeting on a Chicago phone shows the right local time, on iOS and Android (the device's own `Intl` time-zone data, which Jest can't check).
   8. Saved tab: the saved meeting is there. Turn on Airplane Mode and relaunch: Saved still shows it with the "Showing the copy saved …" note; Nearby's last search shows with the same note after its 75 minutes; Me still works. Turn Airplane Mode off.
   9. Me tab: set a sobriety date a year and a day ago. It shows 366 days (365 plus the leap day where one falls between), the breakdown and the next milestone. "Set a new date" and "Remove the date" work.
   10. Help: tap "Help" in any header. "Call 988", "Text 988" and "Call SAMHSA" open the phone and messages apps.
   11. Forced upgrade (on a local web server): run `pnpm --filter web dev` with `MIN_VERSION_IOS=9.0.0`, and point `.env` at it. Relaunch: Nearby and Online show "Please update mymeetingapp"; Saved, Me and Help still work. Remove the variable afterwards.
 
 - [ ] **Step 5: Accessibility pass.** Record the results in `docs/mobile.md` under "Accessibility pass":
-  1. **VoiceOver** (Settings → Accessibility → VoiceOver, or triple-click the side button if set up). Swipe through every screen: each tab, the search box, both buttons, filter pills (announced as "checkbox, checked" or "not checked" in the sheet), cards (name, time, distance, place, then "button"), tag chips ("Welcoming, 14 people"), Save ("Save" or "Saved"), Help, the date picker and the About links. Nothing may be silent, be announced only as "button", or read a raw slug.
+  1. **VoiceOver** (Settings → Accessibility → VoiceOver, or triple-click the side button if set up). Swipe through every screen: each tab, the search box, both buttons, filter pills (announced as "checkbox, checked" or "not checked" in the sheet), cards (name, time, distance, place, then the top tags such as "Welcoming 14 people", then "button"; the chips themselves are not read a second time), Save ("Save" or "Saved"), Help, the date picker and the About links. Nothing may be silent, be announced only as "button", or read a raw slug.
   2. **Largest text:** Settings → Accessibility → Display & Text Size → Larger Text → turn on Larger Accessibility Sizes and drag to the maximum. Every screen must still read without clipped or overlapping text; pills and buttons grow and wrap.
   3. **Touch targets:** in the simulator, run Xcode → Open Developer Tool → Accessibility Inspector, choose the simulator, then Audit on each screen. Fix every "Hit area is too small" and "Dynamic Type font sizes are unsupported" finding in the component that owns it, with a failing test first where RNTL can see it (`toHaveStyle({ minHeight: 44 })`).
   4. **TalkBack** on the Android emulator: a quick pass of Nearby, a meeting page and Help. The full Android pass is 5b.

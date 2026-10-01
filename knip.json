@@ -16,6 +16,11 @@
     "apps/web": {
       "entry": ["scripts/*.ts!", "test/*.e2e.ts"],
       "project": ["src/**/*.{ts,tsx}!", "scripts/**/*.ts!", "test/**/*.{ts,tsx}", "*.ts"]
+    },
+    "apps/mobile": {
+      "entry": ["test/native/*.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}!", "modules/*/index.ts!", "test/**/*.{ts,tsx}", "*.{ts,js}"],
+      "ignoreDependencies": ["@expo-google-fonts/atkinson-hyperlegible"]
     }
   }
 }

@@ -4,6 +4,7 @@ import { readEnv } from "@/env";
 
 const DEFAULT_NEON_API_URL = "https://console.neon.tech/api/v2";
 const SEED_BRANCH_NAME = "seed";
+const PREVIEW_BRANCH_NAME = "preview";
 const REQUEST_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 500;
 const MAX_WAIT_MS = 120_000;
@@ -35,9 +36,11 @@ function setting(name: NeonSetting): string {
 // (vocabulary, feeds, meetings). Each preview build restores it to seed's latest state before migrating, so
 // nothing from production and no earlier preview's device data survives into a new preview. Production and
 // local builds leave the database alone. Neon's "reset from parent" is the restore endpoint with the parent
-// as source; the parent must be seed, so a mistyped branch id can never overwrite main.
+// as source. The branch must be named "preview" and its parent seed, so a mistyped or mis-pasted branch id can
+// never overwrite main, nor staging, which is seed's child too.
+// Vercel reports a custom environment such as staging as VERCEL_ENV=preview; only VERCEL_TARGET_ENV tells them apart.
 export async function resetPreviewBranch(): Promise<"reset" | "skipped"> {
-  if (readEnv("VERCEL_ENV") !== "preview") return "skipped";
+  if (readEnv("VERCEL_TARGET_ENV") !== "preview") return "skipped";
   const apiKey = setting("NEON_API_KEY");
   const base = `${readEnv("NEON_API_URL") ?? DEFAULT_NEON_API_URL}/projects/${setting("NEON_PROJECT_ID")}`;
   const branchId = setting("NEON_PREVIEW_BRANCH_ID");
@@ -72,9 +75,9 @@ export async function resetPreviewBranch(): Promise<"reset" | "skipped"> {
     branch.default || branch.parent_id === undefined
       ? undefined
       : BranchBody.parse(await call("GET", `/branches/${branch.parent_id}`)).branch;
-  if (parent?.name !== SEED_BRANCH_NAME) {
+  if (branch.name !== PREVIEW_BRANCH_NAME || parent?.name !== SEED_BRANCH_NAME) {
     throw new Error(
-      `NEON_PREVIEW_BRANCH_ID must name a branch made from "${SEED_BRANCH_NAME}"; refusing to restore "${branch.name}"`,
+      `NEON_PREVIEW_BRANCH_ID must name the "${PREVIEW_BRANCH_NAME}" branch made from "${SEED_BRANCH_NAME}"; refusing to restore "${branch.name}"`,
     );
   }
   const { operations } = RestoreBody.parse(

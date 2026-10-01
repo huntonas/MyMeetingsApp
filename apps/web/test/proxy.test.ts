@@ -161,12 +161,28 @@ describe("proxy for the rest of the site (everything but /api/)", () => {
   });
 
   it("serves public pages to anyone, without asking for credentials", async () => {
-    const res = await proxy(request({ path: "/privacy" }));
-    expect(passesThrough(res)).toBe(true);
-    expect(res.headers.get("x-robots-tag")).toBeNull();
+    expect(passesThrough(await proxy(request({ path: "/privacy" })))).toBe(true);
   });
 
   it("still asks for credentials on a path under /metrics", async () => {
     expect((await proxy(request({ path: "/metrics/opt-outs" }))).status).toBe(401);
+  });
+});
+
+describe("indexing outside production", () => {
+  // Fails closed: a deployment missing its target isn't production, and local builds get noindex too.
+  it.each(["staging", "preview", undefined])(
+    "marks public pages noindex when the target is %j",
+    async (target) => {
+      vi.stubEnv("VERCEL_TARGET_ENV", target);
+      const res = await proxy(request({ path: "/privacy" }));
+      expect(passesThrough(res)).toBe(true);
+      expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    },
+  );
+
+  it("leaves production's public pages indexable", async () => {
+    vi.stubEnv("VERCEL_TARGET_ENV", "production");
+    expect((await proxy(request({ path: "/privacy" }))).headers.get("x-robots-tag")).toBeNull();
   });
 });

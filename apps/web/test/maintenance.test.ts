@@ -9,7 +9,7 @@ import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
 import { recountTags } from "@/server/tags/counts";
 
-import { resetDb, untilWaitingOnLock } from "./db";
+import { backendPid, resetDb, untilWaitingOnLock } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -170,22 +170,29 @@ describe("runMaintenance", () => {
     // A second device confirms; tag_counts doesn't reflect it yet.
     await insertSubmission(meetingId, ["quiet"]);
 
-    // Hold a tag write's own recount open mid-transaction, exactly as submitTags leaves it before committing.
-    let release: () => void = () => undefined;
-    const hold = new Promise<void>((resolve) => (release = resolve));
-    let ready: () => void = () => undefined;
-    const writeReady = new Promise<void>((resolve) => (ready = resolve));
+    // Hold a tag write's own recount open mid-transaction, exactly as submitTags leaves it before committing. If the
+    // wait fails, it rolls back instead, so its locks never outlive the test.
+    let release: (commit: boolean) => void = () => undefined;
+    const hold = new Promise<boolean>((resolve) => (release = resolve));
+    let ready: (pid: number) => void = () => undefined;
+    const writeReady = new Promise<number>((resolve) => (ready = resolve));
     const write = db.transaction(async (tx) => {
       await recountTags([meetingId], tx);
-      ready();
-      await hold;
+      ready(await backendPid(tx));
+      if (!(await hold)) tx.rollback();
     });
-    await writeReady;
+    const holder = await writeReady;
 
     let settled = false;
     const nightly = runMaintenance().finally(() => (settled = true));
-    await untilWaitingOnLock(() => settled);
-    release();
+    let commit = false;
+    try {
+      await untilWaitingOnLock(holder, () => settled);
+      commit = true;
+    } finally {
+      release(commit);
+      if (!commit) await Promise.allSettled([write, nightly]);
+    }
     await write;
     const summary = await nightly;
 

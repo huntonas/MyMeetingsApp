@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
+import type { PoolClient } from "pg";
+import { z } from "zod";
 
-import { db } from "@/db/client";
+import { db, type Executor } from "@/db/client";
 
 // Add each new table here when it is created.
 const APP_TABLES = [
@@ -24,14 +26,34 @@ export async function resetDb(): Promise<void> {
   await db.execute(sql.raw(`truncate table ${APP_TABLES.join(", ")} restart identity cascade`));
 }
 
-// Returns once `waiters` queries are waiting on a lock (row, table or advisory), or once `settled` says the
-// racing work already finished without waiting (its assertions then catch that). Gives up after 5 seconds.
-export async function untilWaitingOnLock(settled: () => boolean, waiters = 1): Promise<void> {
+// The server process behind a connection or transaction that holds locks, for untilWaitingOnLock.
+export async function backendPid(holder: PoolClient | Executor): Promise<number> {
+  const { rows } =
+    // A drizzle executor has a `query` builder too, so a pooled client is told apart by `release`.
+    "release" in holder
+      ? await holder.query("select pg_backend_pid() as pid")
+      : await holder.execute(sql`select pg_backend_pid() as pid`);
+  const [{ pid }] = z.tuple([z.object({ pid: z.number() })]).parse(rows);
+  return pid;
+}
+
+// Returns once `waiters` queries are waiting on a lock the `holder` process holds, directly or behind another waiter
+// in its queue (row, table or advisory), or once `settled` says the racing work already finished without waiting
+// (its assertions then catch that). Waiters on anything else (another test file's leftovers, autovacuum) never count.
+// Gives up after 5 seconds.
+export async function untilWaitingOnLock(holder: number, settled: () => boolean, waiters = 1): Promise<void> {
   const deadline = Date.now() + 5000;
   while (!settled()) {
     const result = await db.execute<{ waiting: number }>(sql`
-      select count(*)::int waiting from pg_stat_activity
-      where datname = current_database() and wait_event_type = 'Lock'
+      with recursive blocked(pid) as (
+        select pid from pg_stat_activity
+        where datname = current_database() and ${holder}::int = any(pg_blocking_pids(pid))
+        union
+        select activity.pid from pg_stat_activity activity
+        join blocked on blocked.pid = any(pg_blocking_pids(activity.pid))
+        where activity.datname = current_database()
+      )
+      select count(*)::int waiting from blocked
     `);
     if ((result.rows[0]?.waiting ?? 0) >= waiters) return;
     if (Date.now() > deadline)

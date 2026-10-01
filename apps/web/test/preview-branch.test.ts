@@ -17,6 +17,10 @@ const BRANCHES: Record<string, object> = {
     branch: { id: "br-seed", name: "seed", parent_id: "br-main", default: false },
   },
   "/projects/proj-1/branches/br-main": { branch: { id: "br-main", name: "main", default: true } },
+  // The long-lived staging branch is seed's child too.
+  "/projects/proj-1/branches/br-staging": {
+    branch: { id: "br-staging", name: "staging", parent_id: "br-seed", default: false },
+  },
   "/projects/proj-1/branches/br-feature": {
     branch: { id: "br-feature", name: "feature", parent_id: "br-main", default: false },
   },
@@ -45,6 +49,7 @@ async function neon(laterStatuses: string[] = ["finished"], status = 200) {
 
 function stubPreviewBuild(apiUrl: string, branchId = "br-preview") {
   vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_TARGET_ENV", "preview");
   vi.stubEnv("NEON_API_URL", apiUrl);
   vi.stubEnv("NEON_API_KEY", "neon-test-key");
   vi.stubEnv("NEON_PROJECT_ID", "proj-1");
@@ -56,15 +61,23 @@ const calls = (server: { requests: { method: string; path: string }[] }) =>
 
 describe("resetPreviewBranch", () => {
   it.each([undefined, "production", "development"])(
-    "leaves the database alone when VERCEL_ENV is %j",
-    async (env) => {
+    "leaves the database alone when VERCEL_TARGET_ENV is %j",
+    async (target) => {
       const server = await neon();
       stubPreviewBuild(server.baseUrl);
-      vi.stubEnv("VERCEL_ENV", env);
+      vi.stubEnv("VERCEL_TARGET_ENV", target);
       expect(await resetPreviewBranch()).toBe("skipped");
       expect(server.requests).toEqual([]);
     },
   );
+
+  it("leaves the database alone on a custom environment, which Vercel also reports as VERCEL_ENV=preview", async () => {
+    const server = await neon();
+    stubPreviewBuild(server.baseUrl);
+    vi.stubEnv("VERCEL_TARGET_ENV", "staging");
+    expect(await resetPreviewBranch()).toBe("skipped");
+    expect(server.requests).toEqual([]);
+  });
 
   it("restores the preview branch from seed and waits for Neon to finish", async () => {
     const server = await neon(["running", "finished"]);
@@ -85,7 +98,7 @@ describe("resetPreviewBranch", () => {
     const server = await neon();
     stubPreviewBuild(server.baseUrl, "br-main");
     await expect(resetPreviewBranch()).rejects.toThrow(
-      'NEON_PREVIEW_BRANCH_ID must name a branch made from "seed"; refusing to restore "main"',
+      'NEON_PREVIEW_BRANCH_ID must name the "preview" branch made from "seed"; refusing to restore "main"',
     );
     expect(calls(server).filter((call) => call.startsWith("POST"))).toEqual([]);
   });
@@ -94,6 +107,13 @@ describe("resetPreviewBranch", () => {
     const server = await neon();
     stubPreviewBuild(server.baseUrl, "br-feature");
     await expect(resetPreviewBranch()).rejects.toThrow('refusing to restore "feature"');
+    expect(calls(server).filter((call) => call.startsWith("POST"))).toEqual([]);
+  });
+
+  it("refuses staging, though seed is its parent too", async () => {
+    const server = await neon();
+    stubPreviewBuild(server.baseUrl, "br-staging");
+    await expect(resetPreviewBranch()).rejects.toThrow('refusing to restore "staging"');
     expect(calls(server).filter((call) => call.startsWith("POST"))).toEqual([]);
   });
 

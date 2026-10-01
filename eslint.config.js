@@ -1,8 +1,18 @@
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 const PARENT_IMPORT = { group: ["../*"], message: "Use the @/ alias instead of a parent-relative import." };
+// The app's one way to each native capability (docs/standards.md). Exemptions restate the bans they don't lift.
+const SQLITE_IMPORT = { name: "expo-sqlite", message: "Use appDatabase() from @/db/database." };
+const LOCATION_IMPORTS = [
+  {
+    name: "expo-location",
+    message: "Use currentPosition() from @/location/current-position.",
+  },
+  { name: "@modules/native-location", message: "Use findPlace() from @/location/find-place." },
+];
 
 export default defineConfig([
   globalIgnores([
@@ -12,6 +22,10 @@ export default defineConfig([
     "**/drizzle/",
     "**/next-env.d.ts",
     ".superpowers/",
+    "apps/mobile/.expo/",
+    "apps/mobile/ios/",
+    "apps/mobile/android/",
+    "apps/mobile/modules/*/android/build/",
   ]),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
@@ -98,5 +112,75 @@ export default defineConfig([
         },
       ],
     },
+  },
+  {
+    files: ["apps/mobile/**/*.{ts,tsx,js}"],
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+      // The app logs nothing: no location, search text or device IDs can end up in a device log.
+      "no-console": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS],
+          patterns: [PARENT_IMPORT],
+        },
+      ],
+      "no-restricted-globals": [
+        "error",
+        { name: "fetch", message: "Use getJson/postJson from @/api/client." },
+      ],
+      "no-restricted-properties": [
+        "error",
+        {
+          property: "withTransactionAsync",
+          message: "Use inTransaction() from @/db/database, which runs one transaction at a time.",
+        },
+      ],
+    },
+  },
+  {
+    // Migrations run while the database opens, before inTransaction() can be called.
+    files: ["apps/mobile/src/db/database.ts"],
+    rules: { "no-restricted-properties": "off" },
+  },
+  {
+    // The one place allowed to call fetch directly.
+    files: ["apps/mobile/src/api/client.ts"],
+    rules: { "no-restricted-globals": "off" },
+  },
+  {
+    // The one place allowed to open the database directly, and the test proving appDatabase() recovers from a failed
+    // open (it has to spy on expo-sqlite's own openDatabaseAsync).
+    files: ["apps/mobile/src/db/database.ts", "apps/mobile/test/database.test.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: LOCATION_IMPORTS, patterns: [PARENT_IMPORT] }],
+    },
+  },
+  {
+    // The one place allowed to reach the location packages directly.
+    files: ["apps/mobile/src/location/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: [SQLITE_IMPORT], patterns: [PARENT_IMPORT] }],
+    },
+  },
+  {
+    // The fakes standing in for native packages in tests.
+    files: ["apps/mobile/test/native/**/*.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [PARENT_IMPORT] }],
+    },
+  },
+  {
+    // The Expo config lives at the workspace root.
+    files: ["apps/mobile/test/app-shell.test.tsx"],
+    rules: { "no-restricted-imports": "off" },
+  },
+  {
+    // Jest loads its config as CommonJS.
+    files: ["apps/mobile/jest.config.js"],
+    languageOptions: { sourceType: "commonjs", globals: { module: "writable", process: "readonly" } },
   },
 ]);

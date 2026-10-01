@@ -6,7 +6,13 @@ import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
 import PrivacyPage from "@/app/(site)/privacy/page";
-import { DATA_INVENTORY, ON_PHONE, SUPPORT_EMAIL, THIRD_PARTIES } from "@/content/privacy-inventory";
+import {
+  DATA_INVENTORY,
+  ON_PHONE,
+  PHONE_BACKUP,
+  SUPPORT_EMAIL,
+  THIRD_PARTIES,
+} from "@/content/privacy-inventory";
 import * as schema from "@/db/schema";
 
 import { renderText } from "./render";
@@ -167,6 +173,13 @@ describe("the privacy policy matches SPEC.md §13", () => {
     }
   });
 
+  it("says the phone's own backups, wherever they go, may include what stays on the phone", () => {
+    expect(PHONE_BACKUP.specSentence).toBe(
+      "The phone's own backups (to iCloud, Google, the phone maker's cloud or a computer) may include this data, as they can for most apps. Those backups are the person's, and they never reach our server.",
+    );
+    expect(inventory).toContain(PHONE_BACKUP.specSentence);
+  });
+
   it("keeps on the phone exactly what the table says stays there", () => {
     const cell = tableRows(inventory, 1)[0]?.[0] ?? "";
     expect(ON_PHONE.map((item) => item.specItem).sort()).toEqual(
@@ -195,6 +208,18 @@ describe("the privacy policy matches SPEC.md §2", () => {
     expect(THIRD_PARTIES.map((party) => party.specName).sort()).toEqual(named.sort());
   });
 
+  it("names, among the third parties, every service the search box text can go to", () => {
+    const personal =
+      section("2. Privacy rules")
+        .split("\n")
+        .find((line) => line.includes("**Personal data never reaches our server:**")) ?? "";
+    const searchBox = ON_PHONE.find((item) => item.specItem === "search box text")?.text ?? "";
+    const google = THIRD_PARTIES.find((party) => party.specName === "Google")?.role ?? "";
+    expect(personal).toContain("the phone maker's location service");
+    expect(searchBox).toContain("the phone maker's location service");
+    expect(google).toContain("the phone maker's location service");
+  });
+
   it("says suggestion screening keeps nothing", () => {
     const screening = THIRD_PARTIES.find(
       (party) => party.specName === "the AI provider used for suggestion screening",
@@ -220,6 +245,16 @@ describe("the privacy policy page", () => {
       expect(text).toContain(party.name);
       expect(text).toContain(party.role);
     }
+  });
+
+  it("says, right after what stays on the phone, that the phone's own backups may include it", () => {
+    expect(PHONE_BACKUP.text).toBe(
+      "Your phone's own backups (to iCloud, Google, your phone maker's cloud or a computer) may include them, as they can for most apps. Those backups are yours, and they never reach our server.",
+    );
+    const backup = text.indexOf(PHONE_BACKUP.text);
+    expect(backup).toBeGreaterThan(text.indexOf("What stays on your phone"));
+    expect(backup).toBeGreaterThan(text.indexOf(ON_PHONE.at(-1)?.text ?? "missing"));
+    expect(backup).toBeLessThan(text.indexOf("What our server stores"));
   });
 
   it("says who carries support email, how long we keep it, and that it's never linked to tags", () => {

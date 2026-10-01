@@ -8,6 +8,8 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      EXPO_NO_TELEMETRY: "1"
     services:
       db:
         image: imresamu/postgis:17-3.5
@@ -32,6 +34,12 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: Mobile packages match Expo SDK 57
+        # Offline, expo compares against the pins of the installed expo package (bundledNativeModules.json). Online, it
+        # wants the newest SDK patch, which pnpm's minimum release age can hold back for a day.
+        run: pnpm --filter mobile exec expo install --check
+        env:
+          EXPO_OFFLINE: "1"
       - run: pnpm knip:production
       - name: Build without a database, then run the end-to-end tests against it
         run: pnpm --filter web test:e2e

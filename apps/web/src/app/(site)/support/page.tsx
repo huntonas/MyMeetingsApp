@@ -1,7 +1,6 @@
-import { BRAND } from "@mymeetingapp/shared";
+import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
 import { HelpResources } from "@/components/help-resources";
-import { CATCH_UP_MINUTES } from "@/lib/catch-up";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({

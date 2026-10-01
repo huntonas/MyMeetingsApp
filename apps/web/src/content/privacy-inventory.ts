@@ -218,7 +218,7 @@ export const ON_PHONE: readonly { specItem: string; text: string }[] = [
   { specItem: "exact location", text: "your exact location" },
   {
     specItem: "search box text",
-    text: "what you type in the search box (to find the place, your phone asks Apple or Google, not us)",
+    text: "what you type in the search box (to find the place, your phone asks Apple, Google or, on some Android phones, the phone maker's location service, not us)",
   },
   { specItem: "recent searches", text: "your recent searches" },
   { specItem: "favorites", text: "your favorite meetings" },
@@ -234,6 +234,15 @@ export const ON_PHONE: readonly { specItem: string; text: string }[] = [
     text: "anything you add in later features, such as notes, a meeting log or a journal",
   },
 ];
+
+// Spec §13's sentence under the "Stays on the phone" list (owner ruling): the phone's own backups, wherever the person
+// sends them, can copy what the app keeps on it, as for most apps. Only the person's backups hold it; our server never
+// does.
+export const PHONE_BACKUP = {
+  specSentence:
+    "The phone's own backups (to iCloud, Google, the phone maker's cloud or a computer) may include this data, as they can for most apps. Those backups are the person's, and they never reach our server.",
+  text: "Your phone's own backups (to iCloud, Google, your phone maker's cloud or a computer) may include them, as they can for most apps. Those backups are yours, and they never reach our server.",
+} as const;
 
 // Spec §2's list of third parties that receive data. specName is the name as SPEC.md writes it.
 export const THIRD_PARTIES: readonly { specName: string; name: string; role: string }[] = [
@@ -255,7 +264,7 @@ export const THIRD_PARTIES: readonly { specName: string; name: string; role: str
   {
     specName: "Google",
     name: "Google",
-    role: "On Android, Google Maps draws the map and gives directions, Android's geocoder turns a place you type into a map point, and, once switched on, Play Integrity confirms that requests come from the real app.",
+    role: "On Android, Google Maps draws the map and gives directions, Android's geocoder turns a place you type into a map point (on some Android phones, the phone maker's location service does this instead), and, once switched on, Play Integrity confirms that requests come from the real app.",
   },
   {
     specName: "Google Workspace",

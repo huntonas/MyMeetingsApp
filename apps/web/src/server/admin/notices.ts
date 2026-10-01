@@ -1,18 +1,17 @@
-import { VOCABULARY_CACHE_HOURS } from "@/lib/api/respond";
-import { CATCH_UP_MINUTES } from "@/lib/catch-up";
+import { CATCH_UP_MINUTES, VOCABULARY_CATCH_UP_HOURS } from "@mymeetingapp/shared";
 
 // The outcome of an admin action, shown on the page it returns to (?notice=<code>). Each admin view adds its own.
 export const ADMIN_NOTICES = {
   failed: "Something went wrong; nothing was changed. Try again.",
   invalid_form:
     "That form wasn't valid, so nothing was changed. (A tag label is 2–40 letters, digits, spaces, apostrophes, hyphens or &.)",
-  approved: `Added the new tag. The app's tag list picks it up within ${String(VOCABULARY_CACHE_HOURS)} hours.`,
+  approved: `Added the new tag. The app's tag list picks it up within ${String(VOCABULARY_CATCH_UP_HOURS)} hours.`,
   merged: "Merged into the existing tag.",
   rejected: "Rejected.",
   already_reviewed: "That suggestion was already reviewed.",
   tag_exists: "A tag with that name already exists. Merge into it instead.",
-  tag_retired: `Retired. The app stops offering it within ${String(VOCABULARY_CACHE_HOURS)} hours, and its counts are kept.`,
-  tag_restored: `Restored. The app offers it again within ${String(VOCABULARY_CACHE_HOURS)} hours.`,
+  tag_retired: `Retired. The app stops offering it within ${String(VOCABULARY_CATCH_UP_HOURS)} hours, and its counts are kept.`,
+  tag_restored: `Restored. The app offers it again within ${String(VOCABULARY_CATCH_UP_HOURS)} hours.`,
   tag_name_retired: "A retired tag already uses that name. Restore it under Vocabulary, then merge into it.",
   label_invalid:
     "That label has no letters or digits a–z/0–9 to make the tag's id from. Use Latin letters or digits.",

@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createServer, type IncomingHttpHeaders, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-interface RecordedRequest {
+export interface RecordedRequest {
   path: string;
   method: string;
   // The request body as text, complete by the time the handler runs.
@@ -37,6 +37,7 @@ async function streamChunks(
 
 export async function startServer(
   handler: (path: string, headers: IncomingHttpHeaders) => Reply | Promise<Reply>,
+  { port = 0 }: { port?: number } = {},
 ) {
   const requests: RecordedRequest[] = [];
   const server = createServer((req, res) => {
@@ -67,17 +68,26 @@ export async function startServer(
       });
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as AddressInfo;
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    // Only a failure to listen belongs to this promise; a later error must not be swallowed by it.
+    server.listen(port, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const { port: boundPort } = server.address() as AddressInfo;
   return {
-    baseUrl: `http://127.0.0.1:${String(port)}`,
-    port,
+    baseUrl: `http://127.0.0.1:${String(boundPort)}`,
+    port: boundPort,
     requests,
     close: () =>
-      new Promise<void>((resolve) =>
+      new Promise<void>((resolve) => {
+        // A hanging response leaves its connection open; close() alone waits for it to end on its own.
+        server.closeAllConnections();
         server.close(() => {
           resolve();
-        }),
-      ),
+        });
+      }),
   };
 }

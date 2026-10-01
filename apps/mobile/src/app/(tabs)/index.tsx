@@ -1,6 +1,6 @@
 import type { MeetingSearchResponse } from "@mymeetingapp/shared";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
 
 import { useCachedRead } from "@/cache/use-cached-read";
@@ -12,7 +12,7 @@ import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from 
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
-import { anyFilterChosen, filtering, type MeetingFilters, NO_FILTERS, useFilters } from "@/search/filters";
+import { chosenGroups, filtering, type MeetingFilters, NO_FILTERS, useFilters } from "@/search/filters";
 import {
   describedOrigin,
   listNearby,
@@ -27,6 +27,7 @@ import { Button } from "@/ui/button";
 import { HandOffButton } from "@/ui/hand-off-button";
 import { MeetingCard } from "@/ui/meeting-card";
 import { OnlineNowList } from "@/ui/online-now-list";
+import { PanelToggle } from "@/ui/panel-toggle";
 import { Pill } from "@/ui/pill";
 import { PlaceSearch } from "@/ui/place-search";
 import { ResultsMap } from "@/ui/results-map";
@@ -79,7 +80,8 @@ const ORDERS: readonly { order: NearbyOrder; label: string }[] = [
 
 function OrderPills({ order, onOrder }: { order: NearbyOrder; onOrder: (order: NearbyOrder) => void }) {
   return (
-    <View style={{ flexDirection: "row", gap: 8 }}>
+    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+      <AppText>Sort</AppText>
       {ORDERS.map(({ order: choice, label }) => (
         <Pill
           key={choice}
@@ -96,9 +98,19 @@ function OrderPills({ order, onOrder }: { order: NearbyOrder; onOrder: (order: N
   );
 }
 
-function countLine(count: number, filtered: boolean): string {
-  if (!filtered) return `${String(count)} ${count === 1 ? "meeting" : "meetings"}`;
-  return `${String(count)} ${count === 1 ? "meeting matches" : "meetings match"} your filters`;
+const counted = (count: number, one: string) => `${String(count)} ${one}${count === 1 ? "" : "s"}`;
+
+// What's on, in one line above the list: "2 meetings · today from now · soonest", "1 meeting · 3 filters · nearest".
+// While neither Day nor Time is the person's own, the list is today from now on, whatever the pills say.
+function summaryLine(count: number, filters: MeetingFilters, starting: boolean, order: NearbyOrder): string {
+  const more = [filters.types, filters.tags].filter((group) => group.length > 0).length;
+  const groups = chosenGroups(filters);
+  const on = starting
+    ? ["today from now", ...(more > 0 ? [counted(more, "more filter")] : [])]
+    : groups > 0
+      ? [counted(groups, "filter")]
+      : [];
+  return [counted(count, "meeting"), ...on, order].join(" · ");
 }
 
 type ResultsView = "list" | "map";
@@ -109,6 +121,8 @@ interface ResultsProps {
   onView: (view: ResultsView) => void;
   order: NearbyOrder;
   onOrder: (order: NearbyOrder) => void;
+  filtersOpen: boolean;
+  onFiltersOpen: (open: boolean) => void;
   onMapMove: (region: MapRegion) => void;
   onChangePlace: () => void;
   // Where the search was before the person first moved the map, while the search is a map area's.
@@ -124,6 +138,8 @@ function Results({
   onView,
   order,
   onOrder,
+  filtersOpen,
+  onFiltersOpen,
   onMapMove,
   onChangePlace,
   backTo,
@@ -144,7 +160,7 @@ function Results({
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
   const { chosen, setFilters } = useFilters();
-  const { filters, untouched, keeps } = useMemo(() => filtering(chosen, now), [chosen, now]);
+  const { filters, starting, untouched, keeps } = useMemo(() => filtering(chosen, now), [chosen, now]);
   // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
   // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.
   const [mapRegion, setMapRegion] = useState(() => regionAround(asked.point, asked.radiusKm));
@@ -170,32 +186,60 @@ function Results({
       }}
     />
   );
-  const heading = (
+  const row = {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  } as const;
+  const groups = chosenGroups(filters);
+  // Filters start chosen (today, from now on), so the count is rarely 0, and Clear filters is at hand in the panel.
+  const filtered = groups > 0;
+  // On the heading's second row wherever the filters apply: a list with meetings in it, and the map.
+  const filtersToggle = (
+    <PanelToggle
+      label={filtered ? `Filters · ${String(groups)}` : "Filters"}
+      spokenLabel={filtered ? `Filters, ${String(groups)} chosen` : "Filters"}
+      contents={view === "list" ? "the filters and sort order" : "the filters"}
+      expanded={filtersOpen}
+      onToggle={() => {
+        onFiltersOpen(!filtersOpen);
+      }}
+    />
+  );
+  // Rows wrap rather than overflow on a narrow phone or at large text sizes.
+  const heading = (toggle: ReactNode = null) => (
     <View style={{ gap: 12 }}>
-      <AppText variant="title" accessibilityRole="header">
-        {`Near ${origin.label}`}
-      </AppText>
+      <View style={row}>
+        <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
+          {`Near ${origin.label}`}
+        </AppText>
+        <Button kind="secondary" label="Change place" onPress={onChangePlace} />
+      </View>
       {/* On the map it sits over the map instead: appearing beside it after the first pan would resize the map. */}
       {view === "list" && backButton}
       {view === "list" && problem !== null && <AppText accessibilityRole="alert">{problem}</AppText>}
-      <Button kind="secondary" label="Change place" onPress={onChangePlace} />
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Pill
-          role="button"
-          label="List"
-          selected={view === "list"}
-          onPress={() => {
-            onView("list");
-          }}
-        />
-        <Pill
-          role="button"
-          label="Map"
-          selected={view === "map"}
-          onPress={() => {
-            onView("map");
-          }}
-        />
+      <View style={row}>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pill
+            role="button"
+            label="List"
+            selected={view === "list"}
+            onPress={() => {
+              onView("list");
+            }}
+          />
+          <Pill
+            role="button"
+            label="Map"
+            selected={view === "map"}
+            onPress={() => {
+              onView("map");
+            }}
+          />
+        </View>
+        {toggle}
       </View>
     </View>
   );
@@ -209,19 +253,30 @@ function Results({
   // Spec §8: no in-person meetings here is said plainly, on the list and on the map.
   const noneNearby = `No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`;
   const clearFilters = (
-    <Button
-      kind="secondary"
-      label="Clear filters"
-      onPress={() => {
-        setFilters(NO_FILTERS);
-      }}
-    />
+    <View style={{ alignSelf: "flex-start" }}>
+      <Button
+        kind="secondary"
+        label="Clear filters"
+        onPress={() => {
+          setFilters(NO_FILTERS);
+        }}
+      />
+    </View>
+  );
+  // The panel holds the filters; the list adds its order (the map isn't sorted).
+  const panel = filtersOpen && (
+    <View style={{ gap: 12 }}>
+      <FilterPills filters={filters} />
+      {view === "list" && <OrderPills order={order} onOrder={onOrder} />}
+      {filtered && clearFilters}
+    </View>
   );
   // With the starting filters untouched the person chose nothing, so an empty list means today's meetings here are over.
+  // The way out stays in view: the message's own Clear filters while the panel is closed, the panel's while it's open.
   const noMatches = (
     <>
       <AppText>{untouched ? "No more meetings nearby today." : "No meetings match your filters."}</AppText>
-      {clearFilters}
+      {!filtersOpen && clearFilters}
     </>
   );
   const onlineInstead = (
@@ -239,8 +294,7 @@ function Results({
     const card = { backgroundColor: colors.surface, padding: 12, borderRadius: 8, gap: 8 } as const;
     return (
       <Screen scroll={false}>
-        {heading}
-        <FilterPills filters={filters} />
+        {heading(filtersToggle)}
         <View style={{ flex: 1 }}>
           {/* Before the map, so VoiceOver and TalkBack read it first; zIndex draws it on top. */}
           <View
@@ -254,6 +308,8 @@ function Results({
               zIndex: 1,
             }}
           >
+            {/* Opening and closing it is the person's doing, but beside the map it would still resize the map. */}
+            {panel !== false && <View style={card}>{panel}</View>}
             {backButton !== false && <View style={[card, { alignSelf: "flex-start" }]}>{backButton}</View>}
             {problem !== null && (
               <View style={card}>
@@ -296,14 +352,14 @@ function Results({
   if (state.status === "loading")
     return (
       <Screen>
-        {heading}
+        {heading()}
         <ActivityIndicator accessibilityLabel="Searching" />
       </Screen>
     );
   if (state.status === "failed")
     return (
       <Screen>
-        {heading}
+        {heading()}
         <AppText accessibilityRole="alert">{state.message}</AppText>
       </Screen>
     );
@@ -311,15 +367,13 @@ function Results({
   if (state.data.meetings.length === 0) {
     return (
       <Screen>
-        {heading}
+        {heading()}
         {savedNote}
         <AppText>{noneNearby}</AppText>
         {onlineInstead}
       </Screen>
     );
   }
-  // Filters start chosen (today, from now on), so the count says it's filtered, and Clear filters is always at hand.
-  const filtered = anyFilterChosen(filters);
   return (
     <FlatList
       data={listed}
@@ -328,12 +382,12 @@ function Results({
       contentContainerStyle={{ padding: 20, gap: 12 }}
       ListHeaderComponent={
         <View style={{ gap: 12 }}>
-          {heading}
+          {heading(filtersToggle)}
+          {panel}
           {savedNote}
-          <FilterPills filters={filters} />
-          <OrderPills order={order} onOrder={onOrder} />
-          {listed.length > 0 && <AppText tone="muted">{countLine(listed.length, filtered)}</AppText>}
-          {listed.length > 0 && filtered && clearFilters}
+          {listed.length > 0 && (
+            <AppText tone="muted">{summaryLine(listed.length, filters, starting, order)}</AppText>
+          )}
           {listed.length === 0 && noMatches}
           {/* Spec §8: as with no meetings nearby at all, the online ones instead of an empty screen. */}
           {listed.length === 0 && untouched && onlineInstead}
@@ -354,6 +408,8 @@ function Nearby() {
   const [view, setView] = useState<ResultsView>("list");
   // Like the filters, kept in memory only: a new search keeps it, and the app starts again on Soonest.
   const [order, setOrder] = useState<NearbyOrder>("soonest");
+  // The Filters panel starts closed each time Nearby opens, and stays as the person left it until then.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // The search before the person first moved the map, which "Back to …" returns to; null unless the search is a map
   // area's. Later pans keep it, and any new search forgets it.
   const [backTo, setBackTo] = useState<SearchOrigin | null>(null);
@@ -446,6 +502,8 @@ function Nearby() {
         onView={setView}
         order={order}
         onOrder={setOrder}
+        filtersOpen={filtersOpen}
+        onFiltersOpen={setFiltersOpen}
         onMapMove={moveMap}
         onChangePlace={() => {
           setOrigin(null);

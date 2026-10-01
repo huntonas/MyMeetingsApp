@@ -98,7 +98,7 @@ export function filtering(chosen: Chosen, now: Date) {
       : matchesFilters(meeting, filters);
   // Nothing chosen at all: the starting filters as they are.
   const untouched = starting && filters.types.length === 0 && filters.tags.length === 0;
-  return { filters, untouched, keeps };
+  return { filters, starting, untouched, keeps };
 }
 
 // The person's choices so far, for filtering() with the screen's own clock. setFilters changes only the groups it's
@@ -108,6 +108,7 @@ export function useFilters() {
   return { chosen, setFilters: choose };
 }
 
-export function anyFilterChosen({ days, times, types, tags }: MeetingFilters): boolean {
-  return days.length + times.length + types.length + tags.length > 0;
+// The groups with something chosen. The starting Day and Time count: they read as chosen pills.
+export function chosenGroups({ days, times, types, tags }: MeetingFilters): number {
+  return [days, times, types, tags].filter((group) => group.length > 0).length;
 }

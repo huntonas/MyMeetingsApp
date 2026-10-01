@@ -84,6 +84,7 @@ const ridge = nearbyMeeting({
 const PAN: MapRegion = { latitude: 35.8012, longitude: -83.9021, latitudeDelta: 0.2, longitudeDelta: 0.3 };
 const PAN_BODY = { lat: 35.8, lng: -83.9, radiusKm: 18 };
 const FIRST_BODY = { lat: 35.76, lng: -83.97, radiusKm: 25 };
+const MARYVILLE_POINT = { latitude: 35.7565, longitude: -83.9705 };
 const RIDGE: MapRegion = { latitude: 35.9, longitude: -84.1, latitudeDelta: 0.2, longitudeDelta: 0.3 };
 const RIDGE_BODY = { lat: 35.9, lng: -84.1, radiusKm: 18 };
 
@@ -98,7 +99,7 @@ beforeEach(async () => {
   api.reply("/api/v1/config", CONFIG);
   api.reply("/api/v1/vocabulary", VOCABULARY);
   api.reply(SEARCH, { meetings: [far, near, unplaced, halfPlaced] });
-  setPlace("Maryville, TN", { latitude: 35.7565, longitude: -83.9705 });
+  setPlace("Maryville, TN", MARYVILLE_POINT);
 });
 afterEach(async () => {
   await api.close();
@@ -134,6 +135,12 @@ function besideMap() {
   const column = area.parent;
   if (column === null) throw new Error("the map isn't on a screen");
   return column.children.filter((child) => child !== area).map(outline);
+}
+
+// Opens the filters panel, unless it's open already.
+async function openFilters() {
+  const closed = screen.queryByRole("button", { name: /^Filters/, expanded: false });
+  if (closed !== null) await fireEvent.press(closed);
 }
 
 async function waitForSearchesToSettle() {
@@ -264,6 +271,39 @@ describe("the results map", () => {
     expect(besideMap()).toEqual(whileLoading);
   });
 
+  // Opening the filters is the person's doing, but Apple Maps would still report the resize as a new region, so the
+  // open panel sits on the layer over the map and the map keeps its size.
+  it("opens the filters over the map, without resizing it or searching", async () => {
+    const { map } = await openMap();
+    const before = JSON.stringify(besideMap());
+    const toggle = screen.getByRole("button", { name: "Filters, 2 chosen" });
+    expect(toggle).toHaveProp("accessibilityHint", "Shows the filters");
+    await fireEvent.press(toggle);
+    expect(screen.getByRole("button", { name: "Filters, 2 chosen" })).toHaveProp("accessibilityState", {
+      expanded: true,
+    });
+    const day = screen.getByRole("button", { name: "Day filters, 1 chosen" });
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeOnTheScreen();
+    // The map isn't sorted.
+    expect(screen.queryByRole("button", { name: "Sort soonest first" })).toBeNull();
+    let layer = day;
+    while (layer.parent !== null && layer.parent !== map.parent) layer = layer.parent;
+    expect(layer).toHaveStyle({ position: "absolute", zIndex: 1 });
+    // Only the toggle's arrow changes beside the map.
+    expect(JSON.stringify(besideMap())).toBe(before.replace("▼", "▲"));
+    // Even if the map reported a region now, untouched, it isn't a pan.
+    await fireEvent(map, "regionChangeComplete", {
+      ...regionAround(MARYVILLE_POINT, 25),
+      latitudeDelta: 0.3,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Filters, 2 chosen" }));
+    expect(screen.queryByRole("button", { name: "Day filters, 1 chosen" })).toBeNull();
+    expect(JSON.stringify(besideMap())).toBe(before);
+    await waitForSearchesToSettle();
+    expect(searchBodies()).toEqual([FIRST_BODY]);
+    expect(screen.getByTestId("results-map")).toBe(map);
+  });
+
   it("keeps the last markers on the map while a pan's search loads", async () => {
     const { map } = await openMap();
     const answerPan = api.answerLater(SEARCH);
@@ -288,6 +328,7 @@ describe("the results map", () => {
 
   it("says when no marker matches the filters, and clears them from the map", async () => {
     await openMap();
+    await openFilters();
     await fireEvent.press(screen.getByRole("button", { name: "Day filters, 1 chosen" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Monday" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Tuesday" }));
@@ -352,6 +393,7 @@ describe("the results map", () => {
 
   it("shows only the meetings that match the filters", async () => {
     await openMap();
+    await openFilters();
     await fireEvent.press(screen.getByRole("button", { name: "Time filters, 4 chosen" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Morning" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
@@ -387,6 +429,7 @@ describe("the results map", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
     expect(await screen.findByRole("button", { name: "Late Group, Mon 11:00 PM" })).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeNull();
+    await openFilters();
     await fireEvent.press(screen.getByRole("button", { name: "Type filters" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Open" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));

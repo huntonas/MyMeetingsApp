@@ -47,30 +47,28 @@ export interface AuditReport {
 type HarEntry = Har["log"]["entries"][number];
 type HarRequest = HarEntry["request"];
 
+// A real UUID shape, not just 36 characters of hex digits and hyphens in any arrangement — lowercase only,
+// since the server's ids are Postgres `uuid` columns (`gen_random_uuid()`), which only ever render lowercase.
+// The app only ever echoes an id it got from the server, so it never sends anything else, in a read or a write.
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 // Phase 5a's app only reads. 5b adds its write paths here, with device headers allowed on them alone.
 const READS = [
   /^\/api\/v1\/config$/,
   /^\/api\/v1\/vocabulary$/,
   /^\/api\/v1\/meetings\/online\?day=[0-6]$/,
-  // A real UUID shape, not just 36 characters of hex digits and hyphens in any arrangement.
-  /^\/api\/v1\/meetings\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  new RegExp(`^/api/v1/meetings/${UUID}$`),
 ];
 const SEARCH_PATH = "/api/v1/meetings/search";
 // Exactly the rounded point and radius, nothing more.
 const SearchBody = z.strictObject(MeetingSearchRequest.shape);
 
-const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 // Phase 5b's writes, each with exactly the body the app sends (JSON.stringify of its contract's parse), or
 // none. A write's shape is otherwise checked exactly like search's: body === null means the request must have
 // no body at all; any other body must strict-parse and re-stringify byte-for-byte to what's on the wire.
 const WRITES: { method: string; path: RegExp; body: z.ZodType | null }[] = [
   { method: "POST", path: /^\/api\/v1\/tags$/, body: z.strictObject(TagSubmissionRequest.shape) },
-  {
-    method: "PUT",
-    path: new RegExp(`^/api/v1/tags/${UUID}$`, "i"),
-    body: z.strictObject(TagEditRequest.shape),
-  },
-  { method: "DELETE", path: new RegExp(`^/api/v1/tags/${UUID}$`, "i"), body: null },
+  { method: "PUT", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: z.strictObject(TagEditRequest.shape) },
+  { method: "DELETE", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: null },
   { method: "POST", path: /^\/api\/v1\/tags\/delete-mine$/, body: null },
   { method: "POST", path: /^\/api\/v1\/suggestions$/, body: z.strictObject(SuggestionRequest.shape) },
 ];

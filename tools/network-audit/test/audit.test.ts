@@ -315,6 +315,13 @@ describe("auditHar", () => {
       ).toContain("isn't one of the app's requests");
     });
 
+    it("requires the meeting-detail id to be lowercase: the server's UUIDs (Postgres gen_random_uuid()) never are", () => {
+      const upper = ID.toUpperCase();
+      expect(
+        problems(har(entry("GET", `https://${SERVER}/api/v1/meetings/${upper}`), VALID_SEARCH)),
+      ).toContain("isn't one of the app's requests");
+    });
+
     it("B6: flags an exact point sent to any host, not just ours", () => {
       expect(problems(har(entry("GET", "https://example.com/track?lat=36.162749"), VALID_SEARCH))).toContain(
         "contains an exact coordinate",
@@ -1002,15 +1009,15 @@ describe("auditHar", () => {
       ).toContain("write body isn't exactly what the app sends");
     });
 
-    it("fails a write missing a device header", () => {
+    it.each([
+      ["X-Device-Id", "x-device-id"],
+      ["X-Platform", "x-platform"],
+      ["X-App-Version", "x-app-version"],
+    ])("fails a write missing %s", (headerName, lower) => {
+      const headers = WRITE_HEADERS.filter(([name]) => name !== headerName);
       expect(
-        problemsWith(
-          entry("POST", `https://${SERVER}/api/v1/tags`, {
-            headers: WRITE_HEADERS.slice(1),
-            body: TAG_BODY,
-          }),
-        ),
-      ).toContain("write without the x-device-id header");
+        problemsWith(entry("POST", `https://${SERVER}/api/v1/tags`, { headers, body: TAG_BODY })),
+      ).toContain(`write without the ${lower} header`);
     });
 
     it("still fails a device header on a read", () => {
@@ -1071,6 +1078,18 @@ describe("auditHar", () => {
       expect(
         problemsWith(
           entry("PUT", `https://${SERVER}/api/v1/tags`, { headers: WRITE_HEADERS, body: TAG_BODY }),
+        ),
+      ).toContain("isn't one of the app's requests");
+    });
+
+    it("fails a write to an uppercase meeting id: the server's UUIDs never are uppercase", () => {
+      const upper = ID.toUpperCase();
+      expect(
+        problemsWith(
+          entry("PUT", `https://${SERVER}/api/v1/tags/${upper}`, {
+            headers: WRITE_HEADERS,
+            body: '{"tags":["quiet"]}',
+          }),
         ),
       ).toContain("isn't one of the app's requests");
     });

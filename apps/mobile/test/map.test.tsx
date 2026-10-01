@@ -537,6 +537,50 @@ describe("going back after moving the map", () => {
   });
 });
 
+describe("going back near the person when the phone can't find itself", () => {
+  const UNAVAILABLE = "We couldn't get your location just now. Try again, or search by place.";
+
+  async function panAwayFromThePerson() {
+    setLocationPermission("granted");
+    await launchNearby();
+    expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Map" }));
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(await screen.findByTestId("results-map"), PAN);
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    setDevicePosition("fails");
+  }
+
+  it("says so over the map, and keeps the map area", async () => {
+    await panAwayFromThePerson();
+    const map = screen.getByTestId("results-map");
+    const beforeBack = JSON.stringify(besideMap());
+    await fireEvent.press(screen.getByRole("button", { name: "Back to near you" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(UNAVAILABLE);
+    expect(screen.getByText("Near this map area")).toBeOnTheScreen();
+    expect(screen.getByTestId("results-map")).toBe(map);
+    // On the layer over the map, so it doesn't resize it.
+    expect(JSON.stringify(besideMap())).toBe(beforeBack);
+    expect(searchBodies()).toEqual([{ lat: 36.16, lng: -86.78, radiusKm: 25 }, PAN_BODY]);
+    // The next pan is a new request; the old failure no longer applies.
+    await moveTo(map, RIDGE);
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+
+  it("says so under the heading in the list, and Change place doesn't carry it over", async () => {
+    await panAwayFromThePerson();
+    await fireEvent.press(screen.getByRole("button", { name: "List" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Back to near you" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(UNAVAILABLE);
+    expect(screen.getByText("Hill Group")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    expect(await screen.findByLabelText("Search for a place")).toBeOnTheScreen();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
 describe("the person's own dot", () => {
   it("isn't shown for a searched place, even after a pan", async () => {
     const { map } = await openMap();

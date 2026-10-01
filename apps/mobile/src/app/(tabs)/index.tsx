@@ -114,6 +114,8 @@ interface ResultsProps {
   // Where the search was before the person first moved the map, while the search is a map area's.
   backTo: SearchOrigin | null;
   onBack: (to: SearchOrigin) => void;
+  // Why going back near the person found nothing (the phone couldn't find itself), as the place search says it.
+  problem: string | null;
 }
 
 function Results({
@@ -126,6 +128,7 @@ function Results({
   onChangePlace,
   backTo,
   onBack,
+  problem,
 }: ResultsProps) {
   const colors = useColors();
   const now = useNow();
@@ -174,6 +177,7 @@ function Results({
       </AppText>
       {/* On the map it sits over the map instead: appearing beside it after the first pan would resize the map. */}
       {view === "list" && backButton}
+      {view === "list" && problem !== null && <AppText accessibilityRole="alert">{problem}</AppText>}
       <Button kind="secondary" label="Change place" onPress={onChangePlace} />
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Pill
@@ -251,6 +255,11 @@ function Results({
             }}
           >
             {backButton !== false && <View style={[card, { alignSelf: "flex-start" }]}>{backButton}</View>}
+            {problem !== null && (
+              <View style={card}>
+                <AppText accessibilityRole="alert">{problem}</AppText>
+              </View>
+            )}
             {savedNote}
             {state.status === "failed" && (
               <View style={card}>
@@ -369,6 +378,7 @@ function Nearby() {
   // without remounting the results, so the map stays as the person left it. useCachedRead reads only when the rounded
   // center or the radius changes, so a small drag sends nothing.
   const moveMap = (region: MapRegion) => {
+    setProblem(null);
     if (origin !== null && origin.kind !== "map") setBackTo(origin);
     setOrigin({
       kind: "map",
@@ -440,6 +450,7 @@ function Nearby() {
         onChangePlace={() => {
           setOrigin(null);
           setBackTo(null);
+          setProblem(null);
         }}
         backTo={backTo}
         // A search like any other, so the map remounts around it and its first region report isn't a pan. Near the
@@ -448,6 +459,7 @@ function Nearby() {
           if (to.kind === "me") void searchNearMe("tap");
           else search(to);
         }}
+        problem={problem}
       />
     );
   }

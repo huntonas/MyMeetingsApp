@@ -17,6 +17,10 @@ const BRANCHES: Record<string, object> = {
     branch: { id: "br-seed", name: "seed", parent_id: "br-main", default: false },
   },
   "/projects/proj-1/branches/br-main": { branch: { id: "br-main", name: "main", default: true } },
+  // The long-lived staging branch is seed's child too.
+  "/projects/proj-1/branches/br-staging": {
+    branch: { id: "br-staging", name: "staging", parent_id: "br-seed", default: false },
+  },
   "/projects/proj-1/branches/br-feature": {
     branch: { id: "br-feature", name: "feature", parent_id: "br-main", default: false },
   },
@@ -94,7 +98,7 @@ describe("resetPreviewBranch", () => {
     const server = await neon();
     stubPreviewBuild(server.baseUrl, "br-main");
     await expect(resetPreviewBranch()).rejects.toThrow(
-      'NEON_PREVIEW_BRANCH_ID must name a branch made from "seed"; refusing to restore "main"',
+      'NEON_PREVIEW_BRANCH_ID must name the "preview" branch made from "seed"; refusing to restore "main"',
     );
     expect(calls(server).filter((call) => call.startsWith("POST"))).toEqual([]);
   });
@@ -103,6 +107,13 @@ describe("resetPreviewBranch", () => {
     const server = await neon();
     stubPreviewBuild(server.baseUrl, "br-feature");
     await expect(resetPreviewBranch()).rejects.toThrow('refusing to restore "feature"');
+    expect(calls(server).filter((call) => call.startsWith("POST"))).toEqual([]);
+  });
+
+  it("refuses staging, though seed is its parent too", async () => {
+    const server = await neon();
+    stubPreviewBuild(server.baseUrl, "br-staging");
+    await expect(resetPreviewBranch()).rejects.toThrow('refusing to restore "staging"');
     expect(calls(server).filter((call) => call.startsWith("POST"))).toEqual([]);
   });
 

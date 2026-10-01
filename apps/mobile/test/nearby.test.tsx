@@ -521,6 +521,12 @@ describe("results", () => {
       name: "Quarter To Group",
       time: "23:45",
     };
+    const early = {
+      ...tuesday,
+      id: "99999999-9999-4999-8999-999999999999",
+      name: "Early Group",
+      time: "07:00",
+    };
     const ALL = [
       "Near Group",
       "Far Group",
@@ -528,6 +534,7 @@ describe("results", () => {
       "Tuesday Group",
       "Midnight Group",
       "Quarter To Group",
+      "Early Group",
     ];
 
     async function searchAt(iso: string, more: (typeof late)[] = []) {
@@ -577,16 +584,24 @@ describe("results", () => {
       expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
     });
 
-    it("after midnight, lists the rest of the night, and a meeting from before midnight that began under an hour ago", async () => {
+    // Owner decision D1, as corrected: until 5 AM it's still today on the phone's calendar, so the list runs to 5 AM the
+    // next morning, and the night and every later part of the day are ahead.
+    it("after midnight, lists the rest of the night and all of today, and a meeting from before midnight that began under an hour ago", async () => {
       // Tuesday 12:30 AM.
       await searchAt("2026-10-06T05:30:00Z", [midnight, quarterTo]);
-      await expectListed(["Midnight Group", "Quarter To Group"]);
+      await expectListed(["Tuesday Group", "Midnight Group", "Quarter To Group"]);
       expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
-      await fireEvent.press(screen.getByRole("button", { name: "Time filters, 1 chosen" }));
-      for (const choice of ["Tuesday", "Night"])
+      await fireEvent.press(screen.getByRole("button", { name: "Time filters, 4 chosen" }));
+      for (const choice of ["Tuesday", "Night", "Morning", "Afternoon", "Evening"])
         expect(await screen.findByRole("checkbox", { name: choice })).toBeChecked();
-      for (const choice of ["Monday", "Morning", "Afternoon", "Evening"])
-        expect(screen.getByRole("checkbox", { name: choice })).not.toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Monday" })).not.toBeChecked();
+    });
+
+    it("at 3 AM, lists all of today, its early morning included, but not last night's meeting from over an hour ago", async () => {
+      // Tuesday 3 AM.
+      await searchAt("2026-10-06T08:00:00Z", [quarterTo, early]);
+      await expectListed(["Tuesday Group", "Early Group"]);
+      expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
     });
 
     it("lists the whole day from 5 AM", async () => {
@@ -705,8 +720,8 @@ describe("results", () => {
       const playAppState = spyOnAppState();
       await searchAt("2026-10-06T04:50:00Z");
       await expectListed(["Late Group"]);
-      // Tuesday 5:10 AM.
-      setNow("2026-10-06T10:10:00Z");
+      // Tuesday 12:10 AM.
+      setNow("2026-10-06T05:10:00Z");
       await playAppState("background");
       await playAppState("active");
       await expectListed(["Tuesday Group"]);

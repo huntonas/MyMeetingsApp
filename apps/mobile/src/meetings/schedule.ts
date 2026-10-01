@@ -102,14 +102,12 @@ export function upcomingStart(
   return nextStart(scheduled, last);
 }
 
-// The first instant after `now` at which the phone's clock reads `time` ("05:00").
-export function nextOnPhoneClock(time: string, now: Date): Date {
+// The instant the phone's clock reads `time` ("05:00") on the day after its date at `now`: at 3 AM Tuesday, as at 6 PM
+// Monday's 6 PM is Tuesday's, it's Wednesday's.
+export function tomorrowOnPhoneClock(time: string, now: Date): Date {
   const zone = phoneZone();
   const local = localParts(now, zone);
-  const today = { year: local.year, month: local.month, day: local.day };
-  const todays = zonedInstant(today, time, zone);
-  if (todays.getTime() > now.getTime()) return todays;
-  return zonedInstant(shiftDays(today, 1), time, zone);
+  return zonedInstant(shiftDays({ year: local.year, month: local.month, day: local.day }, 1), time, zone);
 }
 
 // An end time earlier than the start time is on the next day (11:30 PM to 12:30 AM). One equal to the start says

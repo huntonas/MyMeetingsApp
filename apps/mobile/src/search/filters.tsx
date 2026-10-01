@@ -1,7 +1,7 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
-import { nextOnPhoneClock } from "@/meetings/schedule";
+import { tomorrowOnPhoneClock } from "@/meetings/schedule";
 import type { MeetingTypeCode } from "@/meetings/type-labels";
 
 // On the meeting's listed time. Night runs past midnight.
@@ -48,11 +48,14 @@ function phoneTime(now: Date): string {
 }
 
 // Owner decisions, 2026-09-30: the filters start as today, from now on. They read as the phone's weekday, and the part
-// of the day it is now plus every later one (in the small hours, Night alone: it's the day's last part, still running).
+// of the day it is now plus every later one. Night runs past midnight, so in its early hours the whole day is still
+// ahead.
 function startingFilters(now: Date): MeetingFilters {
   const time = phoneTime(now);
-  const current = TIME_ORDER.findIndex((name) => inTime(time, TIMES_OF_DAY[name]));
-  return { ...NO_FILTERS, days: [now.getDay()], times: TIME_ORDER.slice(current) };
+  const times = TIME_ORDER.filter(
+    (name) => inTime(time, TIMES_OF_DAY[name]) || TIMES_OF_DAY[name].from > time,
+  );
+  return { ...NO_FILTERS, days: [now.getDay()], times };
 }
 
 // The groups the person has changed, each replacing its starting value; a group they haven't changed is absent.
@@ -81,13 +84,14 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 // The filters at `now`, given the groups the person has changed, and whether a meeting is listed. Each group they
 // haven't changed reads as its starting value for this moment, so it follows the clock (a new day, a later part of the
 // day). While neither Day nor Time has been changed, what's listed is today, from now on, by the clock rather than by
-// the pills: every meeting whose upcomingStart (one that began under an hour ago still counts) comes before the day
-// ends, when Night does at 5 AM, and that matches the chosen types and tags (owner decisions D1 and D2). So at 11 PM
-// Monday, Tuesday's 12:00 AM meeting is listed, and at 10 PM this morning's 12:30 AM one isn't.
+// the pills: every meeting whose upcomingStart (one that began under an hour ago still counts) comes before 5 AM, when
+// Night ends, on the day after the phone's date, and that matches the chosen types and tags (owner decisions D1 and
+// D2). So at 11 PM Monday, Tuesday's 12:00 AM meeting is listed; at 3 AM Tuesday, all of Tuesday is; and at 10 PM
+// this morning's 12:30 AM meeting isn't.
 export function filtering(chosen: Chosen, now: Date) {
   const filters = { ...startingFilters(now), ...chosen };
   const starting = chosen.days === undefined && chosen.times === undefined;
-  const dayEnds = nextOnPhoneClock(TIMES_OF_DAY.night.to, now).getTime();
+  const dayEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, now).getTime();
   const keeps = (meeting: MeetingSummary, upcoming: Date) =>
     starting
       ? matchesFilters(meeting, { ...filters, days: [], times: [] }) && upcoming.getTime() < dayEnds

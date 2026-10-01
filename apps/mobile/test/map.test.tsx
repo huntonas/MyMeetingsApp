@@ -8,7 +8,13 @@ import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, nearbyMeeting, VOCABULARY } from "./fixtures";
-import { permissionRequests, setDevicePosition, setLocationPermission } from "./native/expo-location";
+import { later } from "./later";
+import {
+  permissionRequests,
+  positionsDelivered,
+  setDevicePosition,
+  setLocationPermission,
+} from "./native/expo-location";
 import { setPlace } from "./native/native-location";
 import { launchNearby } from "./render-app";
 
@@ -605,6 +611,55 @@ describe("going back after moving the map", () => {
     ]);
     expect(mapProps().showsUserLocation).toBe(true);
     expect(permissionRequests()).toBe(0);
+  });
+});
+
+// Finding the person again can take up to 15 seconds; whatever they do meanwhile is the newer request.
+describe("going back near the person while the phone is slow to find itself", () => {
+  const NEAR_YOU_BODY = { lat: 36.16, lng: -86.78, radiusKm: 25 };
+
+  async function goBackSlowly() {
+    setLocationPermission("granted");
+    await launchNearby();
+    expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Map" }));
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(await screen.findByTestId("results-map"), PAN);
+    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    const slow = later<{ latitude: number; longitude: number }>();
+    setDevicePosition(slow.promise);
+    await fireEvent.press(screen.getByRole("button", { name: "Back to near you" }));
+    return slow;
+  }
+
+  // The launch's position was the first one handed back; the slow one is the second.
+  async function deliver(slow: Awaited<ReturnType<typeof goBackSlowly>>) {
+    slow.resolve({ latitude: 35.8456, longitude: -86.3903 });
+    await waitFor(() => {
+      expect(positionsDelivered()).toBe(2);
+    });
+  }
+
+  it("keeps a pan made while it waits", async () => {
+    const slow = await goBackSlowly();
+    api.reply(SEARCH, { meetings: [ridge] });
+    await moveTo(screen.getByTestId("results-map"), RIDGE);
+    expect(await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    await deliver(slow);
+    await waitForSearchesToSettle();
+    expect(screen.getByText("Near this map area")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    expect(searchBodies()).toEqual([NEAR_YOU_BODY, PAN_BODY, RIDGE_BODY]);
+  });
+
+  it("stays on the place screen after Change place", async () => {
+    const slow = await goBackSlowly();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    expect(await screen.findByLabelText("Search for a place")).toBeOnTheScreen();
+    await deliver(slow);
+    expect(await screen.findByLabelText("Search for a place")).toBeOnTheScreen();
+    expect(screen.queryByText("Near you")).toBeNull();
+    expect(searchBodies()).toEqual([NEAR_YOU_BODY, PAN_BODY]);
   });
 });
 

@@ -496,9 +496,10 @@ function Nearby() {
 
   // Spec §8: panning searches around the new map center, with the radius from the visible area. It changes the origin
   // without remounting the results, so the map stays as the person left it. useCachedRead reads only when the rounded
-  // center or the radius changes, so a small drag sends nothing.
+  // center or the radius changes, so a small drag sends nothing. A pan is the newest request: "Back to near you" may
+  // still be waiting up to 15 seconds for a position, and that late answer mustn't replace the area the person chose.
   const moveMap = (region: MapRegion) => {
-    setProblem(null);
+    begin();
     if (origin !== null && origin.kind !== "map") setBackTo(origin);
     setOrigin({
       kind: "map",
@@ -569,10 +570,11 @@ function Nearby() {
         filtersOpen={filtersOpen}
         onFiltersOpen={setFiltersOpen}
         onMapMove={moveMap}
+        // Like a pan, a newer request than a "Back to near you" still waiting for a position.
         onChangePlace={() => {
+          begin();
           setOrigin(null);
           setBackTo(null);
-          setProblem(null);
         }}
         backTo={backTo}
         // A search like any other, so the map remounts around it and its first region report isn't a pan. Near the

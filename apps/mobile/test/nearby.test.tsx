@@ -10,6 +10,7 @@ import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, nearbyMeeting, VOCABULARY } from "./fixtures";
+import { later } from "./later";
 import {
   permissionRequests,
   positionOptions,
@@ -102,15 +103,6 @@ const shownInOrder = (names: string[]) =>
   screen
     .queryAllByText(new RegExp(`^(${names.join("|")})$`))
     .map((element) => String(element.props.children));
-
-// A geocoder answer the test hands over when it chooses.
-function later<T>() {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((settle) => {
-    resolve = settle;
-  });
-  return { promise, resolve };
-}
 
 // AppState is what the app hands foreground changes off to; the spy lets a test play them.
 function spyOnAppState() {

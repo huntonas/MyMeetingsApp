@@ -43,7 +43,7 @@ export default function FiltersScreen() {
             label={name}
             selected={filters.days.includes(day)}
             onPress={() => {
-              setFilters({ ...filters, days: toggled(filters.days, day) });
+              setFilters({ days: toggled(filters.days, day) });
             }}
           />
         ))}
@@ -55,7 +55,7 @@ export default function FiltersScreen() {
             label={TIMES_OF_DAY[time].label}
             selected={filters.times.includes(time)}
             onPress={() => {
-              setFilters({ ...filters, times: toggled(filters.times, time) });
+              setFilters({ times: toggled(filters.times, time) });
             }}
           />
         ))}
@@ -67,7 +67,7 @@ export default function FiltersScreen() {
             label={TYPE_LABELS[type]}
             selected={filters.types.includes(type)}
             onPress={() => {
-              setFilters({ ...filters, types: toggled(filters.types, type) });
+              setFilters({ types: toggled(filters.types, type) });
             }}
           />
         ))}
@@ -83,7 +83,7 @@ export default function FiltersScreen() {
                 label={tag.label}
                 selected={filters.tags.includes(tag.slug)}
                 onPress={() => {
-                  setFilters({ ...filters, tags: toggled(filters.tags, tag.slug) });
+                  setFilters({ tags: toggled(filters.tags, tag.slug) });
                 }}
               />
             ))}

@@ -53,12 +53,12 @@ const near = nearbyMeeting({
   tags: [{ slug: "quiet", count: 2 }],
 });
 
-// Filters start as today, from now on: just after midnight on a Monday (Chicago, the suite's zone), every Monday
-// meeting is in view. A test about other days or times sets its own.
-const MONDAY_JUST_AFTER_MIDNIGHT = "2026-10-05T05:30:00Z";
+// Filters start as today, from now on: early on a Monday morning (Chicago, the suite's zone), every Monday meeting from
+// then on is in view. A test about other days or times sets its own.
+const MONDAY_EARLY_MORNING = "2026-10-05T10:30:00Z";
 
 beforeEach(async () => {
-  setNow(MONDAY_JUST_AFTER_MIDNIGHT);
+  setNow(MONDAY_EARLY_MORNING);
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
@@ -436,7 +436,7 @@ describe("results", () => {
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    // Just after midnight, every part of the day is still ahead; leave only the evening.
+    // Early in the morning, every part of the day is still ahead; leave only the evening.
     await chooseFilters("Time filters, 4 chosen", ["Morning", "Afternoon", "Night"]);
     await waitFor(() => {
       expect(screen.queryByText("Near Group")).toBeNull();
@@ -504,11 +504,34 @@ describe("results", () => {
       longitude: -83.9708,
       distanceKm: 1.8,
     });
-    const ALL = ["Near Group", "Far Group", "Late Group", "Tuesday Group"];
+    // Listed on Tuesday, but tonight's to someone up on Monday night.
+    const midnight = nearbyMeeting({
+      id: "77777777-7777-4777-8777-777777777777",
+      name: "Midnight Group",
+      day: 2,
+      time: "00:00",
+      latitude: 35.7569,
+      longitude: -83.9709,
+      distanceKm: 1.9,
+    });
+    const quarterTo = {
+      ...late,
+      id: "88888888-8888-4888-8888-888888888888",
+      name: "Quarter To Group",
+      time: "23:45",
+    };
+    const ALL = [
+      "Near Group",
+      "Far Group",
+      "Late Group",
+      "Tuesday Group",
+      "Midnight Group",
+      "Quarter To Group",
+    ];
 
-    async function searchAt(iso: string) {
+    async function searchAt(iso: string, more: (typeof late)[] = []) {
       setNow(iso);
-      api.reply(SEARCH, { meetings: [far, near, late, tuesday] });
+      api.reply(SEARCH, { meetings: [far, near, late, tuesday, ...more] });
       await launchNearby();
       await searchFor("Maryville, TN");
     }
@@ -545,10 +568,30 @@ describe("results", () => {
       expect(screen.getByText("1 meeting matches your filters")).toBeOnTheScreen();
     });
 
-    // Night runs past midnight, so in its early hours the whole day is still ahead.
-    it("after midnight, chooses the night and every later part of the day", async () => {
-      await searchAt("2026-10-05T06:00:00Z");
-      await expectListed(["Near Group", "Far Group", "Late Group"]);
+    // Owner decision D1: the night runs until 5 AM, so today, from now on, includes tonight's meetings after
+    // midnight, which are listed on tomorrow's weekday.
+    it("at 11 PM, includes tonight's meetings after midnight", async () => {
+      await searchAt("2026-10-06T04:00:00Z", [midnight]);
+      await expectListed(["Late Group", "Midnight Group"]);
+      expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
+    });
+
+    it("after midnight, lists the rest of the night, and a meeting from before midnight that began under an hour ago", async () => {
+      // Tuesday 12:30 AM.
+      await searchAt("2026-10-06T05:30:00Z", [midnight, quarterTo]);
+      await expectListed(["Midnight Group", "Quarter To Group"]);
+      expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole("button", { name: "Time filters, 1 chosen" }));
+      for (const choice of ["Tuesday", "Night"])
+        expect(await screen.findByRole("checkbox", { name: choice })).toBeChecked();
+      for (const choice of ["Monday", "Morning", "Afternoon", "Evening"])
+        expect(screen.getByRole("checkbox", { name: choice })).not.toBeChecked();
+    });
+
+    it("lists the whole day from 5 AM", async () => {
+      // Tuesday 5:00 AM.
+      await searchAt("2026-10-06T10:00:00Z", [midnight]);
+      await expectListed(["Tuesday Group"]);
       expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
     });
 
@@ -556,18 +599,17 @@ describe("results", () => {
       await searchAt("2026-10-05T23:00:00Z");
       await expectListed(["Far Group", "Late Group"]);
       await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
-      await expectListed(ALL);
+      await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
       expect(screen.getByText("4 meetings")).toBeOnTheScreen();
       expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
       expectNoFiltersChosen();
       await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
       await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
-      await expectListed(ALL);
+      await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
       expectNoFiltersChosen();
     });
 
-    // Night also covers the small hours of the same day, so at 10 PM it would bring back this morning's 12:30 AM.
-    it("leaves out today's meetings that began over an hour ago, until the person chooses", async () => {
+    describe("leaving out today's meetings that began over an hour ago", () => {
       const smallHours = nearbyMeeting({
         id: "55555555-5555-4555-8555-555555555555",
         name: "Small Hours Group",
@@ -584,26 +626,50 @@ describe("results", () => {
         latitude: 35.7567,
         longitude: -83.9707,
       });
-      // Monday 10 PM.
-      setNow("2026-10-06T03:00:00Z");
-      api.reply(SEARCH, { meetings: [smallHours, justBegun, late] });
-      await launchNearby();
-      await searchFor("Maryville, TN");
-      expect(await screen.findByText("Just Begun Group")).toBeOnTheScreen();
-      expect(screen.getByText("Late Group")).toBeOnTheScreen();
-      expect(screen.queryByText("Small Hours Group")).toBeNull();
-      expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
-      // Monday and Night stay chosen, but they're the person's choice now, and it's final.
-      await chooseFilters("Type filters", ["Open"]);
-      expect(await screen.findByText("Small Hours Group")).toBeOnTheScreen();
-      expect(screen.getByText("3 meetings match your filters")).toBeOnTheScreen();
+
+      // Night also covers the small hours of the same day, so at 10 PM it would bring back this morning's 12:30 AM.
+      async function searchAtTenPm() {
+        setNow("2026-10-06T03:00:00Z");
+        api.reply(SEARCH, { meetings: [smallHours, justBegun, late] });
+        await launchNearby();
+        await searchFor("Maryville, TN");
+        expect(await screen.findByText("Just Begun Group")).toBeOnTheScreen();
+        expect(screen.getByText("Late Group")).toBeOnTheScreen();
+        expect(screen.queryByText("Small Hours Group")).toBeNull();
+        expect(screen.getByText("2 meetings match your filters")).toBeOnTheScreen();
+      }
+
+      // Owner decision D2: the filter groups are independent.
+      it("still leaves them out when the person chooses only a type or a tag", async () => {
+        await searchAtTenPm();
+        await chooseFilters("Type filters", ["Open"]);
+        expect(await screen.findByRole("button", { name: "Type filters, 1 chosen" })).toBeOnTheScreen();
+        expect(screen.getByText("Just Begun Group")).toBeOnTheScreen();
+        expect(screen.queryByText("Small Hours Group")).toBeNull();
+        expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeSelected();
+        expect(screen.getByRole("button", { name: "Time filters, 1 chosen" })).toBeSelected();
+        await fireEvent.press(screen.getByRole("button", { name: "Day filters, 1 chosen" }));
+        for (const choice of ["Monday", "Night", "Open"])
+          expect(await screen.findByRole("checkbox", { name: choice })).toBeChecked();
+      });
+
+      it.each([
+        ["Day filters, 1 chosen", "Tuesday"],
+        ["Time filters, 1 chosen", "Evening"],
+      ])("shows them once the person changes %s themselves (%s)", async (pill, choice) => {
+        await searchAtTenPm();
+        await chooseFilters(pill, [choice]);
+        expect(await screen.findByText("Small Hours Group")).toBeOnTheScreen();
+        expect(screen.getByText("3 meetings match your filters")).toBeOnTheScreen();
+      });
     });
 
-    it("moves on to the new day while the app stays open, until the person chooses", async () => {
+    it("moves on to the new day while the app stays open, and a group the person hasn't changed keeps following the clock", async () => {
       const playAppState = spyOnAppState();
       await searchAt("2026-10-06T04:50:00Z");
       await expectListed(["Late Group"]);
-      setNow("2026-10-06T05:10:00Z");
+      // Tuesday 5:10 AM.
+      setNow("2026-10-06T10:10:00Z");
       await playAppState("background");
       await playAppState("active");
       await expectListed(["Tuesday Group"]);
@@ -611,11 +677,13 @@ describe("results", () => {
 
       await chooseFilters("Day filters, 1 chosen", ["Monday"]);
       await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
+      // Tuesday 6 PM: the days are the person's, and the times are still today's from now on.
       setNow("2026-10-06T23:00:00Z");
       await playAppState("background");
       await playAppState("active");
-      await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
+      await expectListed(["Far Group", "Late Group", "Tuesday Group"]);
       expect(screen.getByRole("button", { name: "Day filters, 2 chosen" })).toBeOnTheScreen();
+      expect(screen.getByRole("button", { name: "Time filters, 2 chosen" })).toBeOnTheScreen();
     });
   });
 
@@ -700,18 +768,18 @@ describe("results", () => {
   });
 
   it("labels a saved search shown offline", async () => {
-    setNow("2026-10-05T06:00:00Z");
+    setNow("2026-10-05T11:00:00Z");
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    setNow("2026-10-05T07:20:00Z");
+    setNow("2026-10-05T12:20:00Z");
     await api.close();
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
     expect(
       await screen.findByText(
-        "Showing the copy saved today at 1:00 AM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing the copy saved today at 6:00 AM. We couldn't reach mymeetingapp, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Group")).toBeOnTheScreen();
@@ -747,18 +815,18 @@ describe("results", () => {
   });
 
   it("offline, a search somewhere new shows the last search, described by where it was made", async () => {
-    setNow("2026-10-05T06:40:00Z");
+    setNow("2026-10-05T11:40:00Z");
     api.reply(SEARCH, { meetings: [far, near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    setNow("2026-10-05T07:00:00Z");
+    setNow("2026-10-05T12:00:00Z");
     await api.close();
     await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(
       await screen.findByText(
-        "Showing your last search, near Maryville, TN, saved today at 1:40 AM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing your last search, near Maryville, TN, saved today at 6:40 AM. We couldn't reach mymeetingapp, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
@@ -771,7 +839,7 @@ describe("results", () => {
   });
 
   it("offline, names a last search made near the person by when, not as “you”", async () => {
-    setNow("2026-10-05T06:40:00Z");
+    setNow("2026-10-05T11:40:00Z");
     setLocationPermission("granted");
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
@@ -781,7 +849,7 @@ describe("results", () => {
     await searchFor("Maryville, TN");
     expect(
       await screen.findByText(
-        "Showing your last search, near your earlier location, saved today at 1:40 AM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing your last search, near your earlier location, saved today at 6:40 AM. We couldn't reach mymeetingapp, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near your earlier location")).toBeOnTheScreen();
@@ -809,12 +877,12 @@ describe("results", () => {
 
   it("reads the search again when the app comes back after the reuse window", async () => {
     const playAppState = spyOnAppState();
-    setNow("2026-10-05T06:00:00Z");
+    setNow("2026-10-05T11:00:00Z");
     api.reply(SEARCH, { meetings: [near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
-    setNow("2026-10-05T07:20:00Z");
+    setNow("2026-10-05T12:20:00Z");
     api.reply(SEARCH, { meetings: [far, near] });
     await playAppState("background");
     await playAppState("active");
@@ -822,7 +890,7 @@ describe("results", () => {
     expect(searches()).toHaveLength(2);
     // The tag list is read again on the same return; let it land before the test ends.
     await waitFor(async () => {
-      expect((await readCache("vocabulary"))?.savedAt).toEqual(new Date("2026-10-05T07:20:00Z"));
+      expect((await readCache("vocabulary"))?.savedAt).toEqual(new Date("2026-10-05T12:20:00Z"));
     });
   });
 });

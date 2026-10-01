@@ -94,6 +94,19 @@ export function upcomingStart(meeting: Scheduled, now: Date): Date {
   return nextStart(meeting, last);
 }
 
+// The zone the phone's own clock is in.
+const phoneZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// The first instant after `now` at which the phone's clock reads `time` ("05:00").
+export function nextOnPhoneClock(time: string, now: Date): Date {
+  const zone = phoneZone();
+  const local = localParts(now, zone);
+  const today = { year: local.year, month: local.month, day: local.day };
+  const todays = zonedInstant(today, time, zone);
+  if (todays.getTime() > now.getTime()) return todays;
+  return zonedInstant(shiftDays(today, 1), time, zone);
+}
+
 // An end time earlier than the start time is on the next day (11:30 PM to 12:30 AM). One equal to the start says
 // nothing about the length, so it counts as missing (owner ruling M-f).
 export function occurrenceEnd(meeting: Scheduled, occurrence: Occurrence): Date {

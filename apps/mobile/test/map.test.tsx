@@ -85,12 +85,12 @@ const PAN: MapRegion = { latitude: 35.8012, longitude: -83.9021, latitudeDelta: 
 const PAN_BODY = { lat: 35.8, lng: -83.9, radiusKm: 18 };
 const FIRST_BODY = { lat: 35.76, lng: -83.97, radiusKm: 25 };
 
-// Filters start as today, from now on: just after midnight on a Monday (Chicago, the suite's zone), every Monday
-// meeting is in view. A test about other days or times sets its own.
-const MONDAY_JUST_AFTER_MIDNIGHT = "2026-10-05T05:30:00Z";
+// Filters start as today, from now on: early on a Monday morning (Chicago, the suite's zone), every Monday meeting from
+// then on is in view. A test about other days or times sets its own.
+const MONDAY_EARLY_MORNING = "2026-10-05T10:30:00Z";
 
 beforeEach(async () => {
-  setNow(MONDAY_JUST_AFTER_MIDNIGHT);
+  setNow(MONDAY_EARLY_MORNING);
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
@@ -319,7 +319,7 @@ describe("the results map", () => {
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
 
-  it("leaves out today's meetings that began over an hour ago, as the list does, until the person chooses", async () => {
+  it("leaves out today's meetings that began over an hour ago, as the list does, until the person changes the day or time", async () => {
     const smallHours = nearbyMeeting({
       id: "77777777-7777-4777-8777-777777777777",
       name: "Small Hours Group",
@@ -346,6 +346,12 @@ describe("the results map", () => {
     expect(screen.queryByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Type filters" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Open" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
+    expect(await screen.findByRole("button", { name: "Type filters, 1 chosen" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Late Group, Mon 11:00 PM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Day filters, 1 chosen" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Tuesday" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     expect(await screen.findByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeOnTheScreen();
   });

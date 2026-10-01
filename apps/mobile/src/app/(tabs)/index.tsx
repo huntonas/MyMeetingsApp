@@ -12,20 +12,14 @@ import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from 
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
+import { anyFilterChosen, type MeetingFilters, NO_FILTERS, useFilters } from "@/search/filters";
 import {
-  anyFilterChosen,
-  type MeetingFilters,
-  matchesFilters,
-  NO_FILTERS,
-  useFilters,
-} from "@/search/filters";
-import {
+  comesUp,
   describedOrigin,
   type NearbyOrder,
   type SearchOrigin,
   searchRead,
   sortNearby,
-  startsWithinADay,
 } from "@/search/nearby";
 import { useColors } from "@/theme/colors";
 import { useNow } from "@/time/use-now";
@@ -144,13 +138,10 @@ function Results({
       : { label: asked.label, point: asked.point, radiusKm: asked.radiusKm, lastSearch: false };
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
-  const { filters, setFilters, starting } = useFilters();
-  // Until the person chooses filters, the starting ones also leave out today's meetings that began over an hour ago;
-  // once they choose, their choice is final.
+  const { filters, setFilters, keeps } = useFilters();
   const shows = useCallback(
-    (meeting: MeetingSearchResponse["meetings"][number]) =>
-      matchesFilters(meeting, filters) && (!starting || startsWithinADay(meeting, now)),
-    [filters, starting, now],
+    (meeting: MeetingSearchResponse["meetings"][number]) => keeps(meeting, comesUp(meeting, now)),
+    [keeps, now],
   );
   // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
   // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.

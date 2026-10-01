@@ -1,10 +1,14 @@
 import { milesLabel, radiusMiles } from "@/meetings/units";
-import { matchesFilters, NO_FILTERS } from "@/search/filters";
+import { filtering, type MeetingFilters, NO_FILTERS } from "@/search/filters";
 import { sortNearby } from "@/search/nearby";
 
 import { meeting, nearbyMeeting } from "./fixtures";
 
-describe("matchesFilters", () => {
+// Once the person has chosen every group, as Clear filters does, the filters alone decide.
+const matchesFilters = (summary: ReturnType<typeof meeting>, filters: MeetingFilters) =>
+  filtering(filters, new Date("2026-10-05T17:30:00Z")).keeps(summary, new Date("2026-10-12T17:30:00Z"));
+
+describe("filters the person has chosen", () => {
   const evening = meeting({
     day: 1,
     time: "19:00",

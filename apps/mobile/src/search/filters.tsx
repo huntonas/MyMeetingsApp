@@ -1,6 +1,7 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
+import { nextOnPhoneClock } from "@/meetings/schedule";
 import type { MeetingTypeCode } from "@/meetings/type-labels";
 import { useNow } from "@/time/use-now";
 
@@ -29,7 +30,7 @@ function inTime(time: string, { from, to }: { from: string; to: string }): boole
 
 // Spec §7: filtering by day, time, type and tag happens on the phone. Days and times match any chosen; types and tags
 // must all be present.
-export function matchesFilters(meeting: MeetingSummary, filters: MeetingFilters): boolean {
+function matchesFilters(meeting: MeetingSummary, filters: MeetingFilters): boolean {
   return (
     (filters.days.length === 0 || filters.days.includes(meeting.day)) &&
     (filters.times.length === 0 || filters.times.some((time) => inTime(meeting.time, TIMES_OF_DAY[time]))) &&
@@ -42,37 +43,65 @@ export function toggled<T>(list: readonly T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-// Owner decision, 2026-09-30: today's meetings from now on. The phone's weekday, and the part of the day it is now plus
-// every later one. Night runs past midnight, so in its early hours the whole day is still ahead.
-function startingFilters(now: Date): MeetingFilters {
-  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const times = TIME_ORDER.filter(
-    (name) => inTime(time, TIMES_OF_DAY[name]) || TIMES_OF_DAY[name].from > time,
-  );
-  return { ...NO_FILTERS, days: [now.getDay()], times };
+// The phone's clock as a listed time reads, "HH:MM".
+function phoneTime(now: Date): string {
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-// The person's own choice, or null until they make one.
-const Filters = createContext<{ chosen: MeetingFilters | null; setFilters: (next: MeetingFilters) => void }>({
-  chosen: null,
-  setFilters: () => undefined,
+// Owner decisions, 2026-09-30: the filters start as today, from now on. They read as the phone's weekday, and the part
+// of the day it is now plus every later one (in the small hours, Night alone: it's the day's last part, still running).
+function startingFilters(now: Date): MeetingFilters {
+  const time = phoneTime(now);
+  const current = TIME_ORDER.findIndex((name) => inTime(time, TIMES_OF_DAY[name]));
+  return { ...NO_FILTERS, days: [now.getDay()], times: TIME_ORDER.slice(current) };
+}
+
+// The groups the person has changed, each replacing its starting value; a group they haven't changed is absent.
+type Chosen = Partial<MeetingFilters>;
+
+const Filters = createContext<{ chosen: Chosen; choose: (groups: Chosen) => void }>({
+  chosen: {},
+  choose: () => undefined,
 });
 
 // Held in memory only; filters are never saved (decision 9).
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [chosen, setFilters] = useState<MeetingFilters | null>(null);
-  const value = useMemo(() => ({ chosen, setFilters }), [chosen]);
+  const [chosen, setChosen] = useState<Chosen>({});
+  const value = useMemo(
+    () => ({
+      chosen,
+      choose: (groups: Chosen) => {
+        setChosen((before) => ({ ...before, ...groups }));
+      },
+    }),
+    [chosen],
+  );
   return <Filters.Provider value={value}>{children}</Filters.Provider>;
 }
 
-// Until the person changes a filter, the filters are the starting ones for this moment, so they follow the clock (a new
-// day, a later part of the day), and `starting` is true. Once they change one, Clear filters included, their choice
-// stands while the app runs.
+// The filters at `now`, given the groups the person has changed, and whether a meeting is listed. Each group they
+// haven't changed reads as its starting value for this moment, so it follows the clock (a new day, a later part of the
+// day). While neither Day nor Time has been changed, what's listed is today, from now on, by the clock rather than by
+// the pills: every meeting whose upcomingStart (one that began under an hour ago still counts) comes before the day
+// ends, when Night does at 5 AM, and that matches the chosen types and tags (owner decisions D1 and D2). So at 11 PM
+// Monday, Tuesday's 12:00 AM meeting is listed, and at 10 PM this morning's 12:30 AM one isn't.
+export function filtering(chosen: Chosen, now: Date) {
+  const filters = { ...startingFilters(now), ...chosen };
+  const starting = chosen.days === undefined && chosen.times === undefined;
+  const dayEnds = nextOnPhoneClock(TIMES_OF_DAY.night.to, now).getTime();
+  const keeps = (meeting: MeetingSummary, upcoming: Date) =>
+    starting
+      ? matchesFilters(meeting, { ...filters, days: [], times: [] }) && upcoming.getTime() < dayEnds
+      : matchesFilters(meeting, filters);
+  return { filters, keeps };
+}
+
+// filtering() for the person's choices so far. setFilters changes only the groups it's given: Clear filters gives all
+// four, empty.
 export function useFilters() {
-  const { chosen, setFilters } = useContext(Filters);
+  const { chosen, choose } = useContext(Filters);
   const now = useNow();
-  const filters = useMemo(() => chosen ?? startingFilters(now), [chosen, now]);
-  return { filters, setFilters, starting: chosen === null };
+  return useMemo(() => ({ ...filtering(chosen, now), setFilters: choose }), [chosen, choose, now]);
 }
 
 export function anyFilterChosen({ days, times, types, tags }: MeetingFilters): boolean {

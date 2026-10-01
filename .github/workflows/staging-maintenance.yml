@@ -1,0 +1,26 @@
+name: Staging maintenance
+
+# Vercel runs crons only on the production deployment, so staging's nightly maintenance (purging the 7-day abuse-review
+# log, old rate limits and suggestion links, and recounting tags) runs from here instead. The secret is staging's own
+# CRON_SECRET; never call /api/cron/sync-feeds with it, which would crawl every feed a second time.
+on:
+  schedule:
+    # 30 minutes after production's 08:07 UTC run.
+    - cron: "37 8 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Run staging's nightly maintenance
+        env:
+          CRON_SECRET: ${{ secrets.STAGING_CRON_SECRET }}
+        # The route allows 300 s. The response is counts only, so printing it is safe.
+        run: >-
+          curl --fail-with-body --silent --show-error --max-time 310
+          --header "Authorization: Bearer $CRON_SECRET"
+          https://mymeetingapp-staging.vercel.app/api/cron/maintenance

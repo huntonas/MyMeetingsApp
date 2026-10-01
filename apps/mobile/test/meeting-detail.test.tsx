@@ -146,6 +146,14 @@ describe("the meeting page", () => {
     expect(header).toHaveProp("backButtonDisplayMode", "minimal");
   });
 
+  // A URL's userinfo comes before an "@", and the browser goes to the host after it.
+  it("names the listing's real host, never the userinfo in front of it", async () => {
+    api.reply(PATH, { meeting: meeting({ sourceUrl: "https://aa-intergroup.org@evil.example/meetings" }) });
+    await renderApp(`/meeting/${ID}`);
+    expect(await screen.findByRole("button", { name: "Listed by evil.example" })).toBeOnTheScreen();
+    expect(screen.queryByText(/aa-intergroup\.org/)).toBeNull();
+  });
+
   it("hands directions to Google Maps on Android", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     api.reply(PATH, { meeting: meeting() });

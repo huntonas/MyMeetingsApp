@@ -32,8 +32,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-// React Native's URL has no hostname getter, so the host is read with a pattern.
-const hostOf = (url: string) => /^https?:\/\/([^/?#]+)/.exec(url)?.[1] ?? url;
+// Expo's URL (installed over React Native's, which has no hostname getter) parses as a browser does, so userinfo before
+// an "@" is never shown as the site the link opens.
+const hostOf = (url: string) => URL.parse(url)?.hostname ?? url;
 
 // Keeps digits, "+" and the pause and extension characters (",", ";", "#", "*"). A raw "#" would end the URL (Android
 // cuts the call off there, and iOS refuses a tel: URL holding "#" or "*"), so both are percent-encoded.

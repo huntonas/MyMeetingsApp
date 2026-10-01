@@ -854,6 +854,20 @@ describe("results", () => {
         expect(app.getPathname()).toBe("/online");
       });
 
+      it("leaves the count out when the online meetings can't be read, rather than guessing", async () => {
+        setNow(WEDNESDAY_LATE);
+        api.reply(SEARCH, { meetings: [wednesday] });
+        api.reply("/api/v1/meetings/online?day=2", { meetings: [] });
+        api.reply("/api/v1/meetings/online?day=3", { problem: "down" }, 500);
+        api.reply("/api/v1/meetings/online?day=4", { meetings: [] });
+        await launchNearby();
+        await searchFor("Maryville, TN");
+        expect(await screen.findByRole("button", { name: "Online now" })).toHaveProp(
+          "accessibilityHint",
+          "Opens the Online tab",
+        );
+      });
+
       // Once the person chooses something, even only a tag, it's their filters that match nothing.
       it("once the person has chosen a tag, blames the filters and offers only Clear", async () => {
         await searchLate([wednesday, friday]);

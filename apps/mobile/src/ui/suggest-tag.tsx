@@ -44,7 +44,6 @@ export function SuggestTag() {
   }
   const send = () => {
     // Return on the keyboard can still fire while a suggestion is out.
-    if (sending) return;
     if (!TagLabelText.safeParse(text).success) {
       result.tell(NOT_A_TAG);
       return;

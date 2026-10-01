@@ -1,5 +1,7 @@
 import {
   DeleteMineResponse,
+  SuggestionRequest,
+  SuggestionResponse,
   TagEditRequest,
   TagSubmissionRequest,
   TagWriteResponse,
@@ -26,3 +28,7 @@ export const editTags = (meetingId: string, tags: string[]) =>
 
 export const removeTags = (meetingId: string) =>
   sendWrite(TagWriteResponse, "DELETE", `/api/v1/tags/${encodeURIComponent(meetingId)}`);
+
+// Spec §5: only the suggested words, trimmed. The server screens them and answers only that it received them.
+export const suggestTag = (text: string) =>
+  sendWrite(SuggestionResponse, "POST", "/api/v1/suggestions", SuggestionRequest.parse({ text }));

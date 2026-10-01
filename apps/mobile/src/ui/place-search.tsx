@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
 
 import { forgetRecentPlaces, type RecentPlace, recentPlaces } from "@/location/recent-places";
-import { useColors } from "@/theme/colors";
-import { TEXT_STYLES } from "@/theme/type";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { ConfirmButton } from "@/ui/confirm-button";
+import { TextField } from "@/ui/text-field";
 
 interface PlaceSearchProps {
   onPlace: (text: string) => void;
@@ -17,7 +16,6 @@ interface PlaceSearchProps {
 }
 
 export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearchProps) {
-  const colors = useColors();
   const [text, setText] = useState("");
   const [recent, setRecent] = useState<RecentPlace[]>([]);
   useEffect(() => {
@@ -29,10 +27,9 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearc
   return (
     <View style={{ gap: 12 }}>
       <AppText>Search by city, zip code or address, or use your location.</AppText>
-      <TextInput
+      <TextField
         accessibilityLabel="Search for a place"
         placeholder="City, zip code or address"
-        placeholderTextColor={colors.muted}
         value={text}
         onFocus={onStart}
         onChangeText={(next) => {
@@ -44,18 +41,6 @@ export function PlaceSearch({ onPlace, onRecent, onNearMe, onStart }: PlaceSearc
         }}
         returnKeyType="search"
         autoCorrect={false}
-        style={[
-          TEXT_STYLES.body,
-          {
-            minHeight: 44,
-            borderWidth: 1,
-            borderColor: colors.line,
-            borderRadius: 8,
-            paddingHorizontal: 12,
-            color: colors.text,
-            backgroundColor: colors.surface,
-          },
-        ]}
       />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <Button

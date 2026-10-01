@@ -164,7 +164,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Suggestions:**
 
-- Users can suggest a new word (2–40 characters, 5 per device per day).
+- Users can suggest a new word (2–40 characters, 5 per device per day). The app shows only a thank-you; the screening's decision is never returned (2026-10-01).
 - AI screening through Vercel AI Gateway with zero data retention (model set by env var): auto-merge clear synonyms of existing tags, auto-reject names, judgments, or anything identifying, and leave the rest pending. Log every AI decision (input, decision, reason, model, timestamp).
 - The admin reviews pending suggestions in a weekly batch (approve, merge, reject) in an admin view behind the `/metrics` auth.
 - Suggestions store `device_hash` only until reviewed or for 30 days, whichever comes first, then the link is removed.

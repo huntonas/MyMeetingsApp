@@ -25,6 +25,7 @@ import { Button } from "@/ui/button";
 import { ConfirmButton } from "@/ui/confirm-button";
 import { moveFocus } from "@/ui/move-focus";
 import { type Notice } from "@/ui/notice";
+import { SuggestTag } from "@/ui/suggest-tag";
 import { TagPanel } from "@/ui/tag-panel";
 
 // "Welcoming · Coffee": a tag the phone no longer has a name for is left out rather than shown as a slug.
@@ -258,6 +259,7 @@ export function YourTags({ meeting, onAnswered, notice }: YourTagsProps) {
       {open !== null ? (
         <TagPanel mode={open} initial={record?.tags ?? []} onSubmit={submit} onEdit={edit} onCancel={close}>
           {open === "new" && attendanceOffer(meeting, now)}
+          {features.suggestions && <SuggestTag />}
         </TagPanel>
       ) : (
         <>

@@ -1,14 +1,13 @@
 import { ERROR_MESSAGES } from "@mymeetingapp/shared";
 import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, type AppStateStatus } from "react-native";
-import { z } from "zod";
 
 import { appDatabase } from "@/db/database";
 import { recordNear, wasNear } from "@/tagging/attendance-record";
 import { recordSubmission } from "@/tagging/my-tags";
 
 import { startApi, type TestApi } from "./api-server";
-import { failStatements, resetAppData } from "./app-data";
+import { failStatements, resetAppData, storedCells } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, VOCABULARY } from "./fixtures";
 import { later } from "./later";
@@ -390,17 +389,6 @@ describe("the attendance check", () => {
       { meeting_id: ID, occurrence_start: new Date(STARTED).getTime() },
     ]);
     // Nor anywhere else: every cell of every table, as text, holds neither coordinate.
-    const tables = z
-      .array(z.object({ name: z.string() }))
-      .parse(await db.getAllAsync("select name from sqlite_master where type = 'table'", []));
-    expect(tables.length).toBeGreaterThan(5);
-    for (const { name } of tables) {
-      const rows = z
-        .array(z.record(z.string(), z.unknown()))
-        .parse(await db.getAllAsync(`select * from ${name}`, []));
-      for (const cell of rows.flatMap((row) => Object.values(row))) {
-        expect(String(cell)).not.toMatch(/36\.16401|86\.78163/);
-      }
-    }
+    for (const cell of await storedCells()) expect(cell).not.toMatch(/36\.16401|86\.78163/);
   });
 });

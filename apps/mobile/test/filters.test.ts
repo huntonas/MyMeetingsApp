@@ -73,7 +73,8 @@ describe("sortNearby", () => {
   const far3pm = at("3", "15:00", 35.77, -83.99, 0.9);
   const far5pm = at("4", "17:00", 35.77, -83.99, 0.9);
   const near8pm = at("5", "20:00", 35.7566, -83.9706);
-  const all = [near5pm, far5pm, near8pm, far3pm, near1pm];
+  // In the server's order, by the rounded point's distance: the far 5 PM before the near one.
+  const all = [far5pm, near5pm, near8pm, far3pm, near1pm];
   const ids = (meetings: { id: string }[]) => meetings.map((m) => m.id.slice(0, 1));
 
   it("puts the soonest first, and the nearest first among meetings at the same time", () => {

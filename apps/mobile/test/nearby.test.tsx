@@ -698,10 +698,11 @@ describe("results", () => {
           ? { latitude: 35.7566, longitude: -83.9706, distanceKm: 0.5 }
           : { latitude: 35.77, longitude: -83.99, distanceKm: 0.4 }),
       });
-    // In the server's order, which is by the rounded point's distance and says nothing about time.
+    // In the server's order, which is by the rounded point's distance (Away's is the nearer) and says nothing about
+    // time.
     const MEETINGS = [
-      at("Five Here", "1", "17:00", "here"),
       at("Five Away", "2", "17:00", "away"),
+      at("Five Here", "1", "17:00", "here"),
       at("Eight Here", "3", "20:00", "here"),
       at("Three Away", "4", "15:00", "away"),
       at("One Here", "5", "13:00", "here"),

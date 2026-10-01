@@ -19,7 +19,7 @@ import { SaveButton } from "@/ui/save-button";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { TagChips, useLabelledTags } from "@/ui/tag-chips";
-import { YourTags } from "@/ui/your-tags";
+import { RemoveMyTags, YourTags } from "@/ui/your-tags";
 
 const Params = z.object({ id: z.uuid() });
 
@@ -167,13 +167,31 @@ function MeetingDetail({ id }: { id: string }) {
   // A tag write's answer: its counts show at once, and go into the saved copy without making it look newer.
   const answered = useCallback(
     (response: TagWriteResponse) => {
-      show((data) => ({ meeting: { ...data.meeting, tags: response.tags } }));
-      void saveNewCounts(response).catch(() => undefined);
+      if (response.meetingId === id) {
+        show((data) => ({ meeting: { ...data.meeting, tags: response.tags } }));
+        void saveNewCounts(response).catch(() => undefined);
+        return;
+      }
+      // The meeting merged after the page read it: what the phone keeps follows first (saveNewCounts would otherwise
+      // find no copy under the survivor's id), then the page follows the survivor, as a read would.
+      void meetingMoved(id, response.meetingId)
+        .then(() => saveNewCounts(response))
+        .catch(() => undefined)
+        .then(() => {
+          router.setParams({ id: response.meetingId });
+        });
     },
-    [show],
+    [id, show],
   );
   if (state.status === "loading") return <ActivityIndicator accessibilityLabel="Loading the meeting" />;
-  if (state.status === "failed") return <AppText accessibilityRole="alert">{state.message}</AppText>;
+  if (state.status === "failed") {
+    return (
+      <>
+        <AppText accessibilityRole="alert">{state.message}</AppText>
+        {state.gone && <RemoveMyTags meetingId={id} />}
+      </>
+    );
+  }
   return (
     <>
       {state.savedAt !== null && <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />}
@@ -187,7 +205,9 @@ export default function MeetingScreen() {
   return (
     <Screen>
       {params.success ? (
-        <MeetingDetail id={params.data.id} />
+        // Keyed by the id, so following a merge starts the new meeting's page afresh: otherwise its first render would
+        // still hold the old meeting's read, and take it for a merge the other way.
+        <MeetingDetail key={params.data.id} id={params.data.id} />
       ) : (
         <AppText>That meeting link isn't valid.</AppText>
       )}

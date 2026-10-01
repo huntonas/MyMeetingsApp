@@ -4,9 +4,11 @@ import { inTransaction } from "@/db/database";
 // Everything the phone keeps under the old id follows it.
 export async function meetingMoved(from: string, to: string): Promise<void> {
   await inTransaction(async (db) => {
+    // A copy always names the meeting its key does: one read before a write found the merge still names the old id,
+    // and the page reading it under the new key would follow that back.
     await db.runAsync(
-      "insert or replace into cache_entries (key, body, saved_at) select ?, body, saved_at from cache_entries where key = ?",
-      [`meeting:${to}`, `meeting:${from}`],
+      "insert or replace into cache_entries (key, body, saved_at) select ?, json_set(body, '$.meeting.id', ?), saved_at from cache_entries where key = ?",
+      [`meeting:${to}`, to, `meeting:${from}`],
     );
     await db.runAsync("delete from cache_entries where key = ?", [`meeting:${from}`]);
     // A favorite keeps its place in the Saved list. If both ids were saved, the survivor's own row stays.

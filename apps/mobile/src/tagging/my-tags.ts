@@ -55,3 +55,39 @@ export function recordSubmission(
     );
   });
 }
+
+// An edit the server accepted. It keeps the first confirmation; a phone that had no record (the server said it
+// already tagged) starts one dated now.
+export function recordEdit(meeting: { id: string; name: string }, tags: string[], at: Date): Promise<void> {
+  return inTransaction(async (db) => {
+    await db.runAsync(
+      `insert into my_tags (meeting_id, name, tags, confirmed_at, updated_at) values (?, ?, ?, ?, ?)
+       on conflict (meeting_id) do update set name = excluded.name, tags = excluded.tags, updated_at = excluded.updated_at`,
+      [meeting.id, meeting.name, JSON.stringify(tags), at.getTime(), at.getTime()],
+    );
+  });
+}
+
+// The server holds no tags from this phone on the meeting (removed, or never there): the record goes too.
+export function forgetMyTags(meetingId: string): Promise<void> {
+  return inTransaction(async (db) => {
+    await db.runAsync("delete from my_tags where meeting_id = ?", [meetingId]);
+  });
+}
+
+// "Meetings I've tagged", the latest change first.
+export async function allMyTags(): Promise<MyTags[]> {
+  const db = await appDatabase();
+  const rows = await db.getAllAsync(
+    "select meeting_id, name, tags, confirmed_at, updated_at from my_tags order by updated_at desc, rowid desc",
+    [],
+  );
+  return rows.map(parse);
+}
+
+// After "Delete all my tags" succeeded on the server (owner decision 6), and never before.
+export function forgetAllMyTags(): Promise<void> {
+  return inTransaction(async (db) => {
+    await db.runAsync("delete from my_tags", []);
+  });
+}

@@ -15,16 +15,21 @@ const OFFLINE_TAGS =
   "We couldn't reach mymeetingapp, so we can't tell whether your tags were saved. Check your connection and try again.";
 
 interface TagPanelProps {
+  // "new" tags the meeting for this visit; "edit" replaces the tags this phone already has on it.
+  mode: "new" | "edit";
   initial: readonly string[];
-  // Sends the chosen tags; throws when they didn't go through, and the panel says why.
+  // Send the chosen tags as a new tagging or as an edit; each throws when they didn't go through, and the panel says
+  // why.
   onSubmit: (tags: string[]) => Promise<void>;
+  onEdit: (tags: string[]) => Promise<void>;
   onCancel: () => void;
 }
 
 // Spec §8: up to 6 tags, grouped by category, from the tag list the server serves. Writes aren't optimistic: the
 // choices stay until the server answers, and a refusal keeps them with the server's own words.
-export function TagPanel({ initial, onSubmit, onCancel }: TagPanelProps) {
+export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel }: TagPanelProps) {
   const vocabulary = useVocabularyTags();
+  const [current, setCurrent] = useState(mode);
   const refreshVocabulary = useRefreshVocabulary();
   const [chosen, setChosen] = useState<string[]>([...initial]);
   const [message, setMessage] = useState<string | null>(null);
@@ -53,9 +58,11 @@ export function TagPanel({ initial, onSubmit, onCancel }: TagPanelProps) {
     }
     setSending(true);
     setMessage(null);
-    onSubmit(live)
+    (current === "new" ? onSubmit(live) : onEdit(live))
       .catch((error: unknown) => {
         if (error instanceof ApiError && error.code === "unknown_tag") refreshVocabulary();
+        // Spec §5: "the app should offer to edit instead". The same choices, saved as this phone's tags.
+        if (error instanceof ApiError && error.code === "already_tagged") setCurrent("edit");
         say(failureMessage(error, OFFLINE_TAGS));
       })
       .finally(() => {
@@ -66,7 +73,7 @@ export function TagPanel({ initial, onSubmit, onCancel }: TagPanelProps) {
   return (
     <View style={{ gap: 12 }}>
       <AppText ref={heading} variant="heading" accessibilityRole="header">
-        Tag this meeting
+        {current === "new" ? "Tag this meeting" : "Edit my tags"}
       </AppText>
       {tags.length === 0 ? (
         <AppText tone="muted">Tag names haven't loaded yet. They'll appear when you're back online.</AppText>
@@ -104,9 +111,12 @@ export function TagPanel({ initial, onSubmit, onCancel }: TagPanelProps) {
         <ActivityIndicator accessibilityLabel="Sending your tags" />
       ) : (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {tags.length > 0 && (
-            <Button label="Send my tags" hint="Sends only these tags, for this meeting" onPress={send} />
-          )}
+          {tags.length > 0 &&
+            (current === "new" ? (
+              <Button label="Send my tags" hint="Sends only these tags, for this meeting" onPress={send} />
+            ) : (
+              <Button label="Save my tags" hint="Replaces this phone's tags on this meeting" onPress={send} />
+            ))}
           <Button kind="secondary" label="Cancel" onPress={onCancel} />
         </View>
       )}

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View } from "react-native";
 
 import { installedVersion } from "@/config/app-version";
@@ -6,6 +7,7 @@ import { AppText } from "@/ui/app-text";
 import { DeleteAllMyTags } from "@/ui/delete-all-my-tags";
 import { HandOffButton } from "@/ui/hand-off-button";
 import { HelpResources } from "@/ui/help-resources";
+import { MyTaggedMeetings } from "@/ui/my-tagged-meetings";
 import { Screen } from "@/ui/screen";
 import { SobrietyCard } from "@/ui/sobriety-card";
 
@@ -16,10 +18,12 @@ const PAGES = [
   { label: "Terms of use", path: "/terms" },
 ] as const;
 
-// Spec §8's settings: sobriety date, delete all my tags, help resources, the website's pages and the app's version.
+// Spec §8's settings: sobriety date, the meetings this phone tagged and delete all my tags, help resources, the website's pages and the app's version.
 // The app never shows its device ID (owner decision, 2026-09-29).
 export default function MeScreen() {
   const version = installedVersion();
+  // Moves on when "Delete all my tags" cleared the phone's record, so the list is read again.
+  const [listVersion, setListVersion] = useState(0);
   return (
     <Screen>
       <SobrietyCard />
@@ -27,7 +31,12 @@ export default function MeScreen() {
         <AppText variant="heading" accessibilityRole="header">
           Your tags
         </AppText>
-        <DeleteAllMyTags />
+        <MyTaggedMeetings key={listVersion} />
+        <DeleteAllMyTags
+          onDeleted={() => {
+            setListVersion((count) => count + 1);
+          }}
+        />
       </View>
       <HelpResources />
       <View style={{ gap: 8 }}>

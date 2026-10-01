@@ -4,10 +4,12 @@ import { AccessibilityInfo, ActivityIndicator, View } from "react-native";
 
 import { failureMessage } from "@/api/failure-message";
 import { deleteMine } from "@/api/writes";
+import { forgetAllMyTags } from "@/tagging/my-tags";
 import { AppText } from "@/ui/app-text";
 import { ConfirmButton } from "@/ui/confirm-button";
 
 const OFFLINE = "We couldn't reach mymeetingapp to finish deleting. Check your connection and try again.";
+const RECORD_KEPT = "This phone couldn't clear its own list of tagged meetings. Try again.";
 
 function deleted(count: number): string {
   if (count === 0)
@@ -16,8 +18,9 @@ function deleted(count: number): string {
 }
 
 // Spec §8's "delete all my tags", in the words the website promises. It works for every app version and with tagging
-// switched off, like the server route.
-export function DeleteAllMyTags() {
+// switched off, like the server route. The phone's own record is cleared only once the server confirms (owner decision
+// 6, 2026-10-01), and `onDeleted` then tells the screen to read it again.
+export function DeleteAllMyTags({ onDeleted }: { onDeleted: () => void }) {
   const [deleting, setDeleting] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const finish = (message: string) => {
@@ -41,8 +44,13 @@ export function DeleteAllMyTags() {
             setDeleting(true);
             setResult(null);
             deleteMine().then(
-              ({ deletedTags }) => {
-                finish(deleted(deletedTags));
+              async ({ deletedTags }) => {
+                const cleared = await forgetAllMyTags().then(
+                  () => true,
+                  () => false,
+                );
+                finish(cleared ? deleted(deletedTags) : `${deleted(deletedTags)} ${RECORD_KEPT}`);
+                onDeleted();
               },
               (error: unknown) => {
                 finish(failureMessage(error, OFFLINE));

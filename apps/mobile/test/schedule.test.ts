@@ -4,8 +4,10 @@ import {
   listedTime,
   nextStart,
   occurrenceEnd,
+  phoneClockTime,
   type Scheduled,
   shortWhen,
+  tomorrowOnPhoneClock,
   upcomingStart,
   yourTime,
   zoneName,
@@ -142,6 +144,36 @@ describe("upcomingStart", () => {
   it("reads a meeting without a time zone on the phone's clock", () => {
     const now = new Date("2026-10-05T23:30:00Z"); // Monday 6:30 PM on the phone, in Chicago
     expect(iso(upcomingStart({ ...chicagoMonday7pm, timezone: null }, now))).toBe("2026-10-06T00:00:00.000Z");
+  });
+});
+
+// The suite's phone is in Chicago (TZ in package.json).
+describe("the phone's own clock", () => {
+  it("reads the time the phone shows, as a listed time is written", () => {
+    expect(phoneClockTime(new Date("2026-10-05T14:05:00Z"))).toBe("09:05");
+    expect(phoneClockTime(new Date("2026-10-06T04:59:00Z"))).toBe("23:59");
+    expect(phoneClockTime(new Date("2026-10-06T05:00:00Z"))).toBe("00:00");
+  });
+
+  it("finds a listed time on the day after the phone's date, late at night and in the small hours alike", () => {
+    // Monday 10 PM, then Tuesday 3 AM.
+    expect(iso(tomorrowOnPhoneClock("05:00", new Date("2026-10-06T03:00:00Z")))).toBe(
+      "2026-10-06T10:00:00.000Z",
+    );
+    expect(iso(tomorrowOnPhoneClock("05:00", new Date("2026-10-06T08:00:00Z")))).toBe(
+      "2026-10-07T10:00:00.000Z",
+    );
+  });
+
+  it("reads the next day on its own clock across a clock change", () => {
+    // Saturday 7 AM CDT; Sunday 5 AM is after the clocks fall back, so CST.
+    expect(iso(tomorrowOnPhoneClock("05:00", new Date("2026-10-31T12:00:00Z")))).toBe(
+      "2026-11-01T11:00:00.000Z",
+    );
+    // Saturday noon CST; 2:30 AM Sunday is skipped, so it moves an hour later, to 3:30 AM CDT.
+    expect(iso(tomorrowOnPhoneClock("02:30", new Date("2026-03-07T18:00:00Z")))).toBe(
+      "2026-03-08T08:30:00.000Z",
+    );
   });
 });
 

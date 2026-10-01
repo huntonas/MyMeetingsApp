@@ -100,6 +100,14 @@ export function upcomingStart(
   return nextStart(scheduled, last);
 }
 
+const twoDigits = (value: number) => String(value).padStart(2, "0");
+
+// The time the phone's clock shows at `now`, written as a listed time is ("HH:MM"), so the two compare as strings.
+export function phoneClockTime(now: Date): string {
+  const local = localParts(now, phoneZone());
+  return `${twoDigits(local.hour)}:${twoDigits(local.minute)}`;
+}
+
 // The instant the phone's clock reads `time` ("05:00") on the day after its date at `now`: at 3 AM Tuesday, as at 6 PM
 // Monday's 6 PM is Tuesday's, it's Wednesday's.
 export function tomorrowOnPhoneClock(time: string, now: Date): Date {

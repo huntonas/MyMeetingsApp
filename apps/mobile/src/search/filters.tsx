@@ -1,7 +1,7 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
-import { tomorrowOnPhoneClock } from "@/meetings/schedule";
+import { phoneClockTime, tomorrowOnPhoneClock } from "@/meetings/schedule";
 import type { MeetingTypeCode } from "@/meetings/type-labels";
 
 // On the meeting's listed time. Night runs past midnight.
@@ -42,16 +42,11 @@ export function toggled<T>(list: readonly T[], value: T): T[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-// The phone's clock as a listed time reads, "HH:MM".
-function phoneTime(now: Date): string {
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-}
-
 // Owner decisions, 2026-09-30: the filters start as today, from now on. They read as the phone's weekday, and the part
 // of the day it is now plus every later one. Night runs past midnight, so in its early hours the whole day is still
 // ahead.
 function startingFilters(now: Date): MeetingFilters {
-  const time = phoneTime(now);
+  const time = phoneClockTime(now);
   const times = TIME_ORDER.filter(
     (name) => inTime(time, TIMES_OF_DAY[name]) || TIMES_OF_DAY[name].from > time,
   );
@@ -83,7 +78,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 
 // From the evening on, until Night ends at 5 AM, what's left of today is tonight: "No more meetings nearby tonight."
 export function tonight(now: Date): boolean {
-  return inTime(phoneTime(now), { from: TIMES_OF_DAY.evening.from, to: TIMES_OF_DAY.night.to });
+  return inTime(phoneClockTime(now), { from: TIMES_OF_DAY.evening.from, to: TIMES_OF_DAY.night.to });
 }
 
 // Where a meeting goes in the Nearby list: the list itself, the Tomorrow section after it, or nowhere.

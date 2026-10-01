@@ -42,8 +42,9 @@ function Section({
   );
 }
 
-// A meeting's own weekday can differ from the phone's by one, so it reads the phone's yesterday, today and tomorrow.
-export function OnlineNowList() {
+// The online meetings in progress and starting soon (Spec §8 "Online now"), with how the reads went. A meeting's own
+// weekday can differ from the phone's by one, so it reads the phone's yesterday, today and tomorrow.
+export function useOnlineNow() {
   const now = useNow();
   const today = now.getDay();
   const { state: yesterday, refresh: refreshYesterday } = useCachedRead(onlineRead((today + 6) % 7));
@@ -66,15 +67,18 @@ export function OnlineNowList() {
       ),
     [ready, now],
   );
-
-  if (states.some((state) => state.status === "loading")) {
-    return <ActivityIndicator accessibilityLabel="Loading online meetings" />;
-  }
+  const loading = states.some((state) => state.status === "loading");
   const failure = states.flatMap((state) => (state.status === "failed" ? [state.message] : []))[0];
   // Several days can fall back to saved copies at once; the oldest one is the one to warn about.
   const oldest = ready
     .flatMap((state) => (state.savedAt === null ? [] : [state]))
     .sort((a, b) => a.savedAt.getTime() - b.savedAt.getTime())[0];
+  return { loading, failure, oldest, happening, soon };
+}
+
+export function OnlineNowList() {
+  const { loading, failure, oldest, happening, soon } = useOnlineNow();
+  if (loading) return <ActivityIndicator accessibilityLabel="Loading online meetings" />;
   return (
     <View style={{ gap: 20 }}>
       {failure !== undefined && <AppText>{failure}</AppText>}

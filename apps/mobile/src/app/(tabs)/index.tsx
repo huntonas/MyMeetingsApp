@@ -12,10 +12,18 @@ import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from 
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
-import { chosenGroups, filtering, type MeetingFilters, NO_FILTERS, useFilters } from "@/search/filters";
+import {
+  chosenGroups,
+  filtering,
+  type MeetingFilters,
+  NO_FILTERS,
+  tonight,
+  useFilters,
+} from "@/search/filters";
 import {
   describedOrigin,
   listNearby,
+  type NearbyMeeting,
   type NearbyOrder,
   type SearchOrigin,
   searchRead,
@@ -26,7 +34,7 @@ import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { HandOffButton } from "@/ui/hand-off-button";
 import { MeetingCard } from "@/ui/meeting-card";
-import { OnlineNowList } from "@/ui/online-now-list";
+import { OnlineNowList, useOnlineNow } from "@/ui/online-now-list";
 import { PanelToggle } from "@/ui/panel-toggle";
 import { Pill } from "@/ui/pill";
 import { PlaceSearch } from "@/ui/place-search";
@@ -116,6 +124,28 @@ function summaryLine(count: number, filters: MeetingFilters, starting: boolean, 
 
 type ResultsView = "list" | "map";
 
+// The list's rows: meetings, and the Tomorrow heading where tomorrow's start.
+type Row = { kind: "meeting"; meeting: NearbyMeeting } | { kind: "tomorrow" };
+
+// Late at night with nothing nearby tonight or tomorrow: how many online meetings are on now or soon, as the Online tab
+// counts them, and the way there. The count waits until every day's read has landed.
+function OnlineNowLink() {
+  const { loading, failure, happening, soon } = useOnlineNow();
+  const count = loading || failure !== undefined ? "" : ` (${String(happening.length + soon.length)})`;
+  return (
+    <View style={{ alignSelf: "flex-start" }}>
+      <Button
+        kind="text"
+        label={`Online now${count}`}
+        hint="Opens the Online tab"
+        onPress={() => {
+          router.navigate("/online");
+        }}
+      />
+    </View>
+  );
+}
+
 interface ResultsProps {
   origin: SearchOrigin;
   view: ResultsView;
@@ -161,7 +191,7 @@ function Results({
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
   const { chosen, setFilters } = useFilters();
-  const { filters, starting, untouched, keeps } = useMemo(() => filtering(chosen, now), [chosen, now]);
+  const { filters, starting, untouched, section } = useMemo(() => filtering(chosen, now), [chosen, now]);
   // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
   // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.
   const [mapRegion, setMapRegion] = useState(() => regionAround(asked.point, asked.radiusKm));
@@ -171,11 +201,21 @@ function Results({
   // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
   const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
   if (state.status === "ready" && state.data.meetings !== lastFound) setLastFound(state.data.meetings);
-  // What the filters keep, in order: worked out again only when one of these changes, not on every render. The map
-  // shows the same meetings (their order means nothing there).
-  const listed = useMemo(
-    () => listNearby(lastFound, origin.point, order, now, keeps),
-    [lastFound, origin.point, order, now, keeps],
+  // What the filters keep, in order, and under the starting Day and Time tomorrow's after today's: worked out again only
+  // when one of these changes, not on every render. The map shows the same meetings, both days' (their order means
+  // nothing there), so late at night it isn't empty either; each marker says its day.
+  const { listed, tomorrow } = useMemo(
+    () => listNearby(lastFound, origin.point, order, now, section),
+    [lastFound, origin.point, order, now, section],
+  );
+  const onMap = useMemo(() => [...listed, ...tomorrow], [listed, tomorrow]);
+  const rows = useMemo<Row[]>(
+    () => [
+      ...listed.map((meeting) => ({ kind: "meeting" as const, meeting })),
+      ...(tomorrow.length > 0 ? [{ kind: "tomorrow" as const }] : []),
+      ...tomorrow.map((meeting) => ({ kind: "meeting" as const, meeting })),
+    ],
+    [listed, tomorrow],
   );
   const backButton = backTo !== null && (
     <Button
@@ -274,7 +314,14 @@ function Results({
     </View>
   );
   // With the starting filters untouched the person chose nothing, so an empty list means today's meetings here are over.
-  const nothingLeft = untouched ? "No more meetings nearby today." : "No meetings match your filters.";
+  // Under the starting Day and Time it says which days are empty: tonight's (or today's, before the evening), and
+  // tomorrow's when that's empty too.
+  const days = `${tonight(now) ? "tonight" : "today"}${tomorrow.length === 0 ? " or tomorrow" : ""}`;
+  const nothingLeft = !starting
+    ? "No meetings match your filters."
+    : untouched
+      ? `No more meetings nearby ${days}.`
+      : `No meetings match your filters ${days}.`;
   // What's on, or that nothing is, with Clear beside it whenever anything is chosen: the way out is always in view.
   const summary = (
     <View style={row}>
@@ -333,7 +380,7 @@ function Results({
               </View>
             )}
             {/* Open, the panel's Clear is the one. */}
-            {state.status === "ready" && state.data.meetings.length > 0 && listed.length === 0 && (
+            {state.status === "ready" && state.data.meetings.length > 0 && onMap.length === 0 && (
               <View style={[card, row]}>
                 <AppText style={{ flexShrink: 1 }}>{nothingLeft}</AppText>
                 {!filtersOpen && clear}
@@ -347,7 +394,7 @@ function Results({
           </View>
           <ResultsMap
             initialRegion={mapRegion}
-            meetings={state.status === "failed" ? [] : listed}
+            meetings={state.status === "failed" ? [] : onMap}
             onMove={(region) => {
               setMapRegion(region);
               onMapMove(region);
@@ -385,8 +432,8 @@ function Results({
   }
   return (
     <FlatList
-      data={listed}
-      keyExtractor={(meeting) => meeting.id}
+      data={rows}
+      keyExtractor={(item) => (item.kind === "tomorrow" ? "tomorrow" : item.meeting.id)}
       style={{ backgroundColor: colors.bg }}
       contentContainerStyle={{ padding: 20, gap: 12 }}
       ListHeaderComponent={
@@ -395,13 +442,24 @@ function Results({
           {panel}
           {savedNote}
           {summary}
-          {/* Spec §8: as with no meetings nearby at all, the online ones instead of an empty screen. */}
-          {listed.length === 0 && untouched && onlineInstead}
+          {/* Nothing tonight or tomorrow, and the person chose nothing: a way to the Online tab rather than an empty
+              screen, and rather than a long list of online meetings under it (owner decision, 2026-09-30). */}
+          {onMap.length === 0 && untouched && <OnlineNowLink />}
         </View>
       }
-      renderItem={({ item }) => (
-        <MeetingCard meeting={item} when={shortWhen(item)} distance={milesLabel(item.exactKm)} />
-      )}
+      renderItem={({ item }) =>
+        item.kind === "tomorrow" ? (
+          <AppText variant="heading" accessibilityRole="header" style={{ marginTop: 12 }}>
+            Tomorrow
+          </AppText>
+        ) : (
+          <MeetingCard
+            meeting={item.meeting}
+            when={shortWhen(item.meeting)}
+            distance={milesLabel(item.meeting.exactKm)}
+          />
+        )
+      }
     />
   );
 }

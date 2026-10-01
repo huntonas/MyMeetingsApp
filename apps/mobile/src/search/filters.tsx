@@ -81,24 +81,37 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   return <Filters.Provider value={value}>{children}</Filters.Provider>;
 }
 
-// The filters at `now`, given the groups the person has changed, and whether a meeting is listed. Each group they
-// haven't changed reads as its starting value for this moment, so it follows the clock (a new day, a later part of the
-// day). While neither Day nor Time has been changed, what's listed is today, from now on, by the clock rather than by
-// the pills: every meeting whose upcomingStart (one that began under an hour ago still counts) comes before 5 AM, when
+// From the evening on, until Night ends at 5 AM, what's left of today is tonight: "No more meetings nearby tonight."
+export function tonight(now: Date): boolean {
+  return inTime(phoneTime(now), { from: TIMES_OF_DAY.evening.from, to: TIMES_OF_DAY.night.to });
+}
+
+// Where a meeting goes in the Nearby list: the list itself, the Tomorrow section after it, or nowhere.
+export type Section = "listed" | "tomorrow" | null;
+
+// The filters at `now`, given the groups the person has changed, and where each meeting goes. Each group they haven't
+// changed reads as its starting value for this moment, so it follows the clock (a new day, a later part of the day).
+// While neither Day nor Time has been changed, what's listed is today, from now on, by the clock rather than by the
+// pills: every meeting whose upcomingStart (one that began under an hour ago still counts) comes before 5 AM, when
 // Night ends, on the day after the phone's date, and that matches the chosen types and tags (owner decisions D1 and
 // D2). So at 11 PM Monday, Tuesday's 12:00 AM meeting is listed; at 3 AM Tuesday, all of Tuesday is; and at 10 PM
-// this morning's 12:30 AM meeting isn't.
+// this morning's 12:30 AM meeting isn't. Then comes tomorrow, the next such day, to 5 AM the day after (owner
+// decision, 2026-09-30), so late at night the list goes on to the morning. Once the person changes Day or Time, their
+// filters alone decide, and there's no tomorrow.
 export function filtering(chosen: Chosen, now: Date) {
   const filters = { ...startingFilters(now), ...chosen };
   const starting = chosen.days === undefined && chosen.times === undefined;
-  const dayEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, now).getTime();
-  const keeps = (meeting: MeetingSummary, upcoming: Date) =>
-    starting
-      ? matchesFilters(meeting, { ...filters, days: [], times: [] }) && upcoming.getTime() < dayEnds
-      : matchesFilters(meeting, filters);
+  const todayEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, now);
+  const tomorrowEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, todayEnds).getTime();
+  const section = (meeting: MeetingSummary, upcoming: Date): Section => {
+    if (!starting) return matchesFilters(meeting, filters) ? "listed" : null;
+    if (!matchesFilters(meeting, { ...filters, days: [], times: [] })) return null;
+    if (upcoming.getTime() < todayEnds.getTime()) return "listed";
+    return upcoming.getTime() < tomorrowEnds ? "tomorrow" : null;
+  };
   // Nothing chosen at all: the starting filters as they are.
   const untouched = starting && filters.types.length === 0 && filters.tags.length === 0;
-  return { filters, starting, untouched, keeps };
+  return { filters, starting, untouched, section };
 }
 
 // The person's choices so far, for filtering() with the screen's own clock. setFilters changes only the groups it's

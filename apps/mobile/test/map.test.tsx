@@ -80,6 +80,16 @@ const ridge = nearbyMeeting({
   longitude: -84.11,
 });
 
+const tuesday = nearbyMeeting({
+  id: "77777777-7777-4777-8777-777777777777",
+  name: "Tuesday Group",
+  day: 2,
+  time: "07:00",
+  latitude: 35.76,
+  longitude: -83.96,
+});
+const wednesday = { ...tuesday, id: "88888888-8888-4888-8888-888888888888", name: "Wednesday Group", day: 3 };
+
 // 35.8012, -83.9021 rounds to 35.8, -83.9; a 0.2 × 0.3 degree view there is 18 km from its center to a corner.
 const PAN: MapRegion = { latitude: 35.8012, longitude: -83.9021, latitudeDelta: 0.2, longitudeDelta: 0.3 };
 const PAN_BODY = { lat: 35.8, lng: -83.9, radiusKm: 18 };
@@ -349,11 +359,28 @@ describe("the results map", () => {
     await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
     await fireEvent.press(screen.getByRole("button", { name: "Search" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Map" }));
-    expect(await screen.findByText("No more meetings nearby today.")).toBeOnTheScreen();
-    expect(screen.queryByText("No meetings match your filters.")).toBeNull();
+    expect(await screen.findByText("No more meetings nearby tonight or tomorrow.")).toBeOnTheScreen();
+    expect(screen.queryByText(/match your filters/)).toBeNull();
+    // The list's link to the Online tab isn't laid over the map.
+    expect(screen.queryByRole("button", { name: /^Online now/ })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
     expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
-    expect(screen.queryByText("No more meetings nearby today.")).toBeNull();
+    expect(screen.queryByText(/^No more meetings/)).toBeNull();
+  });
+
+  // As the list does: tonight's, then tomorrow's, so late at night the map isn't empty.
+  it("shows tomorrow's meetings with today's, saying nothing over the map", async () => {
+    // Monday 10 PM: both of Monday's groups began hours ago.
+    setNow("2026-10-06T03:00:00Z");
+    api.reply(SEARCH, { meetings: [far, near, tuesday, wednesday] });
+    await launchNearby();
+    await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
+    await fireEvent.press(screen.getByRole("button", { name: "Search" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Map" }));
+    expect(await screen.findByRole("button", { name: "Tuesday Group, Tue 7:00 AM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Wednesday Group, Wed 7:00 AM" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    expect(screen.queryByText(/^No /)).toBeNull();
   });
 
   it("keeps the map on screen while a pan's search loads, and a slower earlier search never replaces a newer one", async () => {

@@ -5,6 +5,7 @@ import { searchMeetings } from "@/api/reads";
 import type { CachedRead } from "@/cache/cached-read";
 import { distanceKm, type LatLng, roundForSearch } from "@/location/geo";
 import { upcomingStart } from "@/meetings/schedule";
+import type { Section } from "@/search/filters";
 
 export interface SearchOrigin {
   kind: "me" | "place" | "map";
@@ -79,32 +80,35 @@ export function describedOrigin(result: SearchResult, asked: SearchOrigin) {
 // Soonest (the default) or nearest first: the person's choice, held in memory only.
 export type NearbyOrder = "soonest" | "nearest";
 
-// The Nearby list: the meetings `keeps` keeps (useFilters' rule, given when each comes up), in order. Spec §8: the
-// server sorts by distance from the rounded point, which says nothing about time. The phone sorts by the exact
-// distance from the real point, or by the next start (owner decision, 2026-09-30), each breaking the other's ties, so
-// meetings at one place read in time order. Each meeting's upcomingStart is worked out once, for both.
+// The Nearby list: each meeting in the section `section` gives it (filtering's rule, given when it comes up), each
+// section in order. Spec §8: the server sorts by distance from the rounded point, which says nothing about time. The
+// phone sorts by the exact distance from the real point, or by the next start (owner decision, 2026-09-30), each
+// breaking the other's ties, so meetings at one place read in time order. Each meeting's upcomingStart is worked out
+// once, for both.
 export function listNearby(
   meetings: MeetingSearchResponse["meetings"],
   from: LatLng,
   order: NearbyOrder,
   now: Date,
-  keeps: (meeting: MeetingSummary, upcoming: Date) => boolean,
-): NearbyMeeting[] {
+  section: (meeting: MeetingSummary, upcoming: Date) => Section,
+): Record<Exclude<Section, null>, NearbyMeeting[]> {
   const measured = meetings.flatMap((meeting) => {
     const upcoming = upcomingStart(meeting, now);
-    if (!keeps(meeting, upcoming)) return [];
+    const goes = section(meeting, upcoming);
+    if (goes === null) return [];
     const exactKm =
       meeting.latitude === null || meeting.longitude === null
         ? meeting.distanceKm
         : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude });
-    return [{ meeting: { ...meeting, exactKm }, startsAt: upcoming.getTime() }];
+    return [{ meeting: { ...meeting, exactKm }, startsAt: upcoming.getTime(), goes }];
   });
   type Measured = (typeof measured)[number];
   const byDistance = (a: Measured, b: Measured) => a.meeting.exactKm - b.meeting.exactKm;
   const byStart = (a: Measured, b: Measured) => a.startsAt - b.startsAt;
-  return measured
-    .sort((a, b) =>
-      order === "soonest" ? byStart(a, b) || byDistance(a, b) : byDistance(a, b) || byStart(a, b),
-    )
-    .map(({ meeting }) => meeting);
+  const sorted = measured.sort((a, b) =>
+    order === "soonest" ? byStart(a, b) || byDistance(a, b) : byDistance(a, b) || byStart(a, b),
+  );
+  const inSection = (goes: Exclude<Section, null>) =>
+    sorted.filter((item) => item.goes === goes).map(({ meeting }) => meeting);
+  return { listed: inSection("listed"), tomorrow: inSection("tomorrow") };
 }

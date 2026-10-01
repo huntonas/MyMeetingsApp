@@ -23,6 +23,9 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
   latest.current = read;
   const key = read?.key ?? null;
   const shownKey = useRef<string | null>(null);
+  // Moves on with each show(): a read that started before a write's answer was shown is older than what's on screen,
+  // so it's dropped when it lands.
+  const shown = useRef(0);
 
   useEffect(() => {
     const current = latest.current;
@@ -35,12 +38,13 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
     let live = true;
     if (shownKey.current !== current.key) setState({ status: "loading" });
     shownKey.current = current.key;
+    const startedAt = shown.current;
     cachedRead(current).then(
       (result) => {
-        if (live) setState({ status: "ready", ...result });
+        if (live && startedAt === shown.current) setState({ status: "ready", ...result });
       },
       (error: unknown) => {
-        if (!live) return;
+        if (!live || startedAt !== shown.current) return;
         const gone = error instanceof ApiError && error.code === "meeting_not_found";
         setState({ status: "failed", message: failureMessage(error, NO_COPY), gone });
       },
@@ -56,6 +60,7 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
   // Shows `update(data)` in place of what's on screen, keeping how old it is (savedAt, reason): a write's answer
   // changes only what it answered, such as a meeting's tag counts.
   const show = useCallback((update: (data: z.output<S>) => z.output<S>) => {
+    shown.current += 1;
     setState((current) =>
       current.status === "ready" ? { ...current, data: update(current.data) } : current,
     );

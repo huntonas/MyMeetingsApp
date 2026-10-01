@@ -1,7 +1,8 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo } from "react-native";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { AccessibilityInfo, AppState, type AppStateStatus } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
+import { appDatabase } from "@/db/database";
 import { meetingMoved } from "@/meetings/merged";
 import { myTagsOn, recordSubmission } from "@/tagging/my-tags";
 import { saveNewCounts } from "@/tagging/new-counts";
@@ -37,6 +38,28 @@ afterEach(async () => {
 });
 
 const tagWrites = () => api.requests.filter((r) => r.path === "/api/v1/tags");
+// What VoiceOver was moved to: the host component behind the app's ref, matched by its props.
+const focusedOn = (props: Record<string, string>): unknown =>
+  expect.objectContaining({ props: expect.objectContaining(props) as unknown });
+const meetingReads = () => api.requests.filter((r) => r.path === PATH);
+
+// AppState is what the app hands foreground changes off to; the spy lets a test play them.
+function spyOnAppState() {
+  const listeners = new Set<(state: AppStateStatus) => void>();
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_type, listener) => {
+    listeners.add(listener);
+    return {
+      remove: () => {
+        listeners.delete(listener);
+      },
+    };
+  });
+  return async (state: AppStateStatus) => {
+    await act(() => {
+      for (const listener of listeners) listener(state);
+    });
+  };
+}
 
 async function openMeeting(at = STARTED) {
   setNow(at);
@@ -101,15 +124,17 @@ describe("Tag this meeting", () => {
 
   it("shows the server's new counts at once, and keeps them in the saved copy without making it look newer", async () => {
     api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
+    // A copy saved half an hour ago, still inside its reuse window: the page shows it without asking the server.
+    const savedAt = new Date("2026-10-05T16:30:00Z");
+    await writeCache(`meeting:${ID}`, { meeting: meeting() }, savedAt);
     await openMeeting();
-    const before = await readCache(`meeting:${ID}`);
     await tag("Welcoming", "Coffee");
     expect(await screen.findByLabelText("Welcoming 15 people")).toBeOnTheScreen();
     expect(screen.getByLabelText("Coffee 1 person")).toBeOnTheScreen();
     await waitFor(async () => {
       expect((await readCache(`meeting:${ID}`))?.body).toEqual({ meeting: meeting({ tags: COUNTS }) });
     });
-    expect((await readCache(`meeting:${ID}`))?.savedAt).toEqual(before?.savedAt);
+    expect((await readCache(`meeting:${ID}`))?.savedAt).toEqual(savedAt);
   });
 
   it("keeps a record on the phone, shows it, and offers no second new tagging that week", async () => {
@@ -171,6 +196,55 @@ describe("Tag this meeting", () => {
     expect(await screen.findByText("Thanks. Your tags are added.")).toBeOnTheScreen();
     expect(screen.getByLabelText("Welcoming 15 people")).toBeOnTheScreen();
     expect(await myTagsOn(ID)).toBeNull();
+  });
+
+  it("can't be sent twice while the server is still answering", async () => {
+    const answer = api.answerLater("/api/v1/tags");
+    await openMeeting();
+    await tag("Quiet");
+    expect(screen.queryByRole("button", { name: "Send my tags" })).toBeNull();
+    expect(screen.getByLabelText("Sending your tags")).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(tagWrites()).toHaveLength(1);
+    });
+    answer({ meetingId: ID, tags: COUNTS });
+    expect(await screen.findByText("Thanks. Your tags are added.")).toBeOnTheScreen();
+  });
+
+  it("keeps the counts a write answered with when a read that started before it lands afterwards", async () => {
+    const appState = spyOnAppState();
+    api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
+    await openMeeting();
+    // Past the copy's reuse window (and still in the tagging window), so coming back reads the meeting again.
+    setNow("2026-10-05T18:30:00Z");
+    const answerRead = api.answerLater(PATH);
+    await appState("background");
+    await appState("active");
+    await waitFor(() => {
+      expect(meetingReads()).toHaveLength(2);
+    });
+    await tag("Welcoming", "Coffee");
+    expect(await screen.findByLabelText("Welcoming 15 people")).toBeOnTheScreen();
+    answerRead({ meeting: meeting() });
+    await waitFor(async () => {
+      expect((await readCache(`meeting:${ID}`))?.savedAt).toEqual(new Date("2026-10-05T18:30:00Z"));
+    });
+    expect(screen.getByLabelText("Welcoming 15 people")).toBeOnTheScreen();
+    expect(screen.queryByLabelText("Welcoming 14 people")).toBeNull();
+  });
+
+  it("moves VoiceOver to the picker when it opens, and back to the page when it closes", async () => {
+    const focus = jest.spyOn(AccessibilityInfo, "sendAccessibilityEvent").mockImplementation(() => undefined);
+    api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    expect(focus).toHaveBeenLastCalledWith(focusedOn({ children: "Tag this meeting" }), "focus");
+    await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
+    expect(focus).toHaveBeenLastCalledWith(focusedOn({ accessibilityLabel: "Tag this meeting" }), "focus");
+    expect(focus).toHaveBeenCalledTimes(2);
+    await tag("Welcoming", "Coffee");
+    expect(await screen.findByText("Your tags: Welcoming · Coffee")).toBeOnTheScreen();
+    expect(focus).toHaveBeenLastCalledWith(focusedOn({ children: "Your tags: Welcoming · Coffee" }), "focus");
   });
 
   it("lets at most 6 tags be chosen, and says so", async () => {
@@ -245,21 +319,28 @@ describe("Tag this meeting", () => {
   });
 
   it.each([
-    ["rate_limited", "You've reached today's limit. Please try again tomorrow."],
-    ["device_blocked", "Tagging isn't available from this device."],
-    ["window_closed", "New tags can be added from the start of the meeting until 36 hours after."],
-    ["upgrade_required", "This version of the app is too old. Please update it to keep adding tags."],
-    ["meeting_not_found", "We couldn't find that meeting. It may have been removed from the meeting list."],
-    ["tags_disabled", "Tagging isn't available for this right now."],
-  ])("shows the server's words for %s, keeps the choices and records nothing", async (code, message) => {
-    api.reply("/api/v1/tags", { error: { code, message } }, 409, "POST");
-    await openMeeting();
-    await tag("Quiet");
-    expect(await screen.findByRole("alert")).toHaveTextContent(message);
-    expect(announce).toHaveBeenCalledWith(message);
-    expect(screen.getByRole("checkbox", { name: "Quiet" })).toBeChecked();
-    expect(await myTagsOn(ID)).toBeNull();
-  });
+    ["rate_limited", "You've reached today's limit. Please try again tomorrow.", 429],
+    ["device_blocked", "Tagging isn't available from this device.", 403],
+    ["window_closed", "New tags can be added from the start of the meeting until 36 hours after.", 403],
+    ["upgrade_required", "This version of the app is too old. Please update it to keep adding tags.", 426],
+    [
+      "meeting_not_found",
+      "We couldn't find that meeting. It may have been removed from the meeting list.",
+      404,
+    ],
+    ["tags_disabled", "Tagging isn't available for this right now.", 403],
+  ])(
+    "shows the server's words for %s, keeps the choices and records nothing",
+    async (code, message, status) => {
+      api.reply("/api/v1/tags", { error: { code, message } }, status, "POST");
+      await openMeeting();
+      await tag("Quiet");
+      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+      expect(announce).toHaveBeenCalledWith(message);
+      expect(screen.getByRole("checkbox", { name: "Quiet" })).toBeChecked();
+      expect(await myTagsOn(ID)).toBeNull();
+    },
+  );
 
   it("says it can't tell whether the tags were saved when the server can't be reached", async () => {
     // No reply set for the POST: the test server answers 599 with no envelope.
@@ -326,6 +407,24 @@ describe("saveNewCounts", () => {
       body: { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) },
       savedAt,
     });
+  });
+});
+
+describe("saveNewCounts, racing another save", () => {
+  it("leaves a newer copy alone when one lands while it's saving", async () => {
+    const newer = { meeting: meeting({ name: "Nooners (renamed)" }) };
+    const newerAt = new Date("2026-10-05T17:00:00Z");
+    await writeCache(`meeting:${ID}`, { meeting: meeting() }, new Date("2026-10-05T16:00:00Z"));
+    const db = await appDatabase();
+    const real = db.getFirstAsync.bind(db);
+    // The newer copy lands just after saveNewCounts has read the old one.
+    jest.spyOn(db, "getFirstAsync").mockImplementationOnce(async (source, params) => {
+      const row = await real(source, params);
+      await writeCache(`meeting:${ID}`, newer, newerAt);
+      return row;
+    });
+    await saveNewCounts({ meetingId: ID, tags: COUNTS });
+    expect(await readCache(`meeting:${ID}`)).toEqual({ body: newer, savedAt: newerAt });
   });
 });
 

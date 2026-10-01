@@ -1,12 +1,13 @@
 import { ERROR_MESSAGES, MAX_TAGS_PER_SUBMISSION, TAG_CATEGORIES } from "@mymeetingapp/shared";
-import { useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, ActivityIndicator, type Text, View } from "react-native";
 
 import { ApiError } from "@/api/client";
 import { failureMessage } from "@/api/failure-message";
 import { CATEGORY_TITLES, useRefreshVocabulary, useVocabularyTags } from "@/meetings/vocabulary";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
+import { moveFocus } from "@/ui/move-focus";
 import { Pill } from "@/ui/pill";
 
 // A write that timed out may still have reached the server, so this can't say the tags weren't saved.
@@ -28,6 +29,11 @@ export function TagPanel({ initial, onSubmit, onCancel }: TagPanelProps) {
   const [chosen, setChosen] = useState<string[]>([...initial]);
   const [message, setMessage] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const heading = useRef<Text>(null);
+  // Opened in place, so VoiceOver and TalkBack start reading at the picker rather than the button it replaced.
+  useEffect(() => {
+    moveFocus(heading);
+  }, []);
   // A tag retired since it was chosen (the list was read again) is dropped rather than sent.
   const live = chosen.filter((slug) => vocabulary.has(slug));
   const say = (text: string) => {
@@ -59,7 +65,7 @@ export function TagPanel({ initial, onSubmit, onCancel }: TagPanelProps) {
   const tags = [...vocabulary.values()];
   return (
     <View style={{ gap: 12 }}>
-      <AppText variant="heading" accessibilityRole="header">
+      <AppText ref={heading} variant="heading" accessibilityRole="header">
         Tag this meeting
       </AppText>
       {tags.length === 0 ? (

@@ -1,7 +1,7 @@
 import { ERROR_MESSAGES, type MeetingSummary, type TagWriteResponse } from "@mymeetingapp/shared";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
-import { AccessibilityInfo, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, type Text, View } from "react-native";
 
 import { submitTags } from "@/api/writes";
 import { useFeatures, useUpgradeRequired } from "@/config/upgrade";
@@ -12,6 +12,7 @@ import { civilDateOf, dateLabel } from "@/time/civil-date";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
+import { moveFocus } from "@/ui/move-focus";
 import { TagPanel } from "@/ui/tag-panel";
 
 // "Welcoming · Coffee": a tag the phone no longer has a name for is left out rather than shown as a slug.
@@ -54,6 +55,15 @@ export function YourTags({ meeting, onAnswered }: YourTagsProps) {
   const [record, setRecord] = useState<MyTags | null>();
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const recordLine = useRef<Text>(null);
+  const tagButton = useRef<View>(null);
+  // Set when the picker closes, so focus goes back to the page (the record line, or the button) once it's drawn.
+  const closed = useRef(false);
+  useEffect(() => {
+    if (open || !closed.current) return;
+    closed.current = false;
+    moveFocus(recordLine.current === null ? tagButton : recordLine);
+  }, [open]);
   // Read again on focus: "Delete all my tags" on the Me tab may have cleared it.
   useFocusEffect(
     useCallback(() => {
@@ -72,6 +82,10 @@ export function YourTags({ meeting, onAnswered }: YourTagsProps) {
     }, [meeting.id]),
   );
   if (record === undefined) return null;
+  const close = () => {
+    closed.current = true;
+    setOpen(false);
+  };
   const tell = (text: string) => {
     setNotice(text);
     AccessibilityInfo.announceForAccessibility(text);
@@ -82,7 +96,7 @@ export function YourTags({ meeting, onAnswered }: YourTagsProps) {
     // The server has the tags either way; a phone that can't save its record finds out later (already_tagged).
     await recordSubmission({ id: response.meetingId, name: meeting.name }, tags, at).catch(() => undefined);
     setRecord({ meetingId: response.meetingId, name: meeting.name, tags, confirmedAt: at, updatedAt: at });
-    setOpen(false);
+    close();
     onAnswered(response);
     tell("Thanks. Your tags are added.");
   };
@@ -91,21 +105,16 @@ export function YourTags({ meeting, onAnswered }: YourTagsProps) {
     <View style={{ gap: 8 }}>
       {record !== null && (
         <>
-          <AppText variant="label">{`Your tags: ${tagNames(record.tags, labels)}`}</AppText>
+          <AppText ref={recordLine} variant="label">{`Your tags: ${tagNames(record.tags, labels)}`}</AppText>
           <AppText tone="muted">{`Added ${dateLabel(civilDateOf(record.confirmedAt))}`}</AppText>
         </>
       )}
       {notice !== null && <AppText accessibilityRole="alert">{notice}</AppText>}
       {open ? (
-        <TagPanel
-          initial={record?.tags ?? []}
-          onSubmit={submit}
-          onCancel={() => {
-            setOpen(false);
-          }}
-        />
+        <TagPanel initial={record?.tags ?? []} onSubmit={submit} onCancel={close} />
       ) : why === null ? (
         <Button
+          ref={tagButton}
           label="Tag this meeting"
           hint="For a meeting you went to: choose words that describe it"
           onPress={() => {

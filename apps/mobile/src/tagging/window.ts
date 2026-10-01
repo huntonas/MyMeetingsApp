@@ -12,6 +12,9 @@ export function taggingOpen(meeting: Scheduled, now: Date): boolean {
   return now.getTime() >= start && now.getTime() < start + TAGGING_WINDOW_MS;
 }
 
+// A record stamped later than now was made before the phone's clock moved back; counting it would hide tagging for
+// longer than the server's week.
 export function confirmedThisWeek(confirmedAt: Date, now: Date): boolean {
-  return now.getTime() - confirmedAt.getTime() < 7 * DAY_MS;
+  const age = now.getTime() - confirmedAt.getTime();
+  return age >= 0 && age < 7 * DAY_MS;
 }

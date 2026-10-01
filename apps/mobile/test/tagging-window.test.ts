@@ -43,4 +43,10 @@ describe("confirmedThisWeek (spec §5's 7-day rule, as the server's)", () => {
   ])("%s", (_when, at, within) => {
     expect(confirmedThisWeek(new Date("2026-10-05T17:00:00Z"), new Date(at))).toBe(within);
   });
+
+  // A record stamped later than now was made before the phone's clock moved back; it mustn't hide tagging for a week
+  // and more.
+  it("is false for a record stamped in the future", () => {
+    expect(confirmedThisWeek(new Date("2026-10-05T17:00:00Z"), new Date("2026-10-05T16:00:00Z"))).toBe(false);
+  });
 });

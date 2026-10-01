@@ -23,8 +23,10 @@ describe("EAS build profiles", () => {
     expect(build.production?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp.vercel.app");
   });
 
-  // Dev builds write (tags, "Delete all my tags"), so they never point at production. development-simulator extends it.
-  it("points dev builds at staging", () => {
+  // Documentation, not protection: a dev build's JavaScript comes from Metro, which inlines the URL from the local
+  // apps/mobile/.env, so this env reaches no bundle. serverUrl() is what keeps dev builds off production
+  // (server-url.test.ts). development-simulator extends this profile.
+  it("names staging for dev builds", () => {
     expect(easJson().build.development?.env?.EXPO_PUBLIC_SERVER_URL).toBe(
       "https://mymeetingapp-staging.vercel.app",
     );

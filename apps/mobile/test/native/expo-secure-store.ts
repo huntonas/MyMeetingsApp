@@ -1,5 +1,6 @@
 // The iOS Keychain, as expo-secure-store gives it to the app: what was saved, with the options it was saved with.
-export const WHEN_UNLOCKED_THIS_DEVICE_ONLY = 5;
+// expo-secure-store's own value on iOS (kSecAttrAccessibleWhenUnlockedThisDeviceOnly).
+export const WHEN_UNLOCKED_THIS_DEVICE_ONLY = 6;
 
 const items = new Map<string, { value: string; options: unknown }>();
 let writes = 0;

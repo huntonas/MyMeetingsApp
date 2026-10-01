@@ -1,7 +1,7 @@
 import { ERROR_MESSAGES } from "@mymeetingapp/shared";
 import { Platform } from "react-native";
 
-import { fetchVocabulary } from "@/api/reads";
+import { fetchVocabulary, searchMeetings } from "@/api/reads";
 import { deleteMine } from "@/api/writes";
 
 import { startApi, type TestApi } from "./api-server";
@@ -131,7 +131,7 @@ describe("writes", () => {
     api.reply(
       DELETE_MINE,
       { error: { code: "attestation_failed", message: ERROR_MESSAGES.attestation_failed } },
-      403,
+      401,
       "POST",
     );
     await expect(deleteMine()).rejects.toMatchObject({
@@ -140,13 +140,18 @@ describe("writes", () => {
     });
   });
 
-  it("leave later reads without any device header", async () => {
+  it("leave later reads, the search included, without any device header", async () => {
     api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v1/meetings/search", { meetings: [] }, 200, "POST");
     await deleteMine();
     await fetchVocabulary();
-    const read = api.requests[1];
-    for (const header of ["x-device-id", "x-platform", "x-app-version", "x-attestation"]) {
-      expect(read?.headers[header]).toBeUndefined();
+    await searchMeetings({ lat: 40.71, lng: -74.01, radiusKm: 10 });
+    const reads = api.requests.slice(1);
+    expect(reads.map((r) => r.path)).toEqual(["/api/v1/vocabulary", "/api/v1/meetings/search"]);
+    for (const read of reads) {
+      for (const header of ["x-device-id", "x-platform", "x-app-version", "x-attestation"]) {
+        expect(read.headers[header]).toBeUndefined();
+      }
     }
   });
 });

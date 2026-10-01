@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
-import { GENERIC_FAILURE } from "@/cache/use-cached-read";
+import { GENERIC_FAILURE } from "@/api/failure-message";
 import { isFavorite, setFavorite } from "@/saved/favorites";
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";

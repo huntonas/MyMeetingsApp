@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { savedCopy } from "@/cache/cached-read";
-import { GENERIC_FAILURE, useCachedRead } from "@/cache/use-cached-read";
+import { GENERIC_FAILURE } from "@/api/failure-message";
+import { useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { detailRead } from "@/meetings/detail-read";
 import { meetingMoved } from "@/meetings/merged";

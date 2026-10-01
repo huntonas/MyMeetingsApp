@@ -18,7 +18,7 @@ const DEVICE_ID_IMPORTS = [
   { name: "expo-crypto", message: "Use writeHeaders() from @/device/write-headers." },
   {
     name: "expo-application",
-    importNames: ["getAndroidId"],
+    importNames: ["getAndroidId", "getIosIdForVendorAsync"],
     message: "Use writeHeaders() from @/device/write-headers.",
   },
 ];

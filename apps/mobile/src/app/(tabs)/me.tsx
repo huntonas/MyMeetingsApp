@@ -16,7 +16,8 @@ const PAGES = [
   { label: "Terms of use", path: "/terms" },
 ] as const;
 
-// Spec §8's settings: sobriety date, delete all my tags, help resources, the website's pages and the app's version. The app never shows its device ID (owner decision, 2026-09-29).
+// Spec §8's settings: sobriety date, delete all my tags, help resources, the website's pages and the app's version.
+// The app never shows its device ID (owner decision, 2026-09-29).
 export default function MeScreen() {
   const version = installedVersion();
   return (

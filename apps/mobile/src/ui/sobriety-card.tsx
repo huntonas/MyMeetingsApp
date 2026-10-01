@@ -3,7 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { AccessibilityInfo, Platform, View } from "react-native";
 
-import { GENERIC_FAILURE } from "@/cache/use-cached-read";
+import { GENERIC_FAILURE } from "@/api/failure-message";
 import { breakdownLabel, milestoneToday, nextMilestone, plural, soberTime } from "@/sobriety/counter";
 import { clearSobrietyDate, readSobrietyDate, saveSobrietyDate } from "@/sobriety/sobriety-date";
 import { type CivilDate, civilDateOf, dateLabel } from "@/time/civil-date";

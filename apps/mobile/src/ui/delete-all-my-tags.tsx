@@ -2,7 +2,7 @@ import { CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 import { useState } from "react";
 import { AccessibilityInfo, ActivityIndicator, View } from "react-native";
 
-import { writeFailure } from "@/api/write-failure";
+import { failureMessage } from "@/api/failure-message";
 import { deleteMine } from "@/api/writes";
 import { AppText } from "@/ui/app-text";
 import { ConfirmButton } from "@/ui/confirm-button";
@@ -45,7 +45,7 @@ export function DeleteAllMyTags() {
                 finish(deleted(deletedTags));
               },
               (error: unknown) => {
-                finish(writeFailure(error, OFFLINE));
+                finish(failureMessage(error, OFFLINE));
               },
             );
           }}

@@ -233,7 +233,9 @@ describe("the privacy policy page", () => {
 
   it("says where the app keeps its ID for the phone, and that only writes send it", () => {
     expect(text).toContain("keeps it in the iPhone's Keychain, on that phone only");
-    expect(text).toContain("Android's own ID for the app");
+    expect(text).toContain(
+      "Android's own ID for the app (on Android 7, the phone's own ID, shared by every app), which a factory reset changes",
+    );
     expect(text).toContain("never when you search or read meetings");
     expect(text).toContain("“Delete all my tags” on the app's Me tab");
   });

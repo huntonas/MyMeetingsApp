@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { PoolClient } from "pg";
 import { z } from "zod";
 
-import { db, type Executor } from "@/db/client";
+import { db, pool, type Executor } from "@/db/client";
 
 // Add each new table here when it is created.
 const APP_TABLES = [
@@ -59,5 +59,35 @@ export async function untilWaitingOnLock(holder: number, settled: () => boolean,
     if (Date.now() > deadline)
       throw new Error(`fewer than ${String(waiters)} queries waited on a lock within 5s`);
     await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+// Holds the locks `lock` takes, in a transaction on its own connection, while `during` starts the racing work and
+// waits for it to queue. Then it commits and returns the connection, even when `during` throws, so a failing test can
+// never leave a lock or a checked-out connection behind for the next one. `during` must return before the racing
+// work is awaited (return it inside an object), or it would wait on the lock this holds.
+export async function whileHolding<T>(
+  lock: string,
+  params: unknown[],
+  during: (holder: {
+    pid: number;
+    query: (text: string, params?: unknown[]) => Promise<unknown>;
+  }) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect();
+  let committed = false;
+  try {
+    await client.query("begin");
+    await client.query(lock, params);
+    const result = await during({
+      pid: await backendPid(client),
+      query: (text, values) => client.query(text, values),
+    });
+    await client.query("commit");
+    committed = true;
+    return result;
+  } finally {
+    if (!committed) await client.query("rollback").catch(() => undefined);
+    client.release();
   }
 }

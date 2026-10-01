@@ -11,7 +11,7 @@ import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
-import { backendPid, resetDb, untilWaitingOnLock } from "./db";
+import { resetDb, untilWaitingOnLock, whileHolding } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -124,17 +124,16 @@ describe("POST /api/v1/tags/delete-mine", () => {
       .values({ text: "Candlelight", deviceHash: DEVICE_A_HASH })
       .returning({ id: suggestions.id });
     // Stands in for screenAndApply, which records the AI's decision outside the device lock.
-    const screening = await pool.connect();
-    await screening.query("begin");
-    await screening.query(
+    const { deleting } = await whileHolding(
       "insert into ai_decisions (suggestion_id, input, decision, reason, model) values ($1, 'x', 'pending', 'x', 'm')",
       [suggestion?.id],
+      async (holder) => {
+        let settled = false;
+        const deleting = deleteMine().finally(() => (settled = true));
+        await untilWaitingOnLock(holder.pid, () => settled);
+        return { deleting };
+      },
     );
-    let settled = false;
-    const deleting = deleteMine().finally(() => (settled = true));
-    await untilWaitingOnLock(await backendPid(screening), () => settled);
-    await screening.query("commit");
-    screening.release();
     expect((await deleting).status).toBe(200);
     expect(await db.select().from(suggestions)).toEqual([]);
     expect(await db.select().from(aiDecisions)).toEqual([]);
@@ -160,18 +159,19 @@ describe("POST /api/v1/tags/delete-mine", () => {
         createdAt: new Date(Date.now() - 31 * 86_400_000),
       });
       // Stalls delete-mine after it has changed the device's tag rows, before it deletes its audit rows.
-      const holder = await pool.connect();
-      await holder.query("begin");
-      await holder.query("select 1 from tag_audit where device_hash = $1 for update", [DEVICE_A_HASH]);
-      let deleteSettled = false;
-      const deleting = deleteMine().finally(() => (deleteSettled = true));
-      const holderPid = await backendPid(holder);
-      await untilWaitingOnLock(holderPid, () => deleteSettled);
-      let nightlySettled = false;
-      const nightly = runMaintenance().finally(() => (nightlySettled = true));
-      await untilWaitingOnLock(holderPid, () => nightlySettled, 2);
-      await holder.query("commit");
-      holder.release();
+      const { deleting, nightly } = await whileHolding(
+        "select 1 from tag_audit where device_hash = $1 for update",
+        [DEVICE_A_HASH],
+        async (holder) => {
+          let deleteSettled = false;
+          const deleting = deleteMine().finally(() => (deleteSettled = true));
+          await untilWaitingOnLock(holder.pid, () => deleteSettled);
+          let nightlySettled = false;
+          const nightly = runMaintenance().finally(() => (nightlySettled = true));
+          await untilWaitingOnLock(holder.pid, () => nightlySettled, 2);
+          return { deleting, nightly };
+        },
+      );
       const [res] = await Promise.all([deleting, nightly]);
       expect(res.status).toBe(200);
       expect(await db.select().from(tagSubmissions)).toEqual([]);
@@ -183,17 +183,20 @@ describe("POST /api/v1/tags/delete-mine", () => {
       await tag(newer);
       await tag(newer, deviceHeaders(DEVICE_B, "android"));
       // Stalls delete-mine at its recount, after it has deleted its row, until the merge is waiting too.
-      const holder = await pool.connect();
-      await holder.query("begin");
-      await holder.query("select 1 from tag_counts where meeting_id = $1 for update", [newer]);
-      let settled = 0;
-      const deleting = deleteMine().finally(() => (settled += 1));
-      const holderPid = await backendPid(holder);
-      await untilWaitingOnLock(holderPid, () => settled > 0);
-      const merge = db.transaction((tx) => mergeDuplicateMeetings([newer], tx)).finally(() => (settled += 1));
-      await untilWaitingOnLock(holderPid, () => settled > 0, 2);
-      await holder.query("commit");
-      holder.release();
+      const { deleting, merge } = await whileHolding(
+        "select 1 from tag_counts where meeting_id = $1 for update",
+        [newer],
+        async (holder) => {
+          let settled = 0;
+          const deleting = deleteMine().finally(() => (settled += 1));
+          await untilWaitingOnLock(holder.pid, () => settled > 0);
+          const merge = db
+            .transaction((tx) => mergeDuplicateMeetings([newer], tx))
+            .finally(() => (settled += 1));
+          await untilWaitingOnLock(holder.pid, () => settled > 0, 2);
+          return { deleting, merge };
+        },
+      );
       const [res] = await Promise.all([deleting, merge]);
       expect(res.status).toBe(200);
       expect(DeleteMineResponse.parse(await res.json())).toEqual({ deletedTags: 1 });

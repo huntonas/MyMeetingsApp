@@ -8,7 +8,7 @@ import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, nearbyMeeting, VOCABULARY } from "./fixtures";
-import { permissionRequests, setLocationPermission } from "./native/expo-location";
+import { permissionRequests, setDevicePosition, setLocationPermission } from "./native/expo-location";
 import { setPlace } from "./native/native-location";
 import { launchNearby } from "./render-app";
 
@@ -507,14 +507,19 @@ describe("going back after moving the map", () => {
     await moveTo(await screen.findByTestId("results-map"), PAN);
     expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(backTo("near you")).toHaveProp("accessibilityHint", "Searches near you again");
+    // The person has since moved, from Nashville to Murfreesboro: near them means where they are now.
+    setDevicePosition({ latitude: 35.8456, longitude: -86.3903 });
     api.reply(SEARCH, { meetings: [far] });
     await fireEvent.press(backTo("near you"));
     expect(await screen.findByText("Near you")).toBeOnTheScreen();
     expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
-    // The fake phone is in Nashville.
-    const NEAR_YOU_BODY = { lat: 36.16, lng: -86.78, radiusKm: 25 };
-    expect(searchBodies()).toEqual([NEAR_YOU_BODY, PAN_BODY, NEAR_YOU_BODY]);
+    expect(searchBodies()).toEqual([
+      { lat: 36.16, lng: -86.78, radiusKm: 25 },
+      PAN_BODY,
+      { lat: 35.85, lng: -86.39, radiusKm: 25 },
+    ]);
     expect(mapProps().showsUserLocation).toBe(true);
+    expect(permissionRequests()).toBe(0);
   });
 });
 

@@ -429,13 +429,14 @@ function Nearby() {
         onMapMove={moveMap}
         onChangePlace={() => {
           setOrigin(null);
+          setBackTo(null);
         }}
         backTo={backTo}
-        // A search like any other (so the map remounts around it, and its first region report isn't a pan), and the
-        // newest request: a slower one still out mustn't land on top of it.
+        // A search like any other, so the map remounts around it and its first region report isn't a pan. Near the
+        // person, it finds where they are now (location is allowed by then, so nothing is asked).
         onBack={(to) => {
-          begin();
-          search(to);
+          if (to.kind === "me") void searchNearMe("tap");
+          else search(to);
         }}
       />
     );

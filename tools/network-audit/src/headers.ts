@@ -1,4 +1,4 @@
-import { BRAND } from "@mymeetingapp/shared";
+import { BRAND, DEVICE_HEADERS } from "@mymeetingapp/shared";
 
 import { normalizeHost } from "./host";
 
@@ -10,7 +10,7 @@ import { normalizeHost } from "./host";
 // value outside its shape — is a finding. Documented in docs/mobile.md so a new header the app starts sending
 // has to be added here deliberately.
 
-const DEVICE_HEADERS = new Set(["x-device-id", "x-platform", "x-app-version", "x-attestation"]);
+const DEVICE_HEADER_NAMES = new Set(Object.values(DEVICE_HEADERS).map((name) => name.toLowerCase()));
 
 export interface HeaderContext {
   method: string;
@@ -74,7 +74,7 @@ const HEADER_VALIDATORS: Record<string, HeaderValidator> = {
 export function headerFinding(name: string, value: string, context: HeaderContext): string | undefined {
   const lower = name.toLowerCase();
   if (lower === "cookie") return "sends a Cookie header";
-  if (DEVICE_HEADERS.has(lower)) return `sends the device header ${name}`;
+  if (DEVICE_HEADER_NAMES.has(lower)) return `sends the device header ${name}`;
   const validator = HEADER_VALIDATORS[lower];
   if (!validator) return `sends an unexpected header ${name}`;
   return validator(value, context) ? undefined : `sends an unexpected value for the ${name} header`;

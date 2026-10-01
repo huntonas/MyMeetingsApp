@@ -1,6 +1,5 @@
-import { isOlderVersion, Platform, SemVer } from "@mymeetingapp/shared";
+import { DEVICE_HEADERS, isOlderVersion, type Platform, WriteHeaders } from "@mymeetingapp/shared";
 import { eq, lt, sql } from "drizzle-orm";
-import { z } from "zod";
 
 import { db, type Executor } from "@/db/client";
 import { devices } from "@/db/schema";
@@ -11,14 +10,6 @@ import { readAppConfig } from "@/server/app-config";
 import { verifyAttestation } from "@/server/devices/attestation";
 import { deviceHash } from "@/server/devices/ids";
 
-// Spec §6: iOS sends a Keychain UUID and Android its ANDROID_ID (16 hex digits).
-const WriteHeaders = z.object({
-  deviceId: z.string().regex(/^[A-Za-z0-9-]{16,64}$/),
-  platform: Platform,
-  appVersion: SemVer,
-  attestation: z.string().min(1).max(16_384).optional(),
-});
-
 export interface WriteDevice {
   platform: Platform;
   deviceHash: string;
@@ -26,15 +17,15 @@ export interface WriteDevice {
 
 function readDeviceHeaders(req: Request) {
   return parseInput(WriteHeaders, {
-    deviceId: req.headers.get("x-device-id") ?? undefined,
-    platform: req.headers.get("x-platform") ?? undefined,
-    appVersion: req.headers.get("x-app-version") ?? undefined,
-    attestation: req.headers.get("x-attestation") ?? undefined,
+    deviceId: req.headers.get(DEVICE_HEADERS.deviceId) ?? undefined,
+    platform: req.headers.get(DEVICE_HEADERS.platform) ?? undefined,
+    appVersion: req.headers.get(DEVICE_HEADERS.appVersion) ?? undefined,
+    attestation: req.headers.get(DEVICE_HEADERS.attestation) ?? undefined,
   });
 }
 
 // The raw id is hashed here and goes nowhere else: not into the database, the response or a log.
-function verifiedDevice(headers: z.infer<typeof WriteHeaders>): WriteDevice {
+function verifiedDevice(headers: WriteHeaders): WriteDevice {
   const device = { platform: headers.platform, deviceHash: deviceHash(headers.platform, headers.deviceId) };
   verifyAttestation({ ...device, attestation: headers.attestation });
   return device;

@@ -218,7 +218,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 - **Without location:** a fresh install with no location permission shows a search box and an "Use my location" button. Nothing is requested at launch.
 - **Searching another area** (traveling, planning ahead, or not sharing location):
   - The search box accepts a city, zip, or address, resolved with the platform geocoder (iOS `CLGeocoder`, Android `Geocoder`). Our server never receives the query text, only the rounded result point.
-  - Meetings are sorted by distance from the searched point.
+  - Distances are measured from the searched point; the list is ordered as above (Soonest by default).
   - Panning the map searches around the new map center (radius from the visible area).
   - Recent searched places are saved on the phone.
   - If no in-person meetings are found, say so plainly and show the online meetings view rather than an empty screen.

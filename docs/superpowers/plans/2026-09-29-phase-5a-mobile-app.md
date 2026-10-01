@@ -6719,7 +6719,7 @@ This task runs the app for real: an EAS dev build on the owner's iPhone, the iOS
 
 - [ ] **Step 4: Smoke test on the iPhone, then the simulator.** Delete the app first, so the run starts as a fresh install. Record each result in the "Smoke checklist" table in `docs/mobile.md` (date, build, device, pass or notes). Expected results:
   1. Launch: no location prompt. The Nearby tab shows the search box and "Use my location". The text is Atkinson Hyperlegible (compare the "g" and "l" with the website) in the website's colours. Switching the phone to dark appearance switches the app.
-  2. With location still off, type "Maryville, TN" and tap Search. The list shows meetings near Maryville sorted by distance, in miles, with tag chips ("Welcoming 14"). This is the check for Owner decision 1, the native place lookup, on a real device.
+  2. With location still off, type "Maryville, TN" and tap Search. The list shows meetings near Maryville, soonest first (with a Soonest / Nearest switch above it), with distances in miles, with tag chips ("Welcoming 14"). This is the check for Owner decision 1, the native place lookup, on a real device.
   3. Filter pills: choose Evening; only evening meetings remain. "Clear filters" restores them.
   4. Map: the map shows Apple Maps with markers. Pan to a nearby town; "Near this map area" appears and the list follows. Tap a marker's callout; the meeting page opens.
   5. Meeting page: day and time, "your time" for a meeting in another zone, Directions (Apple Maps opens with the meeting as the destination), "What people say", types, "Listed by …". Tap Save; the heart fills.

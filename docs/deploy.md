@@ -61,7 +61,7 @@ Staging (`https://mymeetingapp-staging.vercel.app`) is public, so plain `curl` w
 - `POST /api/v1/meetings/search` for a point near Maryville, TN returns meetings (158 on 2026-09-30).
 - `curl -sI` on `/` shows `x-robots-tag: noindex, nofollow`; the same check against production shows none.
 - `/metrics` returns 401 without credentials.
-- `/api/cron/sync-feeds` returns 401 (there's no `CRON_SECRET` on staging, so nothing can ever run a sync there).
+- `/api/cron/sync-feeds` and `/api/cron/maintenance` return 401 without staging's `CRON_SECRET`; only the maintenance workflow holds it, and it never calls sync.
 - The deployment's own URL (not the stable `mymeetingapp-staging.vercel.app` domain) still redirects to the Vercel login: only the stable domain carries the Deployment Protection Exception, so a per-deployment preview stays protected.
 - In the Neon console, `staging`'s parent is `seed`, and `preview`'s last restore time is unchanged by a staging build.
 

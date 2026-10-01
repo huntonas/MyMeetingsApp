@@ -138,7 +138,7 @@ function Results({
       : { label: asked.label, point: asked.point, radiusKm: asked.radiusKm, lastSearch: false };
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
-  const { filters, setFilters, keeps } = useFilters();
+  const { filters, setFilters, untouched, keeps } = useFilters();
   const shows = useCallback(
     (meeting: MeetingSearchResponse["meetings"][number]) => keeps(meeting, comesUp(meeting, now)),
     [keeps, now],
@@ -209,10 +209,19 @@ function Results({
       }}
     />
   );
+  // With the starting filters untouched the person chose nothing, so an empty list means today's meetings here are over.
   const noMatches = (
     <>
-      <AppText>No meetings match your filters.</AppText>
+      <AppText>{untouched ? "No more meetings nearby today." : "No meetings match your filters."}</AppText>
       {clearFilters}
+    </>
+  );
+  const onlineInstead = (
+    <>
+      <AppText variant="heading" accessibilityRole="header">
+        Online meetings you can join
+      </AppText>
+      <OnlineNowList />
     </>
   );
   // The map stays mounted while a pan's search loads or fails, so the person's view never jumps. Everything that comes
@@ -286,17 +295,14 @@ function Results({
       </Screen>
     );
   const sorted = sortNearby(state.data.meetings, origin.point, order, now);
-  // The list offers the online meetings instead of an empty screen.
+  // Spec §8: the list offers the online meetings instead of an empty screen.
   if (sorted.length === 0) {
     return (
       <Screen>
         {heading}
         {savedNote}
         <AppText>{noneNearby}</AppText>
-        <AppText variant="heading" accessibilityRole="header">
-          Online meetings you can join
-        </AppText>
-        <OnlineNowList />
+        {onlineInstead}
       </Screen>
     );
   }
@@ -318,6 +324,8 @@ function Results({
           {shown.length > 0 && <AppText tone="muted">{countLine(shown.length, filtered)}</AppText>}
           {shown.length > 0 && filtered && clearFilters}
           {shown.length === 0 && noMatches}
+          {/* Spec §8: as with no meetings nearby at all, the online ones instead of an empty screen. */}
+          {shown.length === 0 && untouched && onlineInstead}
         </View>
       }
       renderItem={({ item }) => (

@@ -93,7 +93,9 @@ export function filtering(chosen: Chosen, now: Date) {
     starting
       ? matchesFilters(meeting, { ...filters, days: [], times: [] }) && upcoming.getTime() < dayEnds
       : matchesFilters(meeting, filters);
-  return { filters, keeps };
+  // Nothing chosen at all: the starting filters as they are.
+  const untouched = starting && filters.types.length === 0 && filters.tags.length === 0;
+  return { filters, untouched, keeps };
 }
 
 // filtering() for the person's choices so far. setFilters changes only the groups it's given: Clear filters gives all

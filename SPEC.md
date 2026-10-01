@@ -222,6 +222,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
   - Panning the map searches around the new map center (radius from the visible area).
   - Recent searched places are saved on the phone.
   - If no in-person meetings are found, say so plainly and show the online meetings view rather than an empty screen.
+  - If there are in-person meetings, but none left today under the starting filters, with nothing chosen, say "No more meetings nearby today.", offer "Clear filters", and show the online meetings view in the list too.
 - **Online now:** meetings in progress from `/meetings/online`, in the user's local time.
 - **Meeting detail:** time, place, types, all tags with counts, "Tag this meeting" (enabled only in the tagging window for new submissions), and "Edit my tags" / "Remove my tags" whenever this device has tagged it.
 - **Attendance check:** while the app is open and location permission is already granted, opening a meeting's detail during its time (15 min before start to 30 min after end, or 90 min after start if no end time) checks proximity on the phone: within 200 m, plus the location's accuracy, capped at 500 m. The result is stored locally and sent later as `nearMeeting`. The tag flow offers the same check with the explanation: "We check you're near the meeting to stop spam. Your location never leaves your phone." On iOS, if only approximate location is on, request temporary full accuracy (needs `NSLocationTemporaryUsageDescriptionDictionary`). On Android, request precise location for this check.

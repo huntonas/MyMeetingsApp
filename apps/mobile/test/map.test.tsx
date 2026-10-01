@@ -300,6 +300,20 @@ describe("the results map", () => {
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
 
+  it("late in the day with nothing left, says so rather than blaming filters the person didn't choose", async () => {
+    // Monday 10 PM: both groups began hours ago.
+    setNow("2026-10-06T03:00:00Z");
+    await launchNearby();
+    await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
+    await fireEvent.press(screen.getByRole("button", { name: "Search" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Map" }));
+    expect(await screen.findByText("No more meetings nearby today.")).toBeOnTheScreen();
+    expect(screen.queryByText("No meetings match your filters.")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.queryByText("No more meetings nearby today.")).toBeNull();
+  });
+
   it("keeps the map on screen while a pan's search loads, and a slower earlier search never replaces a newer one", async () => {
     const { map } = await openMap();
     const answerFirstPan = api.answerLater(SEARCH);

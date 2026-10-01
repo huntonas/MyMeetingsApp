@@ -664,6 +664,42 @@ describe("results", () => {
       });
     });
 
+    // The person chose nothing, so "No meetings match your filters" would be wrong; offer what Spec §8 offers when
+    // there's nothing nearby.
+    it("late in the day with nothing left, says so, and offers Clear filters and the online meetings", async () => {
+      // Monday 10 PM: the evening group began three hours ago.
+      setNow("2026-10-06T03:00:00Z");
+      api.reply(SEARCH, { meetings: [far] });
+      api.reply("/api/v1/meetings/online?day=0", { meetings: [] });
+      api.reply("/api/v1/meetings/online?day=1", {
+        meetings: [
+          meeting({
+            name: "Zoom Night Owls",
+            attendance: "online",
+            conferenceUrl: "https://zoom.us/j/2",
+            day: 1,
+            time: "22:30",
+            endTime: "23:30",
+          }),
+        ],
+      });
+      api.reply("/api/v1/meetings/online?day=2", { meetings: [] });
+      await launchNearby();
+      await searchFor("Maryville, TN");
+      expect(await screen.findByText("No more meetings nearby today.")).toBeOnTheScreen();
+      expect(screen.queryByText("No meetings match your filters.")).toBeNull();
+      expect(screen.getByRole("header", { name: "Online meetings you can join" })).toBeOnTheScreen();
+      expect(await screen.findByText("Zoom Night Owls")).toBeOnTheScreen();
+      // Once the person chooses something, even only a tag, it's their filters that match nothing.
+      await chooseFilters("Tag filters", ["Quiet"]);
+      expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
+      expect(screen.queryByText("Online meetings you can join")).toBeNull();
+      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+      expect(screen.queryByText("No more meetings nearby today.")).toBeNull();
+      expect(screen.queryByText("Online meetings you can join")).toBeNull();
+    });
+
     it("moves on to the new day while the app stays open, and a group the person hasn't changed keeps following the clock", async () => {
       const playAppState = spyOnAppState();
       await searchAt("2026-10-06T04:50:00Z");

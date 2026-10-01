@@ -116,7 +116,7 @@ describe("Tag this meeting", () => {
     expect(announce).toHaveBeenCalledWith("Thanks. Your tags are added.");
     const [write] = tagWrites();
     expect(write?.method).toBe("POST");
-    expect(write?.body).toBe(`{"meetingId":"${ID}","tags":["welcoming","coffee"]}`);
+    expect(write?.body).toBe(`{"meetingId":"${ID}","tags":["welcoming","coffee"],"nearMeeting":false}`);
     expect(write?.headers["x-platform"]).toBe("ios");
     expect(write?.headers["x-app-version"]).toBe("0.1.0");
     expect(write?.headers["x-device-id"]).toMatch(/^[0-9a-f-]{36}$/i);

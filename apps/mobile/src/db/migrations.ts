@@ -10,4 +10,6 @@ export const MIGRATIONS: readonly string[] = [
   `create table settings (key text primary key, value text not null) strict;`,
   // Spec §8: the phone's own record of what it tagged (the edit/remove buttons and "Meetings I've tagged"). Never sent.
   `create table my_tags (meeting_id text primary key, name text not null, tags text not null, confirmed_at integer not null, updated_at integer not null) strict;`,
+  // Spec §8, §13: attendance-check results stay on the phone. Only "near" is kept, per occurrence, never a position.
+  `create table attendance_checks (meeting_id text not null, occurrence_start integer not null, primary key (meeting_id, occurrence_start)) strict;`,
 ];

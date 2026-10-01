@@ -85,9 +85,11 @@ export async function allMyTags(): Promise<MyTags[]> {
   return rows.map(parse);
 }
 
-// After "Delete all my tags" succeeded on the server (owner decision 6), and never before.
+// After "Delete all my tags" succeeded on the server (owner decision 6), and never before: the tag record and the
+// attendance results it would have sent with new tags, together.
 export function forgetAllMyTags(): Promise<void> {
   return inTransaction(async (db) => {
     await db.runAsync("delete from my_tags", []);
+    await db.runAsync("delete from attendance_checks", []);
   });
 }

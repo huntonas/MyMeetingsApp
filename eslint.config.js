@@ -9,9 +9,13 @@ const SQLITE_IMPORT = { name: "expo-sqlite", message: "Use appDatabase() from @/
 const LOCATION_IMPORTS = [
   {
     name: "expo-location",
-    message: "Use currentPosition() from @/location/current-position.",
+    message:
+      "Use currentPosition() from @/location/current-position, or checkAttendance() from @/location/attendance.",
   },
-  { name: "@modules/native-location", message: "Use findPlace() from @/location/find-place." },
+  {
+    name: "@modules/native-location",
+    message: "Use findPlace() from @/location/find-place, or checkAttendance() from @/location/attendance.",
+  },
 ];
 const DEVICE_ID_IMPORTS = [
   { name: "expo-secure-store", message: "Use writeHeaders() from @/device/write-headers." },

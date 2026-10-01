@@ -32,5 +32,11 @@ export async function meetingMoved(from: string, to: string, copy: "move" | "dro
       [to, from],
     );
     await db.runAsync("delete from my_tags where meeting_id = ?", [from]);
+    // So do its attendance results, each kept once.
+    await db.runAsync(
+      "insert or ignore into attendance_checks (meeting_id, occurrence_start) select ?, occurrence_start from attendance_checks where meeting_id = ?",
+      [to, from],
+    );
+    await db.runAsync("delete from attendance_checks where meeting_id = ?", [from]);
   });
 }

@@ -12,12 +12,15 @@ import { ApiError } from "@/api/client";
 import { failureMessage } from "@/api/failure-message";
 import { editTags, removeTags, submitTags } from "@/api/writes";
 import { useFeatures, useUpgradeRequired } from "@/config/upgrade";
+import { lastOccurrence } from "@/meetings/schedule";
 import { useVocabularyTags, type VocabularyTag } from "@/meetings/vocabulary";
+import { wasNear } from "@/tagging/attendance-record";
 import { forgetMyTags, type MyTags, myTagsOn, recordEdit, recordSubmission } from "@/tagging/my-tags";
-import { confirmedThisWeek, taggingOpen } from "@/tagging/window";
+import { attendanceOccurrence, checkablePlace, confirmedThisWeek, taggingOpen } from "@/tagging/window";
 import { civilDateOf, dateLabel } from "@/time/civil-date";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
+import { AttendanceOffer } from "@/ui/attendance-offer";
 import { Button } from "@/ui/button";
 import { ConfirmButton } from "@/ui/confirm-button";
 import { moveFocus } from "@/ui/move-focus";
@@ -47,6 +50,23 @@ function whyNoNewTags(
   if (!taggingOpen({ ...meeting, timezone: meeting.timezone }, now))
     return record === null ? "You can add tags from the start of this meeting until 36 hours after." : "";
   return null;
+}
+
+// Spec §8: a new submission says whether a check on this phone found it near this occurrence (the one the tagging
+// window counts from). An online meeting has nowhere to be near; a result that can't be read counts as none.
+async function nearThisTime(meeting: MeetingSummary): Promise<boolean> {
+  if (checkablePlace(meeting) === null || meeting.timezone === null) return false;
+  const { start } = lastOccurrence({ ...meeting, timezone: meeting.timezone }, new Date());
+  return wasNear(meeting.id, start).catch(() => false);
+}
+
+// The attendance check the picker offers during the meeting's time, for a place it can look at; null otherwise.
+function attendanceOffer(meeting: MeetingSummary, now: Date) {
+  const place = checkablePlace(meeting);
+  if (place === null || meeting.timezone === null) return null;
+  const occurrence = attendanceOccurrence({ ...meeting, timezone: meeting.timezone }, now);
+  if (occurrence === null) return null;
+  return <AttendanceOffer meetingId={meeting.id} place={place} occurrenceStart={occurrence.start} />;
 }
 
 // A removal that timed out may still have reached the server, so this can't say the tags are still there.
@@ -174,7 +194,7 @@ export function YourTags({ meeting, onAnswered, notice }: YourTagsProps) {
   const submit = async (tags: string[]) => {
     let response: TagWriteResponse;
     try {
-      response = await submitTags({ meetingId: meeting.id, tags });
+      response = await submitTags({ meetingId: meeting.id, tags, nearMeeting: await nearThisTime(meeting) });
     } catch (error) {
       // Spec §5: "the app should offer to edit instead". The same choices, saved as this phone's tags.
       if (error instanceof ApiError && error.code === "already_tagged") setOpen("edit");
@@ -236,7 +256,9 @@ export function YourTags({ meeting, onAnswered, notice }: YourTagsProps) {
       )}
       {notice.text !== null && <AppText accessibilityRole="alert">{notice.text}</AppText>}
       {open !== null ? (
-        <TagPanel mode={open} initial={record?.tags ?? []} onSubmit={submit} onEdit={edit} onCancel={close} />
+        <TagPanel mode={open} initial={record?.tags ?? []} onSubmit={submit} onEdit={edit} onCancel={close}>
+          {open === "new" && attendanceOffer(meeting, now)}
+        </TagPanel>
       ) : (
         <>
           {why === null && !removal.removing ? (

@@ -1,4 +1,7 @@
-// The local module @modules/native-location (the platform geocoder). Tests say what each text resolves to.
+import { setPrecise } from "./expo-location";
+
+// The local module @modules/native-location (the platform geocoder, and iOS's temporary full accuracy). Tests say what
+// each text resolves to.
 const places = new Map<string, unknown>();
 export const lookups: string[] = [];
 // The texts whose answers the geocoder has handed back, so a test can wait for a slow one (a promise given to
@@ -6,6 +9,15 @@ export const lookups: string[] = [];
 export const answered: string[] = [];
 // The geocoder's own failures: an error (say, no network), or no answer at all.
 let trouble: "none" | "fails" | "hangs" = "none";
+
+// The purpose keys the app asked iOS for temporary full accuracy with, oldest first, and what the person answers (or
+// that the request itself fails).
+export const temporaryAccuracyRequests: string[] = [];
+let temporaryAnswer: boolean | "fails" = true;
+
+export function setTemporaryAccuracyAnswer(next: typeof temporaryAnswer): void {
+  temporaryAnswer = next;
+}
 
 export function setPlace(text: string, answer: unknown): void {
   places.set(text, answer);
@@ -20,6 +32,8 @@ export function resetPlaces(): void {
   lookups.length = 0;
   answered.length = 0;
   trouble = "none";
+  temporaryAccuracyRequests.length = 0;
+  temporaryAnswer = true;
 }
 
 export default {
@@ -31,5 +45,12 @@ export default {
       answered.push(text);
       return answer;
     });
+  },
+  // Allowing it turns the permission's accuracy to full until the app leaves the foreground.
+  requestTemporaryFullAccuracy(purposeKey: string): Promise<unknown> {
+    temporaryAccuracyRequests.push(purposeKey);
+    if (temporaryAnswer === "fails") return Promise.reject(new Error("Location services unavailable"));
+    if (temporaryAnswer) setPrecise(true);
+    return Promise.resolve(temporaryAnswer);
   },
 };

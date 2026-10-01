@@ -41,6 +41,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: false,
     // HTTPS and the Keychain through the OS only: exempt, so `ITSAppUsesNonExemptEncryption` is false.
     config: { usesNonExemptEncryption: false },
+    infoPlist: {
+      // Spec §8, §11: the attendance check's one-time request for full accuracy, when only approximate location is
+      // shared. Its key is ATTENDANCE_PURPOSE_KEY in src/location/attendance.ts.
+      NSLocationTemporaryUsageDescriptionDictionary: {
+        AttendanceCheck: `${APP_NAME} checks once that you're near the meeting, to stop spam. Your location never leaves your phone.`,
+      },
+    },
   },
   android: {
     package: "com.goodersoftware.mymeetingapp",

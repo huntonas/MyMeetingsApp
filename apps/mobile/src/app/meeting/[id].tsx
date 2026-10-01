@@ -13,6 +13,7 @@ import { meetingMoved } from "@/meetings/merged";
 import { listedTime, WEEKDAYS, yourTime, zoneName } from "@/meetings/schedule";
 import { TYPE_LABELS } from "@/meetings/type-labels";
 import { saveNewCounts } from "@/tagging/new-counts";
+import { useAttendanceCheck } from "@/tagging/use-attendance-check";
 import { AppText } from "@/ui/app-text";
 import { HandOffButton } from "@/ui/hand-off-button";
 import { type Notice, useNotice } from "@/ui/notice";
@@ -83,6 +84,7 @@ function MeetingInfo({
   const when =
     phoneTime === null || meeting.timezone === null ? listed : `${listed} (${zoneName(meeting.timezone)})`;
   const directions = directionsUrl(meeting, appPlatform());
+  useAttendanceCheck(meeting);
   return (
     <>
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>

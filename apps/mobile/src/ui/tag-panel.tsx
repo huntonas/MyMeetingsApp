@@ -1,5 +1,5 @@
 import { ERROR_MESSAGES, MAX_TAGS_PER_SUBMISSION, TAG_CATEGORIES } from "@mymeetingapp/shared";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type Text, View } from "react-native";
 
 import { ApiError } from "@/api/client";
@@ -25,11 +25,13 @@ interface TagPanelProps {
   onSubmit: (tags: string[]) => Promise<void>;
   onEdit: (tags: string[]) => Promise<void>;
   onCancel: () => void;
+  // Shown under the tags (the attendance check).
+  children?: ReactNode;
 }
 
 // Spec §8: up to 6 tags, grouped by category, from the tag list the server serves. Writes aren't optimistic: the
 // choices stay until the server answers, and a refusal keeps them with the server's own words.
-export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel }: TagPanelProps) {
+export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel, children }: TagPanelProps) {
   const vocabulary = useVocabularyTags();
   const refreshVocabulary = useRefreshVocabulary();
   const [chosen, setChosen] = useState<string[]>([...initial]);
@@ -99,6 +101,7 @@ export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel }: TagPanel
             );
           })}
           <AppText>{`${String(live.length)} of ${String(MAX_TAGS_PER_SUBMISSION)} chosen`}</AppText>
+          {children}
         </>
       )}
       {message.text !== null && <AppText accessibilityRole="alert">{message.text}</AppText>}

@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AccessibilityInfo } from "react-native";
 
 import { appDatabase } from "@/db/database";
+import { recordNear, wasNear } from "@/tagging/attendance-record";
 import { myTagsOn, recordSubmission } from "@/tagging/my-tags";
 
 import { startApi, type TestApi } from "./api-server";
@@ -87,19 +88,22 @@ describe("Meetings I've tagged", () => {
     expect(await screen.findByText(EMPTY)).toBeOnTheScreen();
   });
 
-  it("is cleared by Delete all my tags once the server confirms, and kept when it can't be reached", async () => {
+  it("is cleared, with the attendance results, by Delete all my tags once the server confirms, and kept when it can't be reached", async () => {
     await recordSubmission({ id: ID, name: "Nooners" }, ["quiet"], new Date("2026-10-05T17:00:00Z"));
+    await recordNear(ID, new Date("2026-10-05T17:00:00Z"));
     await openMe();
     await screen.findByRole("button", { name: "Nooners" });
     await deleteAll(); // no reply: unreachable
     await screen.findByText(/to finish deleting/);
     expect(screen.getByRole("button", { name: "Nooners" })).toBeOnTheScreen();
     expect(await myTagsOn(ID)).not.toBeNull();
+    expect(await wasNear(ID, new Date("2026-10-05T17:00:00Z"))).toBe(true);
     api.reply(DELETE_MINE, { deletedTags: 1 }, 200, "POST");
     await deleteAll();
     expect(await screen.findByText(EMPTY)).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Nooners" })).toBeNull();
     expect(await myTagsOn(ID)).toBeNull();
+    expect(await wasNear(ID, new Date("2026-10-05T17:00:00Z"))).toBe(false);
   });
 
   it("says so when the phone can't clear its own list after the server deleted", async () => {

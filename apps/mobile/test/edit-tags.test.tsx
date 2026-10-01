@@ -270,7 +270,7 @@ describe("a meeting this phone tagged", () => {
     expect(await screen.findByText("Thanks. Your tags are added.")).toBeOnTheScreen();
     expect(writes().map((w) => [w.method, w.body])).toEqual([
       ["PUT", '{"tags":["welcoming","quiet"]}'],
-      ["POST", `{"meetingId":"${ID}","tags":["welcoming","quiet"]}`],
+      ["POST", `{"meetingId":"${ID}","tags":["welcoming","quiet"],"nearMeeting":false}`],
     ]);
   });
 
@@ -342,7 +342,7 @@ describe("a phone whose record is missing or moved", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Save my tags" }));
     expect(await screen.findByText("Your tags are saved.")).toBeOnTheScreen();
     expect(writes().map((w) => [w.method, w.body])).toEqual([
-      ["POST", `{"meetingId":"${ID}","tags":["quiet"]}`],
+      ["POST", `{"meetingId":"${ID}","tags":["quiet"],"nearMeeting":false}`],
       ["PUT", '{"tags":["quiet"]}'],
     ]);
     expect(await myTagsOn(ID)).toMatchObject({ tags: ["quiet"], confirmedAt: new Date(STARTED) });

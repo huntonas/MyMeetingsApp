@@ -35,6 +35,9 @@ const Config = z.object({
   ios: z.object({
     bundleIdentifier: z.string(),
     config: z.object({ usesNonExemptEncryption: z.boolean() }),
+    infoPlist: z.object({
+      NSLocationTemporaryUsageDescriptionDictionary: z.object({ AttendanceCheck: z.string() }),
+    }),
   }),
   android: z.object({
     package: z.string(),
@@ -199,6 +202,13 @@ describe("the app config", () => {
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
     expect(options.motionUsagePermission).toMatch(new RegExp(`^${BRAND.appName} `));
     expect(options.motionUsagePermission).toContain("never");
+  });
+
+  it("explains the attendance check's one-time request for full accuracy (spec §8, §11)", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    expect(config.ios.infoPlist.NSLocationTemporaryUsageDescriptionDictionary.AttendanceCheck).toBe(
+      "mymeetingapp checks once that you're near the meeting, to stop spam. Your location never leaves your phone.",
+    );
   });
 
   it("takes the Android Google Maps key from the build's environment, and ships none of its own", () => {

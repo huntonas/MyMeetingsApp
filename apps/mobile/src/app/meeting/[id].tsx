@@ -15,6 +15,7 @@ import { TYPE_LABELS } from "@/meetings/type-labels";
 import { saveNewCounts } from "@/tagging/new-counts";
 import { AppText } from "@/ui/app-text";
 import { HandOffButton } from "@/ui/hand-off-button";
+import { type Notice, useNotice } from "@/ui/notice";
 import { SaveButton } from "@/ui/save-button";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
@@ -68,9 +69,11 @@ function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
 function MeetingInfo({
   meeting,
   onAnswered,
+  notice,
 }: {
   meeting: MeetingSummary;
   onAnswered: (response: TagWriteResponse) => void;
+  notice: Notice;
 }) {
   const until = meeting.endTime === null ? "" : ` to ${listedTime(meeting.endTime)}`;
   const listed = `${WEEKDAYS[meeting.day] ?? ""}s, ${listedTime(meeting.time)}${until}`;
@@ -128,7 +131,7 @@ function MeetingInfo({
         </Section>
       )}
       <WhatPeopleSay meeting={meeting} />
-      <YourTags meeting={meeting} onAnswered={onAnswered} />
+      <YourTags meeting={meeting} onAnswered={onAnswered} notice={notice} />
       {(meeting.notes !== null || meeting.groupName !== null) && (
         <Section title="Notes">
           {meeting.groupName !== null && <AppText>{meeting.groupName}</AppText>}
@@ -150,7 +153,7 @@ function MeetingInfo({
   );
 }
 
-function MeetingDetail({ id }: { id: string }) {
+function MeetingDetail({ id, notice }: { id: string; notice: Notice }) {
   const { state, refresh, show } = useCachedRead(detailRead(id));
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a page left open.
   useRefreshOnFocus(refresh);
@@ -158,7 +161,7 @@ function MeetingDetail({ id }: { id: string }) {
   useEffect(() => {
     if (survivor === id) return;
     // Moving the saved copy is best effort, like the cache itself: the page follows the new id either way.
-    void meetingMoved(id, survivor)
+    void meetingMoved(id, survivor, "move")
       .catch(() => undefined)
       .then(() => {
         router.setParams({ id: survivor });
@@ -172,9 +175,9 @@ function MeetingDetail({ id }: { id: string }) {
         void saveNewCounts(response).catch(() => undefined);
         return;
       }
-      // The meeting merged after the page read it: what the phone keeps follows first (saveNewCounts would otherwise
-      // find no copy under the survivor's id), then the page follows the survivor, as a read would.
-      void meetingMoved(id, response.meetingId)
+      // The meeting merged after the page read it: what the phone keeps follows first, the old meeting's copy
+      // dropped (the survivor's own copy, if any, takes the new counts), then the page follows the survivor.
+      void meetingMoved(id, response.meetingId, "drop")
         .then(() => saveNewCounts(response))
         .catch(() => undefined)
         .then(() => {
@@ -188,26 +191,28 @@ function MeetingDetail({ id }: { id: string }) {
     return (
       <>
         <AppText accessibilityRole="alert">{state.message}</AppText>
-        {state.gone && <RemoveMyTags meetingId={id} />}
+        {state.gone && <RemoveMyTags meetingId={id} notice={notice} />}
       </>
     );
   }
   return (
     <>
       {state.savedAt !== null && <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />}
-      <MeetingInfo meeting={state.data.meeting} onAnswered={answered} />
+      <MeetingInfo meeting={state.data.meeting} onAnswered={answered} notice={notice} />
     </>
   );
 }
 
 export default function MeetingScreen() {
   const params = Params.safeParse(useLocalSearchParams());
+  // Held above the keyed page, so what a tag write did still shows once the page has followed a merge.
+  const notice = useNotice();
   return (
     <Screen>
       {params.success ? (
         // Keyed by the id, so following a merge starts the new meeting's page afresh: otherwise its first render would
         // still hold the old meeting's read, and take it for a merge the other way.
-        <MeetingDetail key={params.data.id} id={params.data.id} />
+        <MeetingDetail key={params.data.id} id={params.data.id} notice={notice} />
       ) : (
         <AppText>That meeting link isn't valid.</AppText>
       )}

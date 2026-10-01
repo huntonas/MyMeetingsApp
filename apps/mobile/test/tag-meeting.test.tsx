@@ -432,7 +432,7 @@ describe("meetingMoved and the tag record", () => {
   it("keeps the surviving meeting's own record when the phone tagged both ids", async () => {
     await recordSubmission({ id: ID, name: "Nooners" }, ["quiet"], new Date("2026-09-28T17:00:00Z"));
     await recordSubmission({ id: SURVIVOR, name: "Nooners (merged)" }, ["coffee"], new Date(STARTED));
-    await meetingMoved(ID, SURVIVOR);
+    await meetingMoved(ID, SURVIVOR, "move");
     expect(await myTagsOn(SURVIVOR)).toEqual({
       meetingId: SURVIVOR,
       name: "Nooners (merged)",

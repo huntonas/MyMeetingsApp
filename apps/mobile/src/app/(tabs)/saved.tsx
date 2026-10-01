@@ -52,7 +52,7 @@ function SavedRow({ id, onChanged }: { id: string; onChanged: () => void }) {
   useEffect(() => {
     if (survivor === id) return;
     // Best effort, as on the meeting page: the list is read again either way.
-    void meetingMoved(id, survivor)
+    void meetingMoved(id, survivor, "move")
       .catch(() => undefined)
       .then(onChanged);
   }, [id, survivor, onChanged]);

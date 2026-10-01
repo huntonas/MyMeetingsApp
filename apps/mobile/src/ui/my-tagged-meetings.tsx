@@ -3,12 +3,21 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 
 import { GENERIC_FAILURE } from "@/api/failure-message";
-import { useVocabularyTags } from "@/meetings/vocabulary";
+import { useVocabularyTags, type VocabularyTag } from "@/meetings/vocabulary";
 import { allMyTags, type MyTags } from "@/tagging/my-tags";
 import { civilDateOf, dateLabel } from "@/time/civil-date";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { tagNames } from "@/ui/your-tags";
+
+// "Welcoming · Coffee · Added Oct 5, 2026", in the meeting page's words: Added while the tags are as first sent, then
+// Changed with the latest edit's date. A tag the phone has no name for is left out, separator and all.
+function rowLine(row: MyTags, labels: ReadonlyMap<string, VocabularyTag>): string {
+  const edited = row.updatedAt.getTime() !== row.confirmedAt.getTime();
+  const when = `${edited ? "Changed" : "Added"} ${dateLabel(civilDateOf(row.updatedAt))}`;
+  const names = tagNames(row.tags, labels);
+  return names === "" ? when : `${names} · ${when}`;
+}
 
 // Spec §8's "Meetings I've tagged", from the phone's own record, read again each time the tab comes into view (a
 // meeting page may have changed it). Its parent remounts it (a new `key`) when "Delete all my tags" cleared it.
@@ -52,7 +61,7 @@ export function MyTaggedMeetings() {
                 router.push(`/meeting/${row.meetingId}`);
               }}
             />
-            <AppText tone="muted">{`${tagNames(row.tags, labels)} · ${dateLabel(civilDateOf(row.updatedAt))}`}</AppText>
+            <AppText tone="muted">{rowLine(row, labels)}</AppText>
           </View>
         ))
       )}

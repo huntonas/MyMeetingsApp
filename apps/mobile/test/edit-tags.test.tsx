@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AccessibilityInfo } from "react-native";
 
-import { readCache } from "@/cache/store";
+import { readCache, writeCache } from "@/cache/store";
 import { myTagsOn, recordSubmission } from "@/tagging/my-tags";
 
 import { startApi, type TestApi } from "./api-server";
@@ -42,14 +42,16 @@ const writes = () => api.requests.filter((r) => r.path.startsWith("/api/v1/tags"
 
 async function openMeeting(at = STARTED) {
   setNow(at);
-  await renderApp(`/meeting/${ID}`);
+  const app = await renderApp(`/meeting/${ID}`);
   await screen.findByLabelText("Welcoming 14 people");
+  return app;
 }
 
 // The tag section shows nothing until it has read the phone's own record: its line says it has.
 async function openTagged(at = LATER) {
-  await openMeeting(at);
+  const app = await openMeeting(at);
   await screen.findByText("Your tags: Welcoming");
+  return app;
 }
 
 async function choose(...labels: string[]) {
@@ -145,6 +147,19 @@ describe("a meeting this phone tagged", () => {
     expect(writes()).toHaveLength(1);
   });
 
+  it("offers no Edit or new tagging while a removal is still out", async () => {
+    const answer = api.answerLater(TAG_PATH);
+    // A week on, in the next meeting's window: Tag this meeting is offered beside Edit and Remove.
+    await openTagged("2026-10-12T17:00:00Z");
+    expect(screen.getByRole("button", { name: "Tag this meeting" })).toBeOnTheScreen();
+    await remove();
+    expect(await screen.findByLabelText("Removing your tags")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Edit my tags" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tag this meeting" })).toBeNull();
+    answer({ meetingId: ID, tags: [] });
+    expect(await screen.findByText("Your tags are removed.")).toBeOnTheScreen();
+  });
+
   it("keeps the record, and says it can't tell, when the server can't be reached", async () => {
     // No reply set for the DELETE: the test server answers 599 with no envelope.
     await openTagged();
@@ -228,6 +243,35 @@ describe("a meeting this phone tagged", () => {
       expect(screen.queryByText(/^Your tags: /)).toBeNull();
     });
     expect(screen.queryByRole("button", { name: "Remove my tags" })).toBeNull();
+    // Outside the tagging window there's nothing to send instead, so the picker closes on the server's words.
+    expect(screen.queryByRole("button", { name: "Save my tags" })).toBeNull();
+    expect(
+      screen.getByText("You can add tags from the start of this meeting until 36 hours after."),
+    ).toBeOnTheScreen();
+  });
+
+  it("turns the edit into a new tagging, keeping the choices, when the server holds none and the window is open", async () => {
+    api.reply(
+      TAG_PATH,
+      { error: { code: "not_tagged", message: "You haven't tagged this meeting." } },
+      404,
+      "PUT",
+    );
+    api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
+    await openTagged("2026-10-05T18:00:00Z");
+    await fireEvent.press(screen.getByRole("button", { name: "Edit my tags" }));
+    await choose("Quiet");
+    await fireEvent.press(screen.getByRole("button", { name: "Save my tags" }));
+    expect(await screen.findByText("You haven't tagged this meeting.")).toBeOnTheScreen();
+    expect(screen.getByRole("header", { name: "Tag this meeting" })).toBeOnTheScreen();
+    expect(screen.getByRole("checkbox", { name: "Quiet" })).toBeChecked();
+    expect(await myTagsOn(ID)).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Send my tags" }));
+    expect(await screen.findByText("Thanks. Your tags are added.")).toBeOnTheScreen();
+    expect(writes().map((w) => [w.method, w.body])).toEqual([
+      ["PUT", '{"tags":["welcoming","quiet"]}'],
+      ["POST", `{"meetingId":"${ID}","tags":["welcoming","quiet"]}`],
+    ]);
   });
 
   it("can remove its tags from a meeting that's no longer listed", async () => {
@@ -317,6 +361,7 @@ describe("a phone whose record is missing or moved", () => {
       expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
     });
     expect(await screen.findByText("Your tags: Quiet")).toBeOnTheScreen();
+    expect(screen.getByText("Thanks. Your tags are added.")).toBeOnTheScreen();
     expect(screen.getByLabelText("Quiet 2 people")).toBeOnTheScreen();
     expect(await myTagsOn(SURVIVOR)).toMatchObject({ tags: ["quiet"] });
     expect(await myTagsOn(ID)).toBeNull();
@@ -343,5 +388,81 @@ describe("a phone whose record is missing or moved", () => {
     expect(await screen.findByText("Your tags: Quiet")).toBeOnTheScreen();
     expect((await readCache(`meeting:${SURVIVOR}`))?.body).toMatchObject({ meeting: { id: SURVIVOR } });
     expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
+  });
+});
+
+describe("a write that finds the meeting merged", () => {
+  const SURVIVOR_PATH = `/api/v1/meetings/${SURVIVOR}`;
+  const survivor = meeting({ id: SURVIVOR, name: "Nooners (merged)", tags: COUNTS });
+
+  it("keeps the survivor's own saved copy rather than the old meeting's details", async () => {
+    api.reply("/api/v1/tags", { meetingId: SURVIVOR, tags: COUNTS }, 201, "POST");
+    api.reply(SURVIVOR_PATH, { meeting: survivor });
+    const savedAt = new Date("2026-10-05T16:30:00Z");
+    await writeCache(
+      `meeting:${SURVIVOR}`,
+      { meeting: meeting({ id: SURVIVOR, name: "Nooners (merged)" }) },
+      savedAt,
+    );
+    const app = await openMeeting(STARTED);
+    await fireEvent.press(await screen.findByRole("button", { name: "Tag this meeting" }));
+    await choose("Quiet");
+    await fireEvent.press(screen.getByRole("button", { name: "Send my tags" }));
+    await waitFor(() => {
+      expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
+    });
+    expect(await screen.findByText("Nooners (merged)")).toBeOnTheScreen();
+    expect(await readCache(`meeting:${SURVIVOR}`)).toEqual({
+      body: { meeting: meeting({ id: SURVIVOR, name: "Nooners (merged)", tags: COUNTS }) },
+      savedAt,
+    });
+    expect(await readCache(`meeting:${ID}`)).toBeNull();
+  });
+
+  describe("when this phone had tagged both meetings", () => {
+    beforeEach(async () => {
+      await recordSubmission({ id: ID, name: "Nooners" }, ["welcoming"], RECORDED);
+      await recordSubmission(
+        { id: SURVIVOR, name: "Nooners (merged)" },
+        ["coffee"],
+        new Date("2026-09-21T17:00:00Z"),
+      );
+      api.reply(SURVIVOR_PATH, { meeting: survivor });
+    });
+
+    // The server makes the phone's two rows one, with the edit's tags.
+    it("keeps the edit as the survivor's record", async () => {
+      api.reply(TAG_PATH, { meetingId: SURVIVOR, tags: COUNTS }, 200, "PUT");
+      const app = await openTagged();
+      await fireEvent.press(screen.getByRole("button", { name: "Edit my tags" }));
+      await choose("Quiet");
+      await fireEvent.press(screen.getByRole("button", { name: "Save my tags" }));
+      await waitFor(() => {
+        expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
+      });
+      expect(await screen.findByText("Your tags: Welcoming · Quiet")).toBeOnTheScreen();
+      expect(await myTagsOn(SURVIVOR)).toEqual({
+        meetingId: SURVIVOR,
+        name: "Nooners",
+        tags: ["welcoming", "quiet"],
+        confirmedAt: RECORDED,
+        updatedAt: new Date(LATER),
+      });
+      expect(await myTagsOn(ID)).toBeNull();
+    });
+
+    // The server deletes both of the phone's rows.
+    it("forgets both records on a removal", async () => {
+      api.reply(TAG_PATH, { meetingId: SURVIVOR, tags: [] }, 200, "DELETE");
+      const app = await openTagged();
+      await remove();
+      await waitFor(() => {
+        expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
+      });
+      expect(await screen.findByText("Your tags are removed.")).toBeOnTheScreen();
+      expect(await myTagsOn(ID)).toBeNull();
+      expect(await myTagsOn(SURVIVOR)).toBeNull();
+      expect(screen.queryByText(/^Your tags: /)).toBeNull();
+    });
   });
 });

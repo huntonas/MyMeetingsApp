@@ -206,7 +206,7 @@ describe("transactions", () => {
   it("take turns, so two at once both land", async () => {
     await writeCache("meeting:a", {});
     await writeCache("meeting:b", {});
-    await Promise.allSettled([meetingMoved("a", "a2"), meetingMoved("b", "b2")]);
+    await Promise.allSettled([meetingMoved("a", "a2", "move"), meetingMoved("b", "b2", "move")]);
     expect(await readCache("meeting:a2")).not.toBeNull();
     expect(await readCache("meeting:b2")).not.toBeNull();
     expect(await readCache("meeting:a")).toBeNull();
@@ -218,7 +218,10 @@ describe("transactions", () => {
     jest.spyOn(db, "withTransactionAsync").mockRejectedValueOnce(new Error("disk full"));
     await writeCache("meeting:a", {});
     await writeCache("meeting:b", {});
-    const moves = await Promise.allSettled([meetingMoved("a", "a2"), meetingMoved("b", "b2")]);
+    const moves = await Promise.allSettled([
+      meetingMoved("a", "a2", "move"),
+      meetingMoved("b", "b2", "move"),
+    ]);
     expect(moves.map((move) => move.status)).toEqual(["rejected", "fulfilled"]);
     expect(await readCache("meeting:b2")).not.toBeNull();
   });

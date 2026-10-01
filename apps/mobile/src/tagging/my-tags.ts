@@ -68,10 +68,10 @@ export function recordEdit(meeting: { id: string; name: string }, tags: string[]
   });
 }
 
-// The server holds no tags from this phone on the meeting (removed, or never there): the record goes too.
-export function forgetMyTags(meetingId: string): Promise<void> {
+// The server holds no tags from this phone on these meetings (removed, or never there): their records go too.
+export function forgetMyTags(...meetingIds: string[]): Promise<void> {
   return inTransaction(async (db) => {
-    await db.runAsync("delete from my_tags where meeting_id = ?", [meetingId]);
+    for (const id of meetingIds) await db.runAsync("delete from my_tags where meeting_id = ?", [id]);
   });
 }
 

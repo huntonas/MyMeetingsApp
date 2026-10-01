@@ -1,12 +1,13 @@
 import { CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 import { useState } from "react";
-import { AccessibilityInfo, ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { failureMessage } from "@/api/failure-message";
 import { deleteMine } from "@/api/writes";
 import { forgetAllMyTags } from "@/tagging/my-tags";
 import { AppText } from "@/ui/app-text";
 import { ConfirmButton } from "@/ui/confirm-button";
+import { useNotice } from "@/ui/notice";
 
 const OFFLINE = "We couldn't reach mymeetingapp to finish deleting. Check your connection and try again.";
 const RECORD_KEPT = "This phone couldn't clear its own list of tagged meetings. Try again.";
@@ -22,11 +23,10 @@ function deleted(count: number): string {
 // 6, 2026-10-01), and `onDeleted` then tells the screen to read it again.
 export function DeleteAllMyTags({ onDeleted }: { onDeleted: () => void }) {
   const [deleting, setDeleting] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const result = useNotice();
   const finish = (message: string) => {
     setDeleting(false);
-    setResult(message);
-    AccessibilityInfo.announceForAccessibility(message);
+    result.tell(message);
   };
   return (
     <View style={{ gap: 8 }}>
@@ -42,7 +42,7 @@ export function DeleteAllMyTags({ onDeleted }: { onDeleted: () => void }) {
           cancelLabel="Keep them"
           onConfirm={() => {
             setDeleting(true);
-            setResult(null);
+            result.tell(null);
             deleteMine().then(
               async ({ deletedTags }) => {
                 const cleared = await forgetAllMyTags().then(
@@ -59,7 +59,7 @@ export function DeleteAllMyTags({ onDeleted }: { onDeleted: () => void }) {
           }}
         />
       )}
-      {result !== null && <AppText accessibilityRole="alert">{result}</AppText>}
+      {result.text !== null && <AppText accessibilityRole="alert">{result.text}</AppText>}
     </View>
   );
 }

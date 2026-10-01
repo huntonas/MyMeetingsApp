@@ -56,8 +56,8 @@ describe("Meetings I've tagged", () => {
       screen.getByRole("button", { name: "Early Birds" }),
       screen.getByRole("button", { name: "Nooners" }),
     ]);
-    expect(screen.getByText("Welcoming · Coffee · Oct 5, 2026")).toBeOnTheScreen();
-    expect(screen.getByText("Quiet · Oct 6, 2026")).toBeOnTheScreen();
+    expect(screen.getByText("Welcoming · Coffee · Added Oct 5, 2026")).toBeOnTheScreen();
+    expect(screen.getByText("Quiet · Added Oct 6, 2026")).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole("button", { name: "Nooners" }));
     await waitFor(() => {
       expect(app.getPathname()).toBe(`/meeting/${ID}`);
@@ -65,7 +65,7 @@ describe("Meetings I've tagged", () => {
     expect(await screen.findByText("Your tags: Welcoming · Coffee")).toBeOnTheScreen();
   });
 
-  it("dates each meeting by its latest change", async () => {
+  it("says Changed, with the latest change's date, once the tags were edited", async () => {
     await recordSubmission({ id: ID, name: "Nooners" }, ["quiet"], new Date("2026-10-05T17:00:00Z"));
     const db = await appDatabase();
     await db.runAsync("update my_tags set updated_at = ? where meeting_id = ?", [
@@ -73,7 +73,13 @@ describe("Meetings I've tagged", () => {
       ID,
     ]);
     await openMe();
-    expect(await screen.findByText("Quiet · Oct 9, 2026")).toBeOnTheScreen();
+    expect(await screen.findByText("Quiet · Changed Oct 9, 2026")).toBeOnTheScreen();
+  });
+
+  it("shows only the date when the phone has no name for any of the tags", async () => {
+    await recordSubmission({ id: ID, name: "Nooners" }, ["retired-tag"], new Date("2026-10-05T17:00:00Z"));
+    await openMe();
+    expect(await screen.findByText("Added Oct 5, 2026")).toBeOnTheScreen();
   });
 
   it("says when this phone hasn't tagged anything", async () => {

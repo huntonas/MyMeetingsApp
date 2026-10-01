@@ -1,6 +1,6 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 
-import { type CivilDate, shiftDays } from "@/time/civil-date";
+import { type CivilDate, DAY_MS, MINUTE_MS, shiftDays } from "@/time/civil-date";
 import { clockLabel, phoneClockLabel } from "@/time/clock";
 
 export type Scheduled = Pick<MeetingSummary, "day" | "time" | "endTime"> & { timezone: string };
@@ -11,8 +11,6 @@ export interface Occurrence {
 
 // A meeting with no end time counts as an hour long.
 const DEFAULT_MINUTES = 60;
-const MINUTE = 60_000;
-const DAY = 24 * 60 * MINUTE;
 
 const formats = new Map<string, Intl.DateTimeFormat>();
 
@@ -60,9 +58,9 @@ const minuteOf = (time: string) => Number(time.slice(3, 5));
 // whichever side of Greenwich the zone is on.
 function zonedInstant(date: CivilDate, time: string, timeZone: string): Date {
   const wall = Date.UTC(date.year, date.month - 1, date.day, hourOf(time), minuteOf(time));
-  const after = wall - offsetAt(wall + DAY, timeZone);
+  const after = wall - offsetAt(wall + DAY_MS, timeZone);
   if (after + offsetAt(after, timeZone) === wall) return new Date(after);
-  return new Date(wall - offsetAt(wall - DAY, timeZone));
+  return new Date(wall - offsetAt(wall - DAY_MS, timeZone));
 }
 
 const weekdayOf = (date: CivilDate) => new Date(Date.UTC(date.year, date.month - 1, date.day)).getUTCDay();
@@ -98,7 +96,7 @@ export function upcomingStart(
 ): Date {
   const scheduled = { ...meeting, timezone: meeting.timezone ?? phoneZone() };
   const last = lastOccurrence(scheduled, now);
-  if (now.getTime() - last.start.getTime() <= LATE_ARRIVAL_MINUTES * MINUTE) return last.start;
+  if (now.getTime() - last.start.getTime() <= LATE_ARRIVAL_MINUTES * MINUTE_MS) return last.start;
   return nextStart(scheduled, last);
 }
 
@@ -117,7 +115,7 @@ export function occurrenceEnd(meeting: Scheduled, occurrence: Occurrence): Date 
   if (endTime !== null && endTime > time) return zonedInstant(occurrence.date, endTime, timezone);
   if (endTime !== null && endTime < time)
     return zonedInstant(shiftDays(occurrence.date, 1), endTime, timezone);
-  return new Date(occurrence.start.getTime() + DEFAULT_MINUTES * MINUTE);
+  return new Date(occurrence.start.getTime() + DEFAULT_MINUTES * MINUTE_MS);
 }
 
 // A listed "HH:MM" as people read it.

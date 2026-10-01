@@ -1,5 +1,7 @@
 import { CATCH_UP_MINUTES, cdnStaleMinutes, VOCABULARY_CATCH_UP_HOURS } from "@mymeetingapp/shared";
 
+import { MINUTE_MS } from "@/time/civil-date";
+
 // How long the app may keep showing its own copy without asking again. The CDN may already have held that copy for
 // as long as cdnStaleMinutes, so the two together never pass what the website promises: tag changes and opt-outs
 // reach the app within CATCH_UP_MINUTES.app, and tag-list changes within VOCABULARY_CATCH_UP_HOURS (owner decision 5,
@@ -22,5 +24,5 @@ export function isFresh(kind: CacheKind, savedAt: Date, now: Date): boolean {
   const age = now.getTime() - savedAt.getTime();
   // A phone clock that has moved backwards since the copy was saved (a negative age) is never fresh: without this,
   // a saved copy would look fresh forever, since a negative age is always less than the window.
-  return age >= 0 && age < REUSE_MINUTES[kind] * 60_000;
+  return age >= 0 && age < REUSE_MINUTES[kind] * MINUTE_MS;
 }

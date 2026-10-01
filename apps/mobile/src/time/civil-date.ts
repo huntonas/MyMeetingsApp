@@ -21,7 +21,8 @@ export const MONTHS_SHORT = [
   "Dec",
 ] as const;
 
-export const DAY_MS = 86_400_000;
+export const MINUTE_MS = 60_000;
+export const DAY_MS = 24 * 60 * MINUTE_MS;
 const utcDay = (date: CivilDate) => Date.UTC(date.year, date.month - 1, date.day);
 
 // Days and day counts are taken on UTC's calendar, which has no daylight saving, so every day is exactly one day long

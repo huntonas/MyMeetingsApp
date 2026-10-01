@@ -1,6 +1,7 @@
 import type { MeetingSummary } from "@mymeetingapp/shared";
 
 import { lastOccurrence, nextStart, occurrenceEnd } from "@/meetings/schedule";
+import { MINUTE_MS } from "@/time/civil-date";
 
 export interface TimedMeeting {
   meeting: MeetingSummary;
@@ -29,7 +30,7 @@ export function onlineNow(
       continue;
     }
     const next = nextStart(scheduled, occurrence);
-    if (next.getTime() - now.getTime() <= SOON_MINUTES * 60_000) soon.push({ meeting, start: next });
+    if (next.getTime() - now.getTime() <= SOON_MINUTES * MINUTE_MS) soon.push({ meeting, start: next });
   }
   return { happening: happening.sort(byStart), soon: soon.sort(byStart) };
 }

@@ -2,6 +2,7 @@ import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
 import { HelpResources } from "@/components/help-resources";
 import { pageMetadata } from "@/lib/page-metadata";
+import { RETENTION } from "@/server/retention";
 
 export const metadata = pageMetadata({
   path: "/support",
@@ -22,8 +23,14 @@ export default function SupportPage() {
       <h2>Common questions</h2>
       <h3>How do I remove my tags?</h3>
       <p>
-        Open the meeting and choose “Remove my tags”, or remove all of them at once in Settings with “Delete
-        all my tags”. Both work at any time.
+        Open the meeting and choose “Remove my tags”, or remove all of them at once on the app&apos;s Me tab
+        with “Delete all my tags”. Both work at any time.
+      </p>
+      <h3>Switching phones?</h3>
+      <p>
+        Your tags stay with the phone that added them: a new phone gets a new ID, so it can&apos;t change
+        them. If you want them gone, use “Delete all my tags” on the old phone first. Otherwise they stop
+        counting {RETENTION.countWindowDays} days after you added them.
       </p>
       <h3>Why can&apos;t I tag a meeting?</h3>
       <p>

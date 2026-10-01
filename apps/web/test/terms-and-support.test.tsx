@@ -49,6 +49,16 @@ describe("the support page", () => {
     expect(renderToStaticMarkup(<SupportPage />)).toContain('href="/privacy#email"');
   });
 
+  it("says where “Delete all my tags” is", () => {
+    expect(text).toContain("on the app's Me tab with “Delete all my tags”");
+  });
+
+  it("explains that tags stay with the phone that added them", () => {
+    expect(text).toContain("Switching phones?");
+    expect(text).toContain("use “Delete all my tags” on the old phone first");
+    expect(text).toContain("they stop counting 180 days after you added them");
+  });
+
   it("never asks for the app's ID, which nothing on our side uses", () => {
     expect(text).not.toMatch(/app ID/i);
   });

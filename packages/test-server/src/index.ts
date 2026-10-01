@@ -36,7 +36,7 @@ async function streamChunks(
 }
 
 export async function startServer(
-  handler: (path: string, headers: IncomingHttpHeaders) => Reply | Promise<Reply>,
+  handler: (path: string, headers: IncomingHttpHeaders, method: string) => Reply | Promise<Reply>,
   { port = 0 }: { port?: number } = {},
 ) {
   const requests: RecordedRequest[] = [];
@@ -57,7 +57,7 @@ export async function startServer(
     });
     req.on("end", () => {
       record.body = Buffer.concat(chunks).toString("utf8");
-      void Promise.resolve(handler(path, req.headers)).then(async (reply) => {
+      void Promise.resolve(handler(path, req.headers, record.method)).then(async (reply) => {
         res.writeHead(reply.status, reply.headers);
         if (reply.stream === undefined) {
           record.sentBytes = Buffer.byteLength(reply.body ?? "");

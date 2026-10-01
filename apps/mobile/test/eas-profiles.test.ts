@@ -23,6 +23,13 @@ describe("EAS build profiles", () => {
     expect(build.production?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp.vercel.app");
   });
 
+  // Dev builds write (tags, "Delete all my tags"), so they never point at production. development-simulator extends it.
+  it("points dev builds at staging", () => {
+    expect(easJson().build.development?.env?.EXPO_PUBLIC_SERVER_URL).toBe(
+      "https://mymeetingapp-staging.vercel.app",
+    );
+  });
+
   it("submits TestFlight builds to the App Store Connect app EAS created on the first submit", () => {
     expect(easJson().submit.testflight?.ios.ascAppId).toBe("6817873804");
   });

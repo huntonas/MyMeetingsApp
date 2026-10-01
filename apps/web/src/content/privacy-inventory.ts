@@ -33,7 +33,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
       columns: ["device_hash", "platform", "first_seen_date", "last_seen_date", "blocked"],
     },
     title: "Your phone's record",
-    what: "A keyed hash of the app's ID for your phone (never the ID itself), whether it's an iPhone or an Android phone, the first and last day the app sent us tags or a suggestion (dates only), whether we've blocked it for spam and, once app checks are switched on, the app's attestation key.",
+    what: "A keyed hash of the app's ID for your phone (never the ID itself), whether it's an iPhone or an Android phone, the first and last day the app sent us tags or a suggestion (dates only), whether we've blocked it for spam and, once app checks are switched on, the app's attestation key. On iPhone, the app makes a random ID and keeps it in the iPhone's Keychain, on that phone only: it isn't synced to iCloud Keychain or restored to another phone, and it stays if you delete and reinstall the app. On Android, the app uses Android's own ID for the app, which a factory reset changes. The app sends it only when you add, change or remove tags, suggest a tag or use “Delete all my tags”, never when you search or read meetings.",
     linkedTo: "Nothing else. It doesn't mention any meeting.",
     kept: `Until you use “Delete all my tags”, or until the first nightly cleanup ${String(RETENTION.inactiveDeviceMonths)} months after the app last sent us tags or a suggestion. If we blocked your phone for spam, we keep its hash, platform, dates and blocked flag for as long as the block stands, even after “Delete all my tags” or ${String(RETENTION.inactiveDeviceMonths)} months without contact. That record still isn't linked to any meeting.`,
   },

@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { installedVersion } from "@/config/app-version";
 import { serverUrl } from "@/config/server-url";
 import { AppText } from "@/ui/app-text";
+import { DeleteAllMyTags } from "@/ui/delete-all-my-tags";
 import { HandOffButton } from "@/ui/hand-off-button";
 import { HelpResources } from "@/ui/help-resources";
 import { Screen } from "@/ui/screen";
@@ -15,12 +16,18 @@ const PAGES = [
   { label: "Terms of use", path: "/terms" },
 ] as const;
 
-// Spec §8's settings for 5a. The app never shows its device ID (owner decision, 2026-09-29).
+// Spec §8's settings: sobriety date, delete all my tags, help resources, the website's pages and the app's version. The app never shows its device ID (owner decision, 2026-09-29).
 export default function MeScreen() {
   const version = installedVersion();
   return (
     <Screen>
       <SobrietyCard />
+      <View style={{ gap: 8 }}>
+        <AppText variant="heading" accessibilityRole="header">
+          Your tags
+        </AppText>
+        <DeleteAllMyTags />
+      </View>
       <HelpResources />
       <View style={{ gap: 8 }}>
         <AppText variant="heading" accessibilityRole="header">

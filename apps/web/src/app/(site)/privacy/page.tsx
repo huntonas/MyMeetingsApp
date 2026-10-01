@@ -106,7 +106,7 @@ export default function PrivacyPage() {
           Change or remove your tags on any meeting at any time, from the meeting&apos;s page in the app.
         </li>
         <li>
-          “Delete all my tags” in the app&apos;s Settings deletes every tag, daily limit, abuse-log entry and
+          “Delete all my tags” on the app&apos;s Me tab deletes every tag, daily limit, abuse-log entry and
           phone record we hold for your phone, and any suggestion still linked to it (one we haven&apos;t
           reviewed, from the last {RETENTION.suggestionLinkDays} days) with its screening log. Tag counts
           update at once on our server; the app catches up within {CATCH_UP_MINUTES.app} minutes. A phone we

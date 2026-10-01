@@ -1,8 +1,9 @@
 import { act } from "react";
 
 import { resetDatePicker } from "./native/datetimepicker";
-import { setAppVersion } from "./native/expo-application";
+import { setAndroidId, setAppVersion } from "./native/expo-application";
 import { resetLocation } from "./native/expo-location";
+import { resetSecureStore } from "./native/expo-secure-store";
 import { resetPlaces } from "./native/native-location";
 
 // Every test starts from a clean slate; later tasks add each fake's reset here as the fake lands.
@@ -18,6 +19,8 @@ afterEach(async () => {
 
 beforeEach(() => {
   setAppVersion("0.1.0");
+  setAndroidId();
+  resetSecureStore();
   resetLocation();
   resetPlaces();
   resetDatePicker();

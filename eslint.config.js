@@ -13,6 +13,15 @@ const LOCATION_IMPORTS = [
   },
   { name: "@modules/native-location", message: "Use findPlace() from @/location/find-place." },
 ];
+const DEVICE_ID_IMPORTS = [
+  { name: "expo-secure-store", message: "Use writeHeaders() from @/device/write-headers." },
+  { name: "expo-crypto", message: "Use writeHeaders() from @/device/write-headers." },
+  {
+    name: "expo-application",
+    importNames: ["getAndroidId"],
+    message: "Use writeHeaders() from @/device/write-headers.",
+  },
+];
 
 export default defineConfig([
   globalIgnores([
@@ -124,13 +133,13 @@ export default defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS],
+          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS],
           patterns: [PARENT_IMPORT],
         },
       ],
       "no-restricted-globals": [
         "error",
-        { name: "fetch", message: "Use getJson/postJson from @/api/client." },
+        { name: "fetch", message: "Use getJson/postJson/sendWrite from @/api/client." },
       ],
       "no-restricted-properties": [
         "error",
@@ -156,14 +165,30 @@ export default defineConfig([
     // open (it has to spy on expo-sqlite's own openDatabaseAsync).
     files: ["apps/mobile/src/db/database.ts", "apps/mobile/test/database.test.ts"],
     rules: {
-      "no-restricted-imports": ["error", { paths: LOCATION_IMPORTS, patterns: [PARENT_IMPORT] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS], patterns: [PARENT_IMPORT] },
+      ],
     },
   },
   {
     // The one place allowed to reach the location packages directly.
     files: ["apps/mobile/src/location/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { paths: [SQLITE_IMPORT], patterns: [PARENT_IMPORT] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [SQLITE_IMPORT, ...DEVICE_ID_IMPORTS], patterns: [PARENT_IMPORT] },
+      ],
+    },
+  },
+  {
+    // The one place allowed to read the phone's ID.
+    files: ["apps/mobile/src/device/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS], patterns: [PARENT_IMPORT] },
+      ],
     },
   },
   {

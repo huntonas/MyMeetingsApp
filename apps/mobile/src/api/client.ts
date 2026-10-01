@@ -2,6 +2,7 @@ import { ApiErrorBody, type ErrorCode } from "@mymeetingapp/shared";
 import type { z } from "zod";
 
 import { serverUrl } from "@/config/server-url";
+import { writeHeaders } from "@/device/write-headers";
 
 const TIMEOUT_MS = 15_000;
 
@@ -63,7 +64,7 @@ async function request<S extends z.ZodType>(
   }
 }
 
-// Reads send nothing that identifies the phone: no device headers, no cookies.
+// Reads send nothing that identifies the phone: no device headers (only sendWrite adds them), no cookies.
 export function getJson<S extends z.ZodType>(schema: S, path: string): Promise<z.output<S>> {
   return request(schema, path, { headers: { Accept: "application/json" } });
 }
@@ -72,6 +73,25 @@ export function postJson<S extends z.ZodType>(schema: S, path: string, body: unk
   return request(schema, path, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+type WriteMethod = "POST" | "PUT" | "DELETE";
+
+// Writes carry the phone's device headers (spec §7) and, like reads, no cookies. A write with nothing to say (a
+// deletion) sends no body and no Content-Type.
+export async function sendWrite<S extends z.ZodType>(
+  schema: S,
+  method: WriteMethod,
+  path: string,
+  body?: unknown,
+): Promise<z.output<S>> {
+  const headers = { Accept: "application/json", ...(await writeHeaders()) };
+  if (body === undefined) return request(schema, path, { method, headers });
+  return request(schema, path, {
+    method,
+    headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 }

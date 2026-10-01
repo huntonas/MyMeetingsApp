@@ -5,7 +5,8 @@ const API_PORT = 3197;
 
 export interface TestApi {
   requests: RecordedRequest[];
-  reply(path: string, json: unknown, status?: number): void;
+  // A reply given a method answers only that method on the path (PUT and DELETE share /api/v1/tags/:id).
+  reply(path: string, json: unknown, status?: number, method?: string): void;
   // The server takes the request and never answers.
   hang(path: string): void;
   // Requests on this path wait until the test calls the returned function with the reply, as a slow server does. A
@@ -27,8 +28,8 @@ export async function startApi(): Promise<TestApi> {
     headers: { "content-type": "application/json", ...CLOSE },
   });
   const server = await startServer(
-    (path) => {
-      const reply = replies.get(path);
+    (path, _headers, method) => {
+      const reply = replies.get(`${method} ${path}`) ?? replies.get(path);
       if (reply === "hang") return new Promise<never>(() => undefined);
       if (reply === undefined) return { status: 599, body: `no reply set for ${path}`, headers: CLOSE };
       if (reply instanceof Promise) return reply.then((body) => jsonReply(200, body));
@@ -38,8 +39,8 @@ export async function startApi(): Promise<TestApi> {
   );
   return {
     requests: server.requests,
-    reply: (path, json, status = 200) => {
-      replies.set(path, { status, json });
+    reply: (path, json, status = 200, method) => {
+      replies.set(method === undefined ? path : `${method} ${path}`, { status, json });
     },
     hang: (path) => {
       replies.set(path, "hang");

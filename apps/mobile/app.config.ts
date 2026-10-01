@@ -49,6 +49,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     blockedPermissions: ["android.permission.ACCESS_BACKGROUND_LOCATION"],
     adaptiveIcon: { foregroundImage: MARK, monochromeImage: MARK, backgroundColor: ACCENT },
   },
+  // expo-secure-store and expo-crypto have no entry. Secure-store's plugin would add a Face ID purpose string (the app
+  // never asks for Face ID) and Android backup rules (Android never uses it: the phone's ID there is ANDROID_ID), and
+  // expo-crypto has no plugin.
   plugins: [
     "expo-router",
     "expo-sqlite",

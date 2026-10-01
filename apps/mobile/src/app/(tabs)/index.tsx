@@ -225,17 +225,17 @@ function Results({
         {heading}
         <FilterPills filters={filters} />
         <View style={{ flex: 1 }}>
-          <ResultsMap
-            initialRegion={mapRegion}
-            meetings={state.status === "failed" ? [] : onMap}
-            onMove={(region) => {
-              setMapRegion(region);
-              onMapMove(region);
-            }}
-            showsUser={nearPerson}
-          />
+          {/* Before the map, so VoiceOver and TalkBack read it first; zIndex draws it on top. */}
           <View
-            style={{ position: "absolute", top: 12, left: 12, right: 12, gap: 8, pointerEvents: "box-none" }}
+            style={{
+              position: "absolute",
+              top: 12,
+              left: 12,
+              right: 12,
+              gap: 8,
+              pointerEvents: "box-none",
+              zIndex: 1,
+            }}
           >
             {backButton !== false && <View style={[card, { alignSelf: "flex-start" }]}>{backButton}</View>}
             {savedNote}
@@ -258,6 +258,15 @@ function Results({
               </View>
             )}
           </View>
+          <ResultsMap
+            initialRegion={mapRegion}
+            meetings={state.status === "failed" ? [] : onMap}
+            onMove={(region) => {
+              setMapRegion(region);
+              onMapMove(region);
+            }}
+            showsUser={nearPerson}
+          />
         </View>
       </Screen>
     );

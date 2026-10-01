@@ -466,6 +466,21 @@ describe("going back after moving the map", () => {
     expect(JSON.stringify(besideMap())).toBe(beforePan.replace("Near Maryville, TN", "Near this map area"));
   });
 
+  // VoiceOver and TalkBack read in the order of the tree, so the layer over the map comes before the map's markers,
+  // and draws on top by its zIndex.
+  it("is read before the map's markers, and drawn over the map", async () => {
+    const { map } = await openMap();
+    api.reply(SEARCH, { meetings: [hill] });
+    await moveTo(map, PAN);
+    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    const buttons = screen.getAllByRole("button").map((button) => String(button.props.accessibilityLabel));
+    expect(buttons.indexOf("Back to Maryville, TN")).toBeGreaterThan(-1);
+    expect(buttons.indexOf("Back to Maryville, TN")).toBeLessThan(buttons.indexOf("Hill Group, Mon 6:30 PM"));
+    let layer = backTo("Maryville, TN");
+    while (layer.parent !== null && layer.parent !== map.parent) layer = layer.parent;
+    expect(layer).toHaveStyle({ position: "absolute", zIndex: 1 });
+  });
+
   it("is forgotten when the person searches a new place", async () => {
     setPlace("Knoxville, TN", { latitude: 35.9606, longitude: -83.9207 });
     const { map } = await openMap();

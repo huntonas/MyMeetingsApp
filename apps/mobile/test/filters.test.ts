@@ -1,6 +1,6 @@
 import { milesLabel, radiusMiles } from "@/meetings/units";
 import { filtering, type MeetingFilters, NO_FILTERS } from "@/search/filters";
-import { sortNearby } from "@/search/nearby";
+import { listNearby, type NearbyOrder } from "@/search/nearby";
 
 import { meeting, nearbyMeeting } from "./fixtures";
 
@@ -55,7 +55,7 @@ describe("filters the person has chosen", () => {
   });
 });
 
-describe("sortNearby", () => {
+describe("listNearby", () => {
   const MARYVILLE = { latitude: 35.7565, longitude: -83.9705 };
   // Monday 12:30 PM in Chicago.
   const NOW = new Date("2026-10-05T17:30:00Z");
@@ -76,13 +76,16 @@ describe("sortNearby", () => {
   // In the server's order, by the rounded point's distance: the far 5 PM before the near one.
   const all = [far5pm, near5pm, near8pm, far3pm, near1pm];
   const ids = (meetings: { id: string }[]) => meetings.map((m) => m.id.slice(0, 1));
+  const keepAll = () => true;
+  const sortNearby = (meetings: typeof all, order: NearbyOrder) =>
+    listNearby(meetings, MARYVILLE, order, NOW, keepAll);
 
   it("puts the soonest first, and the nearest first among meetings at the same time", () => {
-    expect(ids(sortNearby(all, MARYVILLE, "soonest", NOW))).toEqual(["2", "3", "1", "4", "5"]);
+    expect(ids(sortNearby(all, "soonest"))).toEqual(["2", "3", "1", "4", "5"]);
   });
 
   it("puts the nearest first by exact distance, and the soonest first at the same place", () => {
-    const sorted = sortNearby(all, MARYVILLE, "nearest", NOW);
+    const sorted = sortNearby(all, "nearest");
     expect(ids(sorted)).toEqual(["2", "1", "5", "3", "4"]);
     expect(sorted[3]?.exactKm).toBeCloseTo(2.31, 2);
   });
@@ -90,19 +93,18 @@ describe("sortNearby", () => {
   // Nearby meetings are almost always in the phone's own zone, so it's the best guess for one the feed gave none.
   it("reads the listed time of a meeting without a time zone on the phone's clock", () => {
     const zoneless2pm = { ...at("6", "14:00", 35.7566, -83.9706), timezone: null };
-    expect(ids(sortNearby([...all, zoneless2pm], MARYVILLE, "soonest", NOW))).toEqual([
-      "2",
-      "6",
-      "3",
-      "1",
-      "4",
-      "5",
-    ]);
+    expect(ids(sortNearby([...all, zoneless2pm], "soonest"))).toEqual(["2", "6", "3", "1", "4", "5"]);
+  });
+
+  it("lists only what keeps keeps, given when each meeting next comes up", () => {
+    // Before 4 PM in Chicago: the 1 PM and the 3 PM.
+    const beforeFour = (_meeting: unknown, upcoming: Date) => upcoming < new Date("2026-10-05T21:00:00Z");
+    expect(ids(listNearby(all, MARYVILLE, "nearest", NOW, beforeFour))).toEqual(["2", "3"]);
   });
 
   it("keeps the server's distance for a meeting without coordinates", () => {
     const unplaced = nearbyMeeting({ latitude: null, longitude: null, distanceKm: 3.2 });
-    expect(sortNearby([unplaced], MARYVILLE, "nearest", NOW)[0]?.exactKm).toBe(3.2);
+    expect(sortNearby([unplaced], "nearest")[0]?.exactKm).toBe(3.2);
   });
 });
 

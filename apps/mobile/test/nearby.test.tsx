@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus, Linking } from "react-native";
 import { readCache } from "@/cache/store";
 import { appDatabase } from "@/db/database";
 import { recentPlaces } from "@/location/recent-places";
+import * as schedule from "@/meetings/schedule";
 
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
@@ -776,6 +777,23 @@ describe("results", () => {
       expect(screen.getByRole("button", { name: "Sort soonest first" })).not.toBeSelected();
     });
 
+    it("works out each meeting's next start once for the order and the filters, and only when something changes", async () => {
+      const upcoming = jest.spyOn(schedule, "upcomingStart");
+      await searchAtLunchtime();
+      upcoming.mockClear();
+      // Switching to the map and back changes nothing the list depends on.
+      await fireEvent.press(screen.getByRole("button", { name: "Map" }));
+      await fireEvent.press(screen.getByRole("button", { name: "List" }));
+      expect(await screen.findByText("One Here")).toBeOnTheScreen();
+      expect(upcoming).not.toHaveBeenCalled();
+      // A new order is one pass: once for each of the five meetings.
+      await fireEvent.press(screen.getByRole("button", { name: "Sort nearest first" }));
+      await waitFor(async () => {
+        expect(await listed()).toEqual(["One Here", "Five Here", "Eight Here", "Three Away", "Five Away"]);
+      });
+      expect(upcoming).toHaveBeenCalledTimes(5);
+    });
+
     it("keeps the choice through a new search, but not once the app is closed", async () => {
       await searchAtLunchtime();
       await fireEvent.press(screen.getByRole("button", { name: "Sort nearest first" }));
@@ -872,6 +890,23 @@ describe("results", () => {
     const cards = screen.getAllByRole("button", { name: /Group, Mon/ });
     expect(cards[0]).toHaveAccessibleName("Near Group, Mon 8:00 AM, 0.2 mi, St. Luke's, Quiet 2 people");
     expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.3 mi, St. Luke's, Welcoming 14 people");
+    api = await startApi();
+  });
+
+  it("offline, doesn't work the last search's list out again on every render", async () => {
+    api.reply(SEARCH, { meetings: [far, near] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await screen.findByText("Near Group");
+    await api.close();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
+    expect(await screen.findByText(/^Showing your last search, near Maryville, TN/)).toBeOnTheScreen();
+    const upcoming = jest.spyOn(schedule, "upcomingStart");
+    await fireEvent.press(screen.getByRole("button", { name: "Map" }));
+    await fireEvent.press(screen.getByRole("button", { name: "List" }));
+    expect(await screen.findByText("Near Group")).toBeOnTheScreen();
+    expect(upcoming).not.toHaveBeenCalled();
     api = await startApi();
   });
 

@@ -137,6 +137,12 @@ describe("upcomingStart", () => {
     const now = new Date("2026-10-05T23:30:00Z"); // Monday 6:30 PM in Chicago
     expect(iso(upcomingStart(chicagoMonday7pm, now))).toBe("2026-10-06T00:00:00.000Z");
   });
+
+  // Nearby meetings are almost always in the phone's own zone, so it's the best guess for one the feed gave none.
+  it("reads a meeting without a time zone on the phone's clock", () => {
+    const now = new Date("2026-10-05T23:30:00Z"); // Monday 6:30 PM on the phone, in Chicago
+    expect(iso(upcomingStart({ ...chicagoMonday7pm, timezone: null }, now))).toBe("2026-10-06T00:00:00.000Z");
+  });
 });
 
 describe("yourTime", () => {

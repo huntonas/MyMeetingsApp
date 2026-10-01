@@ -3,7 +3,6 @@ import { createContext, type ReactNode, useContext, useMemo, useState } from "re
 
 import { nextOnPhoneClock } from "@/meetings/schedule";
 import type { MeetingTypeCode } from "@/meetings/type-labels";
-import { useNow } from "@/time/use-now";
 
 // On the meeting's listed time. Night runs past midnight.
 export const TIMES_OF_DAY = {
@@ -98,12 +97,11 @@ export function filtering(chosen: Chosen, now: Date) {
   return { filters, untouched, keeps };
 }
 
-// filtering() for the person's choices so far. setFilters changes only the groups it's given: Clear filters gives all
-// four, empty.
+// The person's choices so far, for filtering() with the screen's own clock. setFilters changes only the groups it's
+// given: Clear filters gives all four, empty.
 export function useFilters() {
   const { chosen, choose } = useContext(Filters);
-  const now = useNow();
-  return useMemo(() => ({ ...filtering(chosen, now), setFilters: choose }), [chosen, choose, now]);
+  return { chosen, setFilters: choose };
 }
 
 export function anyFilterChosen({ days, times, types, tags }: MeetingFilters): boolean {

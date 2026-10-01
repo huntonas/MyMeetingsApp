@@ -12,14 +12,13 @@ import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from 
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
-import { anyFilterChosen, type MeetingFilters, NO_FILTERS, useFilters } from "@/search/filters";
+import { anyFilterChosen, filtering, type MeetingFilters, NO_FILTERS, useFilters } from "@/search/filters";
 import {
-  comesUp,
   describedOrigin,
+  listNearby,
   type NearbyOrder,
   type SearchOrigin,
   searchRead,
-  sortNearby,
 } from "@/search/nearby";
 import { useColors } from "@/theme/colors";
 import { useNow } from "@/time/use-now";
@@ -132,17 +131,17 @@ function Results({
   const now = useNow();
   const { state, refresh } = useCachedRead(searchRead(asked));
   // Offline, the answer may be the last search standing in for this one; everything below describes where it was made.
-  const origin =
-    state.status === "ready"
-      ? describedOrigin(state.data, asked)
-      : { label: asked.label, point: asked.point, radiusKm: asked.radiusKm, lastSearch: false };
+  const origin = useMemo(
+    () =>
+      state.status === "ready"
+        ? describedOrigin(state.data, asked)
+        : { label: asked.label, point: asked.point, radiusKm: asked.radiusKm, lastSearch: false },
+    [state, asked],
+  );
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a list left open.
   useRefreshOnFocus(refresh);
-  const { filters, setFilters, untouched, keeps } = useFilters();
-  const shows = useCallback(
-    (meeting: MeetingSearchResponse["meetings"][number]) => keeps(meeting, comesUp(meeting, now)),
-    [keeps, now],
-  );
+  const { chosen, setFilters } = useFilters();
+  const { filters, untouched, keeps } = useMemo(() => filtering(chosen, now), [chosen, now]);
   // Where the map was left: it opens around the search, and after the person switches to the list and back it opens
   // where they last moved it. The map applies this only when it appears, so updating it never moves a map on screen.
   const [mapRegion, setMapRegion] = useState(() => regionAround(asked.point, asked.radiusKm));
@@ -152,7 +151,12 @@ function Results({
   // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
   const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
   if (state.status === "ready" && state.data.meetings !== lastFound) setLastFound(state.data.meetings);
-  const onMap = useMemo(() => lastFound.filter(shows), [lastFound, shows]);
+  // What the filters keep, in order: worked out again only when one of these changes, not on every render. The map
+  // shows the same meetings (their order means nothing there).
+  const listed = useMemo(
+    () => listNearby(lastFound, origin.point, order, now, keeps),
+    [lastFound, origin.point, order, now, keeps],
+  );
   const backButton = backTo !== null && (
     <Button
       kind="secondary"
@@ -258,7 +262,7 @@ function Results({
                 <AppText>{noneNearby}</AppText>
               </View>
             )}
-            {state.status === "ready" && state.data.meetings.length > 0 && onMap.length === 0 && (
+            {state.status === "ready" && state.data.meetings.length > 0 && listed.length === 0 && (
               <View style={card}>{noMatches}</View>
             )}
             {state.status === "loading" && (
@@ -269,7 +273,7 @@ function Results({
           </View>
           <ResultsMap
             initialRegion={mapRegion}
-            meetings={state.status === "failed" ? [] : onMap}
+            meetings={state.status === "failed" ? [] : listed}
             onMove={(region) => {
               setMapRegion(region);
               onMapMove(region);
@@ -294,9 +298,8 @@ function Results({
         <AppText accessibilityRole="alert">{state.message}</AppText>
       </Screen>
     );
-  const sorted = sortNearby(state.data.meetings, origin.point, order, now);
   // Spec §8: the list offers the online meetings instead of an empty screen.
-  if (sorted.length === 0) {
+  if (state.data.meetings.length === 0) {
     return (
       <Screen>
         {heading}
@@ -306,12 +309,11 @@ function Results({
       </Screen>
     );
   }
-  const shown = sorted.filter(shows);
   // Filters start chosen (today, from now on), so the count says it's filtered, and Clear filters is always at hand.
   const filtered = anyFilterChosen(filters);
   return (
     <FlatList
-      data={shown}
+      data={listed}
       keyExtractor={(meeting) => meeting.id}
       style={{ backgroundColor: colors.bg }}
       contentContainerStyle={{ padding: 20, gap: 12 }}
@@ -321,11 +323,11 @@ function Results({
           {savedNote}
           <FilterPills filters={filters} />
           <OrderPills order={order} onOrder={onOrder} />
-          {shown.length > 0 && <AppText tone="muted">{countLine(shown.length, filtered)}</AppText>}
-          {shown.length > 0 && filtered && clearFilters}
-          {shown.length === 0 && noMatches}
+          {listed.length > 0 && <AppText tone="muted">{countLine(listed.length, filtered)}</AppText>}
+          {listed.length > 0 && filtered && clearFilters}
+          {listed.length === 0 && noMatches}
           {/* Spec §8: as with no meetings nearby at all, the online ones instead of an empty screen. */}
-          {shown.length === 0 && untouched && onlineInstead}
+          {listed.length === 0 && untouched && onlineInstead}
         </View>
       }
       renderItem={({ item }) => (

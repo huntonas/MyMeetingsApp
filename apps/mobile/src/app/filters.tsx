@@ -6,7 +6,8 @@ import { View } from "react-native";
 import { FILTER_TYPES, TYPE_LABELS } from "@/meetings/type-labels";
 import { WEEKDAYS } from "@/meetings/schedule";
 import { useVocabularyTags } from "@/meetings/vocabulary";
-import { NO_FILTERS, TIME_ORDER, TIMES_OF_DAY, toggled, useFilters } from "@/search/filters";
+import { filtering, NO_FILTERS, TIME_ORDER, TIMES_OF_DAY, toggled, useFilters } from "@/search/filters";
+import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { Pill } from "@/ui/pill";
@@ -32,7 +33,8 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function FiltersScreen() {
-  const { filters, setFilters } = useFilters();
+  const { chosen, setFilters } = useFilters();
+  const { filters } = filtering(chosen, useNow());
   const tags = [...useVocabularyTags().values()];
   return (
     <Screen>

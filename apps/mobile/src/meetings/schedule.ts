@@ -86,16 +86,21 @@ export function nextStart(meeting: Scheduled, last: Occurrence): Date {
 // Someone may still walk in late: a meeting that began this long ago still counts as coming up.
 const LATE_ARRIVAL_MINUTES = 60;
 
-// The start a list sorted by what's soonest goes by: the latest one for an hour after it begins, so a meeting that has
-// just started stays at the top instead of dropping to next week, and the next one after that.
-export function upcomingStart(meeting: Scheduled, now: Date): Date {
-  const last = lastOccurrence(meeting, now);
-  if (now.getTime() - last.start.getTime() <= LATE_ARRIVAL_MINUTES * MINUTE) return last.start;
-  return nextStart(meeting, last);
-}
-
 // The zone the phone's own clock is in.
 const phoneZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// The start a list sorted by what's soonest goes by: the latest one for an hour after it begins, so a meeting that has
+// just started stays at the top instead of dropping to next week, and the next one after that. A meeting the feed gave
+// no zone is read on the phone's clock: nearby meetings are almost always in the phone's own zone.
+export function upcomingStart(
+  meeting: Pick<MeetingSummary, "day" | "time" | "endTime" | "timezone">,
+  now: Date,
+): Date {
+  const scheduled = { ...meeting, timezone: meeting.timezone ?? phoneZone() };
+  const last = lastOccurrence(scheduled, now);
+  if (now.getTime() - last.start.getTime() <= LATE_ARRIVAL_MINUTES * MINUTE) return last.start;
+  return nextStart(scheduled, last);
+}
 
 // The first instant after `now` at which the phone's clock reads `time` ("05:00").
 export function nextOnPhoneClock(time: string, now: Date): Date {

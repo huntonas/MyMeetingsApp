@@ -76,38 +76,29 @@ export function describedOrigin(result: SearchResult, asked: SearchOrigin) {
   };
 }
 
-// When a meeting next comes up (upcomingStart). Nearby meetings are almost always in the phone's own zone: the best
-// guess for one the feed gave none.
-export function comesUp(
-  meeting: Pick<MeetingSummary, "day" | "time" | "endTime" | "timezone">,
-  now: Date,
-): Date {
-  const timezone = meeting.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return upcomingStart({ ...meeting, timezone }, now);
-}
-
 // Soonest (the default) or nearest first: the person's choice, held in memory only.
 export type NearbyOrder = "soonest" | "nearest";
 
-// Spec §8: the server sorts by distance from the rounded point, which says nothing about time. The phone sorts by the
-// exact distance from the real point, or by the next start (owner decision, 2026-09-30), each breaking the other's
-// ties, so meetings at one place read in time order.
-export function sortNearby(
+// The Nearby list: the meetings `keeps` keeps (useFilters' rule, given when each comes up), in order. Spec §8: the
+// server sorts by distance from the rounded point, which says nothing about time. The phone sorts by the exact
+// distance from the real point, or by the next start (owner decision, 2026-09-30), each breaking the other's ties, so
+// meetings at one place read in time order. Each meeting's upcomingStart is worked out once, for both.
+export function listNearby(
   meetings: MeetingSearchResponse["meetings"],
   from: LatLng,
   order: NearbyOrder,
   now: Date,
+  keeps: (meeting: MeetingSummary, upcoming: Date) => boolean,
 ): NearbyMeeting[] {
-  const measured = meetings.map((meeting) => ({
-    meeting: {
-      ...meeting,
-      exactKm:
-        meeting.latitude === null || meeting.longitude === null
-          ? meeting.distanceKm
-          : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude }),
-    },
-    startsAt: comesUp(meeting, now).getTime(),
-  }));
+  const measured = meetings.flatMap((meeting) => {
+    const upcoming = upcomingStart(meeting, now);
+    if (!keeps(meeting, upcoming)) return [];
+    const exactKm =
+      meeting.latitude === null || meeting.longitude === null
+        ? meeting.distanceKm
+        : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude });
+    return [{ meeting: { ...meeting, exactKm }, startsAt: upcoming.getTime() }];
+  });
   type Measured = (typeof measured)[number];
   const byDistance = (a: Measured, b: Measured) => a.meeting.exactKm - b.meeting.exactKm;
   const byStart = (a: Measured, b: Measured) => a.startsAt - b.startsAt;

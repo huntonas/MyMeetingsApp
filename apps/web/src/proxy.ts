@@ -19,10 +19,10 @@ function isSameOrigin(request: NextRequest): boolean {
 }
 
 // Search engines index production only. Staging is public so TestFlight builds can reach it (Vercel drops its own
-// preview noindex once a domain is attached), so its pages say noindex; local builds have no target and are left alone.
+// preview noindex once a domain is attached), so its pages say noindex. It fails closed: anything not exactly
+// production, a deployment missing its target or a local build included, says noindex.
 function publicHeaders(): Record<string, string> {
-  const target = readEnv("VERCEL_TARGET_ENV");
-  return target === undefined || target === "production" ? {} : { "X-Robots-Tag": "noindex, nofollow" };
+  return readEnv("VERCEL_TARGET_ENV") === "production" ? {} : { "X-Robots-Tag": "noindex, nofollow" };
 }
 
 // Spec §10: HTTP Basic Auth for /metrics and its admin views. A Vercel Firewall rule on /metrics limits each

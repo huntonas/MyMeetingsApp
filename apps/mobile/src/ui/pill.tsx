@@ -1,4 +1,4 @@
-import { Pressable } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
@@ -10,15 +10,31 @@ interface PillProps {
   // A checkbox toggles a filter; a button opens the filter sheet. spokenLabel defaults to label.
   role?: "checkbox" | "button";
   spokenLabel?: string;
+  hint?: string;
+  // Given, the pill opens and closes a panel (PanelToggle): it draws ▾ or ▴ after the label, and says expanded or
+  // collapsed instead of selected, the label already saying what's chosen.
+  expanded?: boolean;
 }
 
-export function Pill({ label, selected, onPress, role = "checkbox", spokenLabel }: PillProps) {
+export function Pill({
+  label,
+  selected,
+  onPress,
+  role = "checkbox",
+  spokenLabel,
+  hint,
+  expanded,
+}: PillProps) {
   const colors = useColors();
+  const tone = { color: selected ? colors.accent : colors.text };
   return (
     <Pressable
       accessibilityRole={role}
       accessibilityLabel={spokenLabel ?? label}
-      accessibilityState={role === "checkbox" ? { checked: selected } : { selected }}
+      accessibilityHint={hint}
+      accessibilityState={
+        role === "checkbox" ? { checked: selected } : expanded === undefined ? { selected } : { expanded }
+      }
       onPress={onPress}
       style={{
         minHeight: 44,
@@ -31,9 +47,16 @@ export function Pill({ label, selected, onPress, role = "checkbox", spokenLabel 
         backgroundColor: selected ? colors.tagBg : colors.surface,
       }}
     >
-      <AppText variant="small" style={{ color: selected ? colors.accent : colors.text }}>
-        {label}
-      </AppText>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <AppText variant="small" style={tone}>
+          {label}
+        </AppText>
+        {expanded !== undefined && (
+          <AppText variant="small" style={tone}>
+            {expanded ? "▴" : "▾"}
+          </AppText>
+        )}
+      </View>
     </Pressable>
   );
 }

@@ -871,8 +871,35 @@ describe("results", () => {
       expect(screen.getByText("2 meetings · today from now · soonest")).toBeOnTheScreen();
       for (const hidden of ["Day filters, 1 chosen", "Sort soonest first", "Clear filters"])
         expect(screen.queryByRole("button", { name: hidden })).toBeNull();
-      expect(screen.getByRole("button", { name: "Change place" })).toBeOnTheScreen();
       expect(screen.getByRole("button", { name: "List" })).toBeSelected();
+    });
+
+    // The owner's design: one control style on the List / Map row.
+    it("draws the Filters toggle as a pill, selected while something is chosen, with an arrow that turns", async () => {
+      await searchMaryville();
+      const look = (name: string | RegExp): unknown => {
+        const style: unknown = screen.getByRole("button", { name }).props.style;
+        return style;
+      };
+      expect(look(/^Filters/)).toEqual(look("List"));
+      expect(within(filtersToggle()).getByText("▾")).toBeOnTheScreen();
+      await fireEvent.press(filtersToggle());
+      expect(within(filtersToggle()).getByText("▴")).toBeOnTheScreen();
+      expect(within(filtersToggle()).queryByText("▾")).toBeNull();
+      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      await screen.findByRole("button", { name: "Filters" });
+      expect(look("Filters")).toEqual(look("Map"));
+      expect(look("Filters")).not.toEqual(look("List"));
+    });
+
+    // The owner's design: a plain link beside the heading, not a box competing with the pills.
+    it("offers Change place as a text link that still says what it does", async () => {
+      await searchMaryville();
+      const changePlace = screen.getByRole("button", { name: "Change place" });
+      expect(changePlace).toHaveProp("accessibilityHint", "Searches somewhere else");
+      expect(changePlace).toHaveStyle({ borderWidth: 0, minHeight: 44, minWidth: 44 });
+      await fireEvent.press(changePlace);
+      expect(await screen.findByLabelText("Search for a place")).toBeOnTheScreen();
     });
 
     it("opens to show the filter groups, the sort and Clear filters, and closes again", async () => {

@@ -290,7 +290,7 @@ describe("the results map", () => {
     while (layer.parent !== null && layer.parent !== map.parent) layer = layer.parent;
     expect(layer).toHaveStyle({ position: "absolute", zIndex: 1 });
     // Only the toggle's arrow changes beside the map.
-    expect(JSON.stringify(besideMap())).toBe(before.replace("▼", "▲"));
+    expect(JSON.stringify(besideMap())).toBe(before.replace("▾", "▴"));
     // Even if the map reported a region now, untouched, it isn't a pan.
     await fireEvent(map, "regionChangeComplete", {
       ...regionAround(MARYVILLE_POINT, 25),

@@ -202,6 +202,7 @@ function Results({
       label={filtered ? `Filters · ${String(groups)}` : "Filters"}
       spokenLabel={filtered ? `Filters, ${String(groups)} chosen` : "Filters"}
       contents={view === "list" ? "the filters and sort order" : "the filters"}
+      selected={filtered}
       expanded={filtersOpen}
       onToggle={() => {
         onFiltersOpen(!filtersOpen);
@@ -215,7 +216,7 @@ function Results({
         <AppText variant="title" accessibilityRole="header" style={{ flexShrink: 1 }}>
           {`Near ${origin.label}`}
         </AppText>
-        <Button kind="secondary" label="Change place" onPress={onChangePlace} />
+        <Button kind="text" label="Change place" hint="Searches somewhere else" onPress={onChangePlace} />
       </View>
       {/* On the map it sits over the map instead: appearing beside it after the first pan would resize the map. */}
       {view === "list" && backButton}

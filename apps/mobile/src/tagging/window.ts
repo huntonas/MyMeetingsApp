@@ -37,7 +37,9 @@ export function attendanceOccurrence(meeting: Scheduled, now: Date): Occurrence 
 
 // Where an attendance check can look: an in-person or hybrid meeting with a map point. An online meeting has nowhere
 // to be near, even when its listing gives a point.
-export function checkablePlace(meeting: MeetingSummary): LatLng | null {
+export function checkablePlace(
+  meeting: Pick<MeetingSummary, "attendance" | "latitude" | "longitude">,
+): LatLng | null {
   if (meeting.attendance === "online" || meeting.latitude === null || meeting.longitude === null) return null;
   return { latitude: meeting.latitude, longitude: meeting.longitude };
 }

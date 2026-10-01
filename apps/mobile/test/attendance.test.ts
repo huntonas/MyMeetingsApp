@@ -16,7 +16,8 @@ import {
 import { setTemporaryAccuracyAnswer, temporaryAccuracyRequests } from "./native/native-location";
 
 const ST_LUKES = { latitude: 36.1627, longitude: -86.7816 };
-// 0.0013° of latitude is about 145 m; 0.0023° about 256 m; 0.004° about 445 m; 0.0053° about 589 m.
+// 0.0013° of latitude is about 145 m; 0.00193° about 215 m; 0.00203° about 226 m; 0.0023° about 256 m; 0.004° about
+// 445 m; 0.00445° about 495 m; 0.00454° about 505 m; 0.0053° about 589 m.
 const at = (dLat: number, accuracy = 20) => ({ latitude: 36.1627 + dLat, longitude: -86.7816, accuracy });
 
 describe("checkAttendance (spec §8: 200 m plus the fix's accuracy, at most 500 m)", () => {
@@ -26,6 +27,10 @@ describe("checkAttendance (spec §8: 200 m plus the fix's accuracy, at most 500 
 
   it.each([
     ["145 m away, 20 m accuracy", at(0.0013), "near"],
+    ["215 m away, 20 m accuracy (within 220)", at(0.00193), "near"],
+    ["226 m away, 20 m accuracy (past 220)", at(0.00203), "notNear"],
+    ["495 m away, 400 m accuracy (within the 500 cap)", at(0.00445, 400), "near"],
+    ["505 m away, 400 m accuracy (past the 500 cap)", at(0.00454, 400), "notNear"],
     ["256 m away, 20 m accuracy", at(0.0023), "notNear"],
     ["256 m away, 100 m accuracy", at(0.0023, 100), "near"],
     ["445 m away, 400 m accuracy (capped at 500)", at(0.004, 400), "near"],

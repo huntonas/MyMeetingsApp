@@ -1,5 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo } from "react-native";
+import { ERROR_MESSAGES } from "@mymeetingapp/shared";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { AccessibilityInfo, AppState, type AppStateStatus } from "react-native";
+import { z } from "zod";
 
 import { appDatabase } from "@/db/database";
 import { recordNear, wasNear } from "@/tagging/attendance-record";
@@ -32,7 +34,8 @@ const COUNTS = [
   { slug: "welcoming", count: 14 },
   { slug: "quiet", count: 1 },
 ];
-const NEAR = { latitude: 36.164, longitude: -86.7816 }; // about 145 m from St. Luke's
+// About 145 m from St. Luke's, with digits nothing else in the app has, so a stored copy would show.
+const NEAR = { latitude: 36.16401, longitude: -86.78163 };
 const FAR = { latitude: 36.2, longitude: -86.7816 };
 const EXPLANATION = "We check you're near the meeting to stop spam. Your location never leaves your phone.";
 const CHECK = "Check I'm near the meeting";
@@ -54,6 +57,24 @@ afterEach(async () => {
 });
 
 const tagWrites = () => api.requests.filter((r) => r.path === "/api/v1/tags");
+
+// AppState is what the app hands foreground changes off to; the spy lets a test play them.
+function spyOnAppState() {
+  const listeners = new Set<(state: AppStateStatus) => void>();
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_type, listener) => {
+    listeners.add(listener);
+    return {
+      remove: () => {
+        listeners.delete(listener);
+      },
+    };
+  });
+  return async (state: AppStateStatus) => {
+    await act(() => {
+      for (const listener of listeners) listener(state);
+    });
+  };
+}
 
 // The page has drawn the meeting, and its tag section has read the phone's record (the button stands for both).
 async function openMeeting(at: string) {
@@ -113,6 +134,58 @@ describe("the attendance check", () => {
     await tag("Quiet");
     expect(tagWrites()[0]?.body).toBe(`{"meetingId":"${ID}","tags":["quiet"],"nearMeeting":false}`);
     expect(await wasNear(ID, new Date(STARTED))).toBe(false);
+    // The write's new counts don't start a second look.
+    expect(positionReads()).toBe(1);
+  });
+
+  it("doesn't look again when the page reads the meeting's counts afresh", async () => {
+    const appState = spyOnAppState();
+    setLocationPermission("granted");
+    setDevicePosition(FAR);
+    await openMeeting("2026-10-05T17:10:00Z");
+    await waitFor(() => {
+      expect(positionsDelivered()).toBe(1);
+    });
+    // Past the copy's reuse window and still in the meeting's time, so coming back reads the meeting again.
+    setNow("2026-10-05T18:20:00Z");
+    api.reply(PATH, { meeting: meeting({ tags: [{ slug: "welcoming", count: 15 }] }) });
+    await appState("background");
+    await appState("active");
+    expect(await screen.findByLabelText("Welcoming 15 people")).toBeOnTheScreen();
+    expect(positionReads()).toBe(1);
+  });
+
+  it.each([
+    [
+      "tagging is switched off",
+      { ...CONFIG, features: { tagging: false, suggestions: true } },
+      ERROR_MESSAGES.tags_disabled,
+    ],
+    [
+      "the app is below the minimum version",
+      { ...CONFIG, minSupportedVersion: { ios: "9.0.0", android: "9.0.0" } },
+      ERROR_MESSAGES.upgrade_required,
+    ],
+  ])("doesn't look when %s, even before the config has been read", async (_why, config, message) => {
+    api.reply("/api/v1/config", config);
+    setLocationPermission("granted");
+    setDevicePosition(NEAR);
+    setNow("2026-10-05T17:10:00Z");
+    await renderApp(`/meeting/${ID}`);
+    expect(await screen.findByText(message)).toBeOnTheScreen();
+    await launchReadsLanded();
+    expect(permissionChecks()).toBe(0);
+    expect(positionReads()).toBe(0);
+  });
+
+  it("still checks offline with no config, as writes still go", async () => {
+    api.reply("/api/v1/config", { error: { code: "server_error", message: "Something went wrong." } }, 500);
+    setLocationPermission("granted");
+    setDevicePosition(NEAR);
+    await openMeeting("2026-10-05T17:10:00Z");
+    await waitFor(async () => {
+      expect(await wasNear(ID, new Date(STARTED))).toBe(true);
+    });
   });
 
   it("does nothing without permission, and never asks", async () => {
@@ -316,5 +389,18 @@ describe("the attendance check", () => {
     expect(await db.getAllAsync("select * from attendance_checks", [])).toEqual([
       { meeting_id: ID, occurrence_start: new Date(STARTED).getTime() },
     ]);
+    // Nor anywhere else: every cell of every table, as text, holds neither coordinate.
+    const tables = z
+      .array(z.object({ name: z.string() }))
+      .parse(await db.getAllAsync("select name from sqlite_master where type = 'table'", []));
+    expect(tables.length).toBeGreaterThan(5);
+    for (const { name } of tables) {
+      const rows = z
+        .array(z.record(z.string(), z.unknown()))
+        .parse(await db.getAllAsync(`select * from ${name}`, []));
+      for (const cell of rows.flatMap((row) => Object.values(row))) {
+        expect(String(cell)).not.toMatch(/36\.16401|86\.78163/);
+      }
+    }
   });
 });

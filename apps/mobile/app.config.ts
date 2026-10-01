@@ -43,9 +43,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     config: { usesNonExemptEncryption: false },
     infoPlist: {
       // Spec §8, §11: the attendance check's one-time request for full accuracy, when only approximate location is
-      // shared. Its key is ATTENDANCE_PURPOSE_KEY in src/location/attendance.ts.
+      // shared, until the app leaves the foreground. Its key is ATTENDANCE_PURPOSE_KEY in src/location/attendance.ts.
       NSLocationTemporaryUsageDescriptionDictionary: {
-        AttendanceCheck: `${APP_NAME} checks once that you're near the meeting, to stop spam. Your location never leaves your phone.`,
+        AttendanceCheck: `${APP_NAME} checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.`,
       },
     },
   },
@@ -69,7 +69,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // motion APIs, though the app never asks for them.
       "expo-location",
       {
-        locationWhenInUsePermission: `${APP_NAME} uses your location to sort nearby meetings. It rounds it to about 1 km before searching, and your exact location never leaves your phone.`,
+        locationWhenInUsePermission: `${APP_NAME} uses your location to sort nearby meetings, rounded to about 1 km before searching, and to check you're near a meeting you tag. Your exact location never leaves your phone.`,
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
         motionUsagePermission: `${APP_NAME} never uses motion or fitness data. It asks only for your location, and only when you tap to use it.`,

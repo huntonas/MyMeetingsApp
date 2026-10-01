@@ -7,7 +7,7 @@
 3. `pnpm --filter mobile ios --port 8082` builds and opens the dev build in the simulator (add `--device` for a plugged-in iPhone); `pnpm --filter mobile start --port 8082` serves JavaScript to an installed dev build. Pass a port other than 8081 whenever another project's Metro may be on 8081: a dev build connected to it loads that project's code. To point the simulator's installed dev build at our server, run `xcrun simctl openurl booted "exp+mymeetingapp://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8082"`; on an iPhone, pick the server from the dev launcher. `pnpm --filter mobile android` takes `--port` too.
 4. Dev builds float Expo's dev-menu gear over the top-right of the screen, and its touch area covers the Help header button and the top of a meeting's Save heart. That's dev-only: tap slightly lower, or check those in the Release build.
 5. The Release build is the realistic one for smoke checks (offline, Save, Help): it carries its own code, with no gear or dev launcher. `pnpm --filter mobile ios --configuration Release` (add `--device` for an iPhone). The command ends with an error because it tries to open the dev launcher, which a Release build doesn't have; the app is already installed and runs.
-6. Android maps need `GOOGLE_MAPS_ANDROID_API_KEY` (owner decision 5): an EAS secret for EAS builds, and exported in the shell for `pnpm --filter mobile android`. Without it the Android map is blank; iOS (Apple Maps) needs nothing. Never commit the key.
+6. Android maps need `GOOGLE_MAPS_ANDROID_API_KEY` (owner decision 5): an EAS secret for EAS builds, and a line in the git-ignored `apps/mobile/.env` for local builds. Without it the Android map is blank; iOS (Apple Maps) needs nothing. Never commit the key. Details: "Android builds" below.
 
 ## Proxy audit
 
@@ -131,3 +131,38 @@ Needs an Apple ID and 2FA, so the owner runs these, not Claude.
    - If the name `mymeetingapp` is already taken on the App Store, create the record by hand instead (App Store Connect → Apps → + → New App, bundle ID `com.goodersoftware.mymeetingapp`, another name), then rerun `submit` and give it the `ascAppId` it asks for. Claude then adds `"submit": { "testflight": { "ios": { "ascAppId": "<id>" } } }` to `eas.json` (not secret) and commits it.
 4. In App Store Connect → TestFlight, wait for processing (10–15 minutes). There should be no "Missing Compliance" (the app already answers export compliance in `app.config.ts`). Create the internal testing group, add testers, install the build through the TestFlight app, and search "Maryville, TN".
 5. Confirm the requests reached staging, not production: Vercel → Logs, filtered to the staging environment, should show `POST /api/v1/meetings/search` from around that time, and production should show none from that phone then.
+
+## Android builds
+
+### The Google Maps key (Owner)
+
+- **Project:** a Google Cloud project with billing, with **Maps SDK for Android** enabled.
+- **Restrictions:**
+  - application restriction: Android apps, package `com.goodersoftware.mymeetingapp`, with one SHA-1 per signing key;
+  - API restriction: Maps SDK for Android only.
+- **SHA-1s:**
+  - EAS's keystore: `cd apps/mobile && pnpm dlx eas-cli@24.8.0 credentials -p android`, choose the development profile, and let EAS create the keystore if asked. It shows the SHA-1.
+  - The local debug keystore, used by `expo run:android`: `keytool -list -v -alias androiddebugkey -storepass android -keypass android -keystore ~/.android/debug.keystore | grep SHA1`.
+  - Play App Signing's SHA-1 is added in Phase 6.
+- **Where it lives (never in git):**
+  - EAS builds: `pnpm dlx eas-cli@24.8.0 env:create --name GOOGLE_MAPS_ANDROID_API_KEY --environment development --environment preview --environment production --visibility secret`. Each profile in `eas.json` names the EAS environment it reads (`development`, `preview` for `testflight`, `production`).
+  - Local builds: `GOOGLE_MAPS_ANDROID_API_KEY=<key>` in `apps/mobile/.env`. Expo CLI loads it before evaluating `app.config.ts`.
+
+### The emulator
+
+1. Android Studio → Device Manager: a "Google APIs" image, not "Google Play". The proxy audit needs a writable system image (`Pixel_8_API_36`, API 36 Google APIs, is the one in use).
+2. Start it, then `cd apps/mobile && EXPO_NO_TELEMETRY=1 npx expo run:android --port 8082`.
+3. Set a location (longitude first): `adb emu geo fix -86.781602 36.162749`.
+
+### On a phone (Owner, optional)
+
+`cd apps/mobile && pnpm dlx eas-cli@24.8.0 build --profile development --platform android` makes an installable APK. Install it from the build page.
+
+### Smoke checks
+
+| Check                                               | Result      |
+| --------------------------------------------------- | ----------- |
+| The map draws Google tiles                          | not yet run |
+| "Maryville, TN" finds meetings with location off    | not yet run |
+| "Use my location" shows Android's permission dialog | not yet run |
+| A meeting page's Directions open Google Maps        | not yet run |

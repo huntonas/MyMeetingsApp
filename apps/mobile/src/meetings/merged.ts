@@ -15,5 +15,11 @@ export async function meetingMoved(from: string, to: string): Promise<void> {
       [to, from],
     );
     await db.runAsync("delete from favorites where meeting_id = ?", [from]);
+    // The phone's tag record follows too; if both ids were tagged, the survivor's own record stays.
+    await db.runAsync(
+      "insert or ignore into my_tags (meeting_id, name, tags, confirmed_at, updated_at) select ?, name, tags, confirmed_at, updated_at from my_tags where meeting_id = ?",
+      [to, from],
+    );
+    await db.runAsync("delete from my_tags where meeting_id = ?", [from]);
   });
 }

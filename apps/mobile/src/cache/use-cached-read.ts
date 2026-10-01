@@ -53,5 +53,12 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
   const refresh = useCallback(() => {
     setAttempt((count) => count + 1);
   }, []);
-  return { state, refresh };
+  // Shows `update(data)` in place of what's on screen, keeping how old it is (savedAt, reason): a write's answer
+  // changes only what it answered, such as a meeting's tag counts.
+  const show = useCallback((update: (data: z.output<S>) => z.output<S>) => {
+    setState((current) =>
+      current.status === "ready" ? { ...current, data: update(current.data) } : current,
+    );
+  }, []);
+  return { state, refresh, show };
 }

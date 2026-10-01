@@ -63,7 +63,7 @@ describe("appDatabase: upgrading a phone installed before recent places", () => 
     ]);
     // Turn this database back into one that only ever ran the first migration.
     await old.execAsync(
-      "drop table settings; drop table favorites; drop table recent_places; pragma user_version = 1",
+      "drop table my_tags; drop table settings; drop table favorites; drop table recent_places; pragma user_version = 1",
     );
 
     let upgraded: AppDatabase | undefined;
@@ -96,7 +96,9 @@ describe("appDatabase: upgrading a phone installed before favorites", () => {
       ["Nashville, TN", 36.16, -86.78, 1],
     );
     // Turn this database back into one that ran only the first two migrations.
-    await old.execAsync("drop table settings; drop table favorites; pragma user_version = 2");
+    await old.execAsync(
+      "drop table my_tags; drop table settings; drop table favorites; pragma user_version = 2",
+    );
 
     let upgraded: AppDatabase | undefined;
     relaunch();
@@ -132,7 +134,7 @@ describe("appDatabase: upgrading a phone installed before settings", () => {
     );
     await old.runAsync("insert into favorites (meeting_id, saved_at) values (?, ?)", ["a-meeting", 1]);
     // Turn this database back into one that ran only the first three migrations.
-    await old.execAsync("drop table settings; pragma user_version = 3");
+    await old.execAsync("drop table my_tags; drop table settings; pragma user_version = 3");
 
     let upgraded: AppDatabase | undefined;
     relaunch();
@@ -145,6 +147,49 @@ describe("appDatabase: upgrading a phone installed before settings", () => {
       user_version: MIGRATIONS.length,
     });
     expect(await upgraded.getAllAsync("select key from settings", [])).toEqual([]);
+    expect(await upgraded.getAllAsync("select meeting_id from favorites", [])).toEqual([
+      { meeting_id: "a-meeting" },
+    ]);
+    expect(await upgraded.getAllAsync("select label from recent_places", [])).toEqual([
+      { label: "Nashville, TN" },
+    ]);
+    expect(
+      await upgraded.getFirstAsync("select body from cache_entries where key = ?", ["vocabulary"]),
+    ).toEqual({ body: "{}" });
+  });
+});
+
+describe("appDatabase: upgrading a phone installed before the tag record", () => {
+  it("adds the tag record and keeps everything it already had", async () => {
+    const old = await appDatabase();
+    await old.runAsync("insert into cache_entries (key, body, saved_at) values (?, ?, ?)", [
+      "vocabulary",
+      "{}",
+      1,
+    ]);
+    await old.runAsync(
+      "insert into recent_places (label, latitude, longitude, used_at) values (?, ?, ?, ?)",
+      ["Nashville, TN", 36.16, -86.78, 1],
+    );
+    await old.runAsync("insert into favorites (meeting_id, saved_at) values (?, ?)", ["a-meeting", 1]);
+    await old.runAsync("insert into settings (key, value) values (?, ?)", ["sobriety_date", "2024-02-29"]);
+    // Turn this database back into one that ran only the first four migrations.
+    await old.execAsync("drop table my_tags; pragma user_version = 4");
+
+    let upgraded: AppDatabase | undefined;
+    relaunch();
+    await jest.isolateModulesAsync(async () => {
+      upgraded = await freshDatabaseModule().appDatabase();
+    });
+    if (upgraded === undefined) throw new Error("jest.isolateModulesAsync didn't run its callback");
+
+    expect(await upgraded.getFirstAsync("pragma user_version", [])).toEqual({
+      user_version: MIGRATIONS.length,
+    });
+    expect(await upgraded.getAllAsync("select meeting_id from my_tags", [])).toEqual([]);
+    expect(await upgraded.getAllAsync("select key, value from settings", [])).toEqual([
+      { key: "sobriety_date", value: "2024-02-29" },
+    ]);
     expect(await upgraded.getAllAsync("select meeting_id from favorites", [])).toEqual([
       { meeting_id: "a-meeting" },
     ]);

@@ -1,6 +1,6 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useCallback, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { z } from "zod";
 
@@ -12,12 +12,14 @@ import { directionsUrl } from "@/meetings/directions";
 import { meetingMoved } from "@/meetings/merged";
 import { listedTime, WEEKDAYS, yourTime, zoneName } from "@/meetings/schedule";
 import { TYPE_LABELS } from "@/meetings/type-labels";
+import { saveNewCounts } from "@/tagging/new-counts";
 import { AppText } from "@/ui/app-text";
 import { HandOffButton } from "@/ui/hand-off-button";
 import { SaveButton } from "@/ui/save-button";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { TagChips, useLabelledTags } from "@/ui/tag-chips";
+import { YourTags } from "@/ui/your-tags";
 
 const Params = z.object({ id: z.uuid() });
 
@@ -63,7 +65,13 @@ function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
   );
 }
 
-function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
+function MeetingInfo({
+  meeting,
+  onAnswered,
+}: {
+  meeting: MeetingSummary;
+  onAnswered: (response: TagWriteResponse) => void;
+}) {
   const until = meeting.endTime === null ? "" : ` to ${listedTime(meeting.endTime)}`;
   const listed = `${WEEKDAYS[meeting.day] ?? ""}s, ${listedTime(meeting.time)}${until}`;
   const phoneTime =
@@ -120,6 +128,7 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
         </Section>
       )}
       <WhatPeopleSay meeting={meeting} />
+      <YourTags meeting={meeting} onAnswered={onAnswered} />
       {(meeting.notes !== null || meeting.groupName !== null) && (
         <Section title="Notes">
           {meeting.groupName !== null && <AppText>{meeting.groupName}</AppText>}
@@ -142,7 +151,7 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
 }
 
 function MeetingDetail({ id }: { id: string }) {
-  const { state, refresh } = useCachedRead(detailRead(id));
+  const { state, refresh, show } = useCachedRead(detailRead(id));
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a page left open.
   useRefreshOnFocus(refresh);
   const survivor = state.status === "ready" ? state.data.meeting.id : id;
@@ -155,12 +164,20 @@ function MeetingDetail({ id }: { id: string }) {
         router.setParams({ id: survivor });
       });
   }, [id, survivor]);
+  // A tag write's answer: its counts show at once, and go into the saved copy without making it look newer.
+  const answered = useCallback(
+    (response: TagWriteResponse) => {
+      show((data) => ({ meeting: { ...data.meeting, tags: response.tags } }));
+      void saveNewCounts(response).catch(() => undefined);
+    },
+    [show],
+  );
   if (state.status === "loading") return <ActivityIndicator accessibilityLabel="Loading the meeting" />;
   if (state.status === "failed") return <AppText accessibilityRole="alert">{state.message}</AppText>;
   return (
     <>
       {state.savedAt !== null && <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />}
-      <MeetingInfo meeting={state.data.meeting} />
+      <MeetingInfo meeting={state.data.meeting} onAnswered={answered} />
     </>
   );
 }

@@ -2,7 +2,7 @@ import { ERROR_MESSAGES } from "@mymeetingapp/shared";
 import { Platform } from "react-native";
 
 import { fetchVocabulary, searchMeetings } from "@/api/reads";
-import { deleteMine } from "@/api/writes";
+import { deleteMine, submitTags } from "@/api/writes";
 
 import { startApi, type TestApi } from "./api-server";
 import { VOCABULARY } from "./fixtures";
@@ -18,6 +18,7 @@ import {
 const DELETE_MINE = "/api/v1/tags/delete-mine";
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const KEYCHAIN_ID = "6F9619FF-8B86-D011-B42D-00C04FC964FF";
+const MEETING_ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
 let api: TestApi;
 beforeEach(async () => {
@@ -138,6 +139,13 @@ describe("writes", () => {
       code: "attestation_failed",
       message: "We couldn't confirm this request came from the app. Please update the app and try again.",
     });
+  });
+
+  it("send only the contract's fields, whatever else the caller's object holds", async () => {
+    api.reply("/api/v1/tags", { meetingId: MEETING_ID, tags: [] }, 201, "POST");
+    const request = { meetingId: MEETING_ID, tags: ["quiet"], latitude: 36.16, longitude: -86.78 };
+    await submitTags(request);
+    expect(api.requests[0]?.body).toBe(`{"meetingId":"${MEETING_ID}","tags":["quiet"]}`);
   });
 
   it("leave later reads, the search included, without any device header", async () => {

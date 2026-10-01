@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus, Linking, Platform } from "react-native";
 import { readCache, writeCache } from "@/cache/store";
 import { appDatabase } from "@/db/database";
 import { directionsUrl } from "@/meetings/directions";
+import { myTagsOn, recordSubmission } from "@/tagging/my-tags";
 
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
@@ -274,8 +275,9 @@ describe("the meeting page", () => {
     expect(openURL).not.toHaveBeenCalled();
   });
 
-  it("follows a merged meeting to its new id, moving its saved copy", async () => {
+  it("follows a merged meeting to its new id, moving its saved copy and the phone's tag record", async () => {
     api.reply(PATH, { meeting: meeting({ id: SURVIVOR, name: "Nooners (merged)" }) });
+    await recordSubmission({ id: ID, name: "Nooners" }, ["quiet"], new Date("2026-10-05T17:00:00Z"));
     const app = await renderApp(`/meeting/${ID}`);
     await waitFor(() => {
       expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
@@ -283,6 +285,8 @@ describe("the meeting page", () => {
     expect(await screen.findByText("Nooners (merged)")).toBeOnTheScreen();
     expect(await readCache(`meeting:${ID}`)).toBeNull();
     expect(await readCache(`meeting:${SURVIVOR}`)).not.toBeNull();
+    expect(await myTagsOn(SURVIVOR)).toMatchObject({ tags: ["quiet"] });
+    expect(await myTagsOn(ID)).toBeNull();
     // The moved copy is fresh, so the new id isn't asked for again, and the old one only once.
     expect(meetingRequests().map((r) => r.path)).toEqual([PATH]);
   });

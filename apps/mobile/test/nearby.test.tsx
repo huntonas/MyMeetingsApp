@@ -156,7 +156,7 @@ describe("Nearby without location", () => {
       "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
     );
     expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.4 mi, St. Luke's, Welcoming 14 people");
-    expect(screen.getByText("2 meetings · today from now · soonest")).toBeOnTheScreen();
+    expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
     expect(lookups).toEqual(["Maryville, TN"]);
     expect(searchBodies()).toEqual([{ lat: 35.76, lng: -83.97, radiusKm: 25 }]);
     for (const request of api.requests) {
@@ -454,14 +454,14 @@ describe("results", () => {
       expect(screen.queryByText("Near Group")).toBeNull();
     });
     expect(screen.getByText("Far Group")).toBeOnTheScreen();
-    expect(screen.getByText("1 meeting · 2 filters · soonest")).toBeOnTheScreen();
+    expect(screen.getByText("1 meeting · 2 filters")).toBeOnTheScreen();
     await chooseFilters("Time filters, 1 chosen", ["Evening", "Night"]);
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
     await chooseFilters("Day filters, 1 chosen", ["Tuesday"]);
     await chooseFilters("Type filters", ["Open"]);
     await chooseFilters("Tag filters", ["Quiet"]);
     expect(await screen.findByRole("button", { name: "Tag filters, 1 chosen" })).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
     expect(await screen.findByText("Near Group")).toBeOnTheScreen();
     expect(screen.getByText("Far Group")).toBeOnTheScreen();
     await expectNoFiltersChosen();
@@ -567,7 +567,7 @@ describe("results", () => {
     it("at 6 PM on a Monday, chooses Monday and the evening and night", async () => {
       await searchAt("2026-10-05T23:00:00Z");
       await expectListed(["Far Group", "Late Group"]);
-      expect(screen.getByText("2 meetings · today from now · soonest")).toBeOnTheScreen();
+      expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
       await openFilters();
       expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeSelected();
       expect(screen.getByRole("button", { name: "Time filters, 2 chosen" })).toBeSelected();
@@ -583,7 +583,7 @@ describe("results", () => {
     it("late at night, chooses only the night", async () => {
       await searchAt("2026-10-06T03:30:00Z");
       await expectListed(["Late Group"]);
-      expect(screen.getByText("1 meeting · today from now · soonest")).toBeOnTheScreen();
+      expect(screen.getByText("1 meeting · today from now")).toBeOnTheScreen();
       await openFilters();
       expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
       expect(screen.getByRole("button", { name: "Time filters, 1 chosen" })).toBeOnTheScreen();
@@ -594,7 +594,7 @@ describe("results", () => {
     it("at 11 PM, includes tonight's meetings after midnight", async () => {
       await searchAt("2026-10-06T04:00:00Z", [midnight]);
       await expectListed(["Late Group", "Midnight Group"]);
-      expect(screen.getByText("2 meetings · today from now · soonest")).toBeOnTheScreen();
+      expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
     });
 
     // Owner decision D1, as corrected: until 5 AM it's still today on the phone's calendar, so the list runs to 5 AM the
@@ -627,14 +627,13 @@ describe("results", () => {
       expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
     });
 
-    it("Clear filters shows every meeting, and a new search doesn't choose them again", async () => {
+    it("Clear shows every meeting, and a new search doesn't choose them again", async () => {
       await searchAt("2026-10-05T23:00:00Z");
       await expectListed(["Far Group", "Late Group"]);
-      await openFilters();
-      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
       await expectListed(["Near Group", "Far Group", "Late Group", "Tuesday Group"]);
-      expect(screen.getByText("4 meetings · soonest")).toBeOnTheScreen();
-      expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+      expect(screen.getByText("4 meetings")).toBeOnTheScreen();
+      expect(screen.queryByRole("button", { name: "Clear" })).toBeNull();
       await expectNoFiltersChosen();
       await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
       await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
@@ -669,7 +668,7 @@ describe("results", () => {
         expect(await screen.findByText("Just Begun Group")).toBeOnTheScreen();
         expect(screen.getByText("Late Group")).toBeOnTheScreen();
         expect(screen.queryByText("Small Hours Group")).toBeNull();
-        expect(screen.getByText("2 meetings · today from now · soonest")).toBeOnTheScreen();
+        expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
       }
 
       // Owner decision D2: the filter groups are independent.
@@ -693,7 +692,7 @@ describe("results", () => {
         await searchAtTenPm();
         await chooseFilters(pill, [choice]);
         expect(await screen.findByText("Small Hours Group")).toBeOnTheScreen();
-        expect(screen.getByText("3 meetings · 2 filters · soonest")).toBeOnTheScreen();
+        expect(screen.getByText("3 meetings · 2 filters")).toBeOnTheScreen();
       });
     });
 
@@ -725,12 +724,12 @@ describe("results", () => {
       expect(await screen.findByText("Zoom Night Owls")).toBeOnTheScreen();
       // The way out is in view with the Filters panel closed.
       expect(filtersToggle()).toHaveProp("accessibilityState", { expanded: false });
-      expect(screen.getByRole("button", { name: "Clear filters" })).toBeOnTheScreen();
+      expect(screen.getByRole("button", { name: "Clear" })).toBeOnTheScreen();
       // Once the person chooses something, even only a tag, it's their filters that match nothing.
       await chooseFilters("Tag filters", ["Quiet"]);
       expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
       expect(screen.queryByText("Online meetings you can join")).toBeNull();
-      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
       expect(await screen.findByText("Far Group")).toBeOnTheScreen();
       expect(screen.queryByText("No more meetings nearby today.")).toBeNull();
       expect(screen.queryByText("Online meetings you can join")).toBeNull();
@@ -868,9 +867,13 @@ describe("results", () => {
       expect(toggle).toHaveProp("accessibilityHint", "Shows the filters and sort order");
       expect(toggle).toHaveProp("accessibilityState", { expanded: false });
       expect(within(toggle).getByText("Filters · 2")).toBeOnTheScreen();
-      expect(screen.getByText("2 meetings · today from now · soonest")).toBeOnTheScreen();
-      for (const hidden of ["Day filters, 1 chosen", "Sort soonest first", "Clear filters"])
+      expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
+      for (const hidden of ["Day filters, 1 chosen", "Sort soonest first"])
         expect(screen.queryByRole("button", { name: hidden })).toBeNull();
+      // The way out sits on the summary line, as a link, while anything is chosen.
+      const clear = screen.getByRole("button", { name: "Clear" });
+      expect(clear).toHaveProp("accessibilityHint", "Clears the filters, to show every meeting");
+      expect(clear).toHaveStyle({ borderWidth: 0, minHeight: 44, minWidth: 44 });
       expect(screen.getByRole("button", { name: "List" })).toBeSelected();
     });
 
@@ -886,7 +889,7 @@ describe("results", () => {
       await fireEvent.press(filtersToggle());
       expect(within(filtersToggle()).getByText("▴")).toBeOnTheScreen();
       expect(within(filtersToggle()).queryByText("▾")).toBeNull();
-      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
       await screen.findByRole("button", { name: "Filters" });
       expect(look("Filters")).toEqual(look("Map"));
       expect(look("Filters")).not.toEqual(look("List"));
@@ -902,7 +905,7 @@ describe("results", () => {
       expect(await screen.findByLabelText("Search for a place")).toBeOnTheScreen();
     });
 
-    it("opens to show the filter groups, the sort and Clear filters, and closes again", async () => {
+    it("opens to show the filter groups and the sort, and closes again", async () => {
       await searchMaryville();
       await fireEvent.press(filtersToggle());
       expect(filtersToggle()).toHaveProp("accessibilityState", { expanded: true });
@@ -914,7 +917,6 @@ describe("results", () => {
         "Tag filters",
         "Sort soonest first",
         "Sort nearest first",
-        "Clear filters",
       ])
         expect(screen.getByRole("button", { name })).toBeOnTheScreen();
       expect(screen.getByText("Sort")).toBeOnTheScreen();
@@ -927,16 +929,14 @@ describe("results", () => {
       await searchMaryville();
       await openFilters();
       await chooseFilters("Type filters", ["Open"]);
-      expect(
-        await screen.findByText("2 meetings · today from now · 1 more filter · soonest"),
-      ).toBeOnTheScreen();
+      expect(await screen.findByText("2 meetings · today from now · 1 more filter")).toBeOnTheScreen();
       expect(filtersToggle()).toHaveAccessibleName("Filters, 3 chosen");
       expect(within(filtersToggle()).getByText("Filters · 3")).toBeOnTheScreen();
       await chooseFilters("Time filters, 4 chosen", ["Morning"]);
-      expect(await screen.findByText("1 meeting · 3 filters · soonest")).toBeOnTheScreen();
+      expect(await screen.findByText("1 meeting · 3 filters")).toBeOnTheScreen();
       await fireEvent.press(screen.getByRole("button", { name: "Sort nearest first" }));
       expect(await screen.findByText("1 meeting · 3 filters · nearest")).toBeOnTheScreen();
-      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
       expect(await screen.findByText("2 meetings · nearest")).toBeOnTheScreen();
       expect(filtersToggle()).toHaveAccessibleName("Filters");
       expect(within(filtersToggle()).getByText("Filters")).toBeOnTheScreen();
@@ -956,18 +956,17 @@ describe("results", () => {
       expect(filtersToggle()).toHaveProp("accessibilityState", { expanded: false });
     });
 
-    it("keeps Clear filters in view, outside the closed panel, when nothing matches", async () => {
+    it("keeps one Clear in view, beside the message, when nothing matches, the panel open or closed", async () => {
       await searchMaryville();
       await openFilters();
       await chooseFilters("Type filters", ["Women"]);
       expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
-      // Open, the panel's own Clear filters is the only one.
-      expect(screen.getAllByRole("button", { name: "Clear filters" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
       await fireEvent.press(filtersToggle());
-      expect(screen.getByRole("button", { name: "Clear filters" })).toBeOnTheScreen();
+      expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
       expect(screen.queryByRole("button", { name: "Sort soonest first" })).toBeNull();
-      await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
-      expect(await screen.findByText("2 meetings · soonest")).toBeOnTheScreen();
+      await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
+      expect(await screen.findByText("2 meetings")).toBeOnTheScreen();
     });
   });
 

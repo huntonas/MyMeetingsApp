@@ -100,8 +100,9 @@ function OrderPills({ order, onOrder }: { order: NearbyOrder; onOrder: (order: N
 
 const counted = (count: number, one: string) => `${String(count)} ${one}${count === 1 ? "" : "s"}`;
 
-// What's on, in one line above the list: "2 meetings · today from now · soonest", "1 meeting · 3 filters · nearest".
-// While neither Day nor Time is the person's own, the list is today from now on, whatever the pills say.
+// What's on, in one line above the list: "2 meetings · today from now", "1 meeting · 3 filters · nearest". While
+// neither Day nor Time is the person's own, the list is today from now on, whatever the pills say. Soonest, the
+// default, goes without saying, to keep the line short (owner decision, 2026-09-30).
 function summaryLine(count: number, filters: MeetingFilters, starting: boolean, order: NearbyOrder): string {
   const more = [filters.types, filters.tags].filter((group) => group.length > 0).length;
   const groups = chosenGroups(filters);
@@ -110,7 +111,7 @@ function summaryLine(count: number, filters: MeetingFilters, starting: boolean, 
     : groups > 0
       ? [counted(groups, "filter")]
       : [];
-  return [counted(count, "meeting"), ...on, order].join(" · ");
+  return [counted(count, "meeting"), ...on, ...(order === "nearest" ? [order] : [])].join(" · ");
 }
 
 type ResultsView = "list" | "map";
@@ -194,7 +195,7 @@ function Results({
     gap: 8,
   } as const;
   const groups = chosenGroups(filters);
-  // Filters start chosen (today, from now on), so the count is rarely 0, and Clear filters is at hand in the panel.
+  // Filters start chosen (today, from now on), so the count is rarely 0, and Clear is on the summary line.
   const filtered = groups > 0;
   // On the heading's second row wherever the filters apply: a list with meetings in it, and the map.
   const filtersToggle = (
@@ -253,32 +254,35 @@ function Results({
   );
   // Spec §8: no in-person meetings here is said plainly, on the list and on the map.
   const noneNearby = `No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`;
-  const clearFilters = (
-    <View style={{ alignSelf: "flex-start" }}>
-      <Button
-        kind="secondary"
-        label="Clear filters"
-        onPress={() => {
-          setFilters(NO_FILTERS);
-        }}
-      />
-    </View>
+  const clear = (
+    <Button
+      kind="text"
+      label="Clear"
+      hint="Clears the filters, to show every meeting"
+      onPress={() => {
+        setFilters(NO_FILTERS);
+      }}
+    />
   );
-  // The panel holds the filters; the list adds its order (the map isn't sorted).
+  // The panel holds the filters; the list adds its order (the map isn't sorted), and the map, which has no summary
+  // line, its Clear.
   const panel = filtersOpen && (
     <View style={{ gap: 12 }}>
       <FilterPills filters={filters} />
       {view === "list" && <OrderPills order={order} onOrder={onOrder} />}
-      {filtered && clearFilters}
+      {view === "map" && filtered && <View style={{ alignSelf: "flex-start" }}>{clear}</View>}
     </View>
   );
   // With the starting filters untouched the person chose nothing, so an empty list means today's meetings here are over.
-  // The way out stays in view: the message's own Clear filters while the panel is closed, the panel's while it's open.
-  const noMatches = (
-    <>
-      <AppText>{untouched ? "No more meetings nearby today." : "No meetings match your filters."}</AppText>
-      {!filtersOpen && clearFilters}
-    </>
+  const nothingLeft = untouched ? "No more meetings nearby today." : "No meetings match your filters.";
+  // What's on, or that nothing is, with Clear beside it whenever anything is chosen: the way out is always in view.
+  const summary = (
+    <View style={row}>
+      <AppText tone={listed.length > 0 ? "muted" : "text"} style={{ flexShrink: 1 }}>
+        {listed.length > 0 ? summaryLine(listed.length, filters, starting, order) : nothingLeft}
+      </AppText>
+      {filtered && clear}
+    </View>
   );
   const onlineInstead = (
     <>
@@ -328,8 +332,12 @@ function Results({
                 <AppText>{noneNearby}</AppText>
               </View>
             )}
+            {/* Open, the panel's Clear is the one. */}
             {state.status === "ready" && state.data.meetings.length > 0 && listed.length === 0 && (
-              <View style={card}>{noMatches}</View>
+              <View style={[card, row]}>
+                <AppText style={{ flexShrink: 1 }}>{nothingLeft}</AppText>
+                {!filtersOpen && clear}
+              </View>
             )}
             {state.status === "loading" && (
               <View style={[card, { alignSelf: "flex-start" }]}>
@@ -386,10 +394,7 @@ function Results({
           {heading(filtersToggle)}
           {panel}
           {savedNote}
-          {listed.length > 0 && (
-            <AppText tone="muted">{summaryLine(listed.length, filters, starting, order)}</AppText>
-          )}
-          {listed.length === 0 && noMatches}
+          {summary}
           {/* Spec §8: as with no meetings nearby at all, the online ones instead of an empty screen. */}
           {listed.length === 0 && untouched && onlineInstead}
         </View>

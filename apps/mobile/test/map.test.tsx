@@ -283,7 +283,8 @@ describe("the results map", () => {
       expanded: true,
     });
     const day = screen.getByRole("button", { name: "Day filters, 1 chosen" });
-    expect(screen.getByRole("button", { name: "Clear filters" })).toBeOnTheScreen();
+    const clear = screen.getByRole("button", { name: "Clear" });
+    expect(clear).toHaveProp("accessibilityHint", "Clears the filters, to show every meeting");
     // The map isn't sorted.
     expect(screen.queryByRole("button", { name: "Sort soonest first" })).toBeNull();
     let layer = day;
@@ -335,7 +336,7 @@ describe("the results map", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
     expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.queryByText("No meetings match your filters.")).toBeNull();
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
@@ -350,7 +351,7 @@ describe("the results map", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Map" }));
     expect(await screen.findByText("No more meetings nearby today.")).toBeOnTheScreen();
     expect(screen.queryByText("No meetings match your filters.")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
     expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.queryByText("No more meetings nearby today.")).toBeNull();
   });

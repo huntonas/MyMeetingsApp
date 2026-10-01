@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { headerFinding } from "../src/headers";
 
 const SERVER = "mymeetingapp.vercel.app";
-const GET = { method: "GET", server: SERVER };
-const POST = { method: "POST", server: SERVER };
+const GET = { method: "GET", server: SERVER, write: false };
+const POST = { method: "POST", server: SERVER, write: false };
+// PUT never reads; every PUT the app sends (tag edit) is a write.
+const PUT = { method: "PUT", server: SERVER, write: true };
 const IOS_UA = "mymeetingapp/1 CFNetwork/1408.0.4 Darwin/22.5.0";
 
 describe("headerFinding", () => {
@@ -40,12 +42,19 @@ describe("headerFinding", () => {
     expect(headerFinding("accept", "*/*", GET)).toBe("sends an unexpected value for the accept header");
   });
 
-  it("requires content-type to be application/json and only on POST", () => {
-    expect(headerFinding("content-type", "application/json", POST)).toBeUndefined();
+  it("requires content-type to be application/json, sent only on a POST or PUT that carries a body", () => {
+    expect(headerFinding("content-type", "application/json", { ...POST, bodySize: 41 })).toBeUndefined();
+    expect(headerFinding("content-type", "application/json", { ...PUT, bodySize: 20 })).toBeUndefined();
     expect(headerFinding("content-type", "application/json", GET)).toBe(
       "sends an unexpected value for the content-type header",
     );
-    expect(headerFinding("content-type", "application/json; lat=36.16", POST)).toBe(
+    expect(headerFinding("content-type", "application/json; lat=36.16", { ...POST, bodySize: 41 })).toBe(
+      "sends an unexpected value for the content-type header",
+    );
+  });
+
+  it("refuses content-type on a bodiless write", () => {
+    expect(headerFinding("content-type", "application/json", { ...POST, write: true, bodySize: 0 })).toBe(
       "sends an unexpected value for the content-type header",
     );
   });
@@ -66,6 +75,13 @@ describe("headerFinding", () => {
         "sends an unexpected value for the content-length header",
       );
       expect(headerFinding("content-length", "41", GET)).toBe(
+        "sends an unexpected value for the content-length header",
+      );
+    });
+
+    it("allows content-length: 0 only on a bodiless write", () => {
+      expect(headerFinding("content-length", "0", { ...POST, write: true, bodySize: 0 })).toBeUndefined();
+      expect(headerFinding("content-length", "0", { ...GET, bodySize: 0 })).toBe(
         "sends an unexpected value for the content-length header",
       );
     });
@@ -200,6 +216,46 @@ describe("headerFinding", () => {
     it("never allows either conditional header outside a GET, even with a matching value", () => {
       expect(headerFinding("if-none-match", '"abc123"', { ...POST, knownEtags: new Set(['"abc123"']) })).toBe(
         "sends an unexpected value for the if-none-match header",
+      );
+    });
+  });
+
+  describe("device headers on writes (spec §7)", () => {
+    const WRITE = { method: "POST", server: SERVER, write: true };
+
+    it("passes a valid device id, platform and app version", () => {
+      expect(headerFinding("X-Device-Id", "6F9619FF-8B86-D011-B42D-00C04FC964FF", WRITE)).toBeUndefined();
+      expect(headerFinding("X-Platform", "ios", WRITE)).toBeUndefined();
+      expect(headerFinding("X-App-Version", "0.1.0", WRITE)).toBeUndefined();
+    });
+
+    it("flags a device id that doesn't match the app's shape", () => {
+      expect(headerFinding("X-Device-Id", "36.162749", WRITE)).toBe(
+        "sends an unexpected value for the X-Device-Id header",
+      );
+    });
+
+    it("flags a platform the app never sends", () => {
+      expect(headerFinding("X-Platform", "web", WRITE)).toBe(
+        "sends an unexpected value for the X-Platform header",
+      );
+    });
+
+    it("flags an app version that isn't a SemVer", () => {
+      expect(headerFinding("X-App-Version", "v1", WRITE)).toBe(
+        "sends an unexpected value for the X-App-Version header",
+      );
+    });
+
+    it("flags X-Attestation until Phase 6 turns it on", () => {
+      expect(headerFinding("X-Attestation", "abc", WRITE)).toBe(
+        "sends X-Attestation, which isn't switched on yet",
+      );
+    });
+
+    it("still flags a device header on a non-write, regardless of the value's shape", () => {
+      expect(headerFinding("X-Device-Id", "6F9619FF-8B86-D011-B42D-00C04FC964FF", GET)).toBe(
+        "sends the device header X-Device-Id",
       );
     });
   });

@@ -1,4 +1,4 @@
-import { BRAND, DEVICE_HEADERS } from "@mymeetingapp/shared";
+import { BRAND, DEVICE_HEADERS, WriteHeaders } from "@mymeetingapp/shared";
 
 import { normalizeHost } from "./host";
 
@@ -16,8 +16,12 @@ export interface HeaderContext {
   method: string;
   // Already normalized (lowercased, trailing dot stripped) — see host.ts.
   server: string;
+  // Whether this request is one of Phase 5b's writes (audit.ts's WRITES): device headers are allowed only
+  // here, and only here can Content-Length legitimately be 0 (a bodiless write still gets one from the OS).
+  write: boolean;
   // The request's real body size (mitmdump always records it, even with no postData). content-length must
-  // equal this exactly, and is a finding at all when there's no body (bodySize is 0 or unset).
+  // equal this exactly, and is a finding at all when there's no body (bodySize is 0 or unset) — unless it's
+  // a bodiless write, where 0 is expected.
   bodySize?: number;
   // etag / last-modified values an EARLIER response in this same capture returned for this exact URL: an
   // if-none-match / if-modified-since is only legitimate when it echoes one of these, never an arbitrary
@@ -51,11 +55,25 @@ function commaList(value: string, isValidPart: (part: string) => boolean, maxPar
   );
 }
 
+// Phase 5b's writes (audit.ts's WRITES) get their own header names, one validator per WriteHeaders field —
+// looked up by the lowercased DEVICE_HEADERS name so a header's value is held to its own shape, not just its
+// name being on the allowlist.
+const DEVICE_HEADER_VALIDATORS: Record<string, (value: string) => boolean> = {
+  [DEVICE_HEADERS.deviceId.toLowerCase()]: (value) => WriteHeaders.shape.deviceId.safeParse(value).success,
+  [DEVICE_HEADERS.platform.toLowerCase()]: (value) => WriteHeaders.shape.platform.safeParse(value).success,
+  [DEVICE_HEADERS.appVersion.toLowerCase()]: (value) =>
+    WriteHeaders.shape.appVersion.safeParse(value).success,
+};
+
 const HEADER_VALIDATORS: Record<string, HeaderValidator> = {
   host: (value, ctx) => normalizeHost(value) === ctx.server,
   accept: (value) => value === "application/json",
-  "content-type": (value, ctx) => ctx.method === "POST" && value === "application/json",
-  "content-length": (value, ctx) => (ctx.bodySize ?? 0) > 0 && value === String(ctx.bodySize),
+  "content-type": (value, ctx) =>
+    (ctx.method === "POST" || ctx.method === "PUT") &&
+    (ctx.bodySize ?? 0) > 0 &&
+    value === "application/json",
+  "content-length": (value, ctx) =>
+    value === String(ctx.bodySize ?? 0) && ((ctx.bodySize ?? 0) > 0 || ctx.write),
   "cache-control": (value) => value.toLowerCase() === "no-cache",
   pragma: (value) => value.toLowerCase() === "no-cache",
   "accept-language": (value) => commaList(value, (part) => LANGUAGE_TAG.test(part), 6),
@@ -74,7 +92,16 @@ const HEADER_VALIDATORS: Record<string, HeaderValidator> = {
 export function headerFinding(name: string, value: string, context: HeaderContext): string | undefined {
   const lower = name.toLowerCase();
   if (lower === "cookie") return "sends a Cookie header";
-  if (DEVICE_HEADER_NAMES.has(lower)) return `sends the device header ${name}`;
+  if (DEVICE_HEADER_NAMES.has(lower)) {
+    // On a read, any device header is itself a finding — spec §7 carries these on writes only.
+    if (!context.write) return `sends the device header ${name}`;
+    // Attestation isn't switched on until Phase 6; every other device header must match the app's own shape.
+    if (lower === DEVICE_HEADERS.attestation.toLowerCase()) {
+      return "sends X-Attestation, which isn't switched on yet";
+    }
+    const deviceValidator = DEVICE_HEADER_VALIDATORS[lower];
+    return deviceValidator?.(value) ? undefined : `sends an unexpected value for the ${name} header`;
+  }
   const validator = HEADER_VALIDATORS[lower];
   if (!validator) return `sends an unexpected header ${name}`;
   return validator(value, context) ? undefined : `sends an unexpected value for the ${name} header`;

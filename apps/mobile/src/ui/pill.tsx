@@ -52,8 +52,9 @@ export function Pill({
           {label}
         </AppText>
         {expanded !== undefined && (
-          <AppText variant="small" style={tone}>
-            {expanded ? "▴" : "▾"}
+          // One glyph, turned over when open: ▴ falls back to another font on iOS and draws larger than ▾.
+          <AppText variant="small" style={[tone, expanded && { transform: [{ rotate: "180deg" }] }]}>
+            ▾
           </AppText>
         )}
       </View>

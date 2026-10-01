@@ -1034,10 +1034,10 @@ describe("results", () => {
         return style;
       };
       expect(look(/^Filters/)).toEqual(look("List"));
-      expect(within(filtersToggle()).getByText("▾")).toBeOnTheScreen();
+      // One glyph, turned over when open: ▴ falls back to another font on iOS and draws larger than ▾.
+      expect(within(filtersToggle()).getByText("▾")).not.toHaveStyle({ transform: [{ rotate: "180deg" }] });
       await fireEvent.press(filtersToggle());
-      expect(within(filtersToggle()).getByText("▴")).toBeOnTheScreen();
-      expect(within(filtersToggle()).queryByText("▾")).toBeNull();
+      expect(within(filtersToggle()).getByText("▾")).toHaveStyle({ transform: [{ rotate: "180deg" }] });
       await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
       await screen.findByRole("button", { name: "Filters" });
       expect(look("Filters")).toEqual(look("Map"));

@@ -27,6 +27,13 @@ const DEVICE_ID_IMPORTS = [
   },
 ];
 
+// The app's one way to each UI building block that carries a rule of its own (docs/standards.md).
+const TEXT_INPUT_IMPORT = {
+  name: "react-native",
+  importNames: ["TextInput"],
+  message: "Use <TextField> from @/ui/text-field.",
+};
+
 export default defineConfig([
   globalIgnores([
     "**/node_modules/",
@@ -133,11 +140,13 @@ export default defineConfig([
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       // The app logs nothing: no location, search text or device IDs can end up in a device log.
-      "no-console": "error",
+      // Options given anew replace the shared config's, so its console.warn/console.error exemption doesn't carry over
+      // (ESLint refuses an empty `allow`).
+      "no-console": ["error", {}],
       "no-restricted-imports": [
         "error",
         {
-          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS],
+          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS, TEXT_INPUT_IMPORT],
           patterns: [PARENT_IMPORT],
         },
       ],
@@ -171,7 +180,7 @@ export default defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS], patterns: [PARENT_IMPORT] },
+        { paths: [...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS, TEXT_INPUT_IMPORT], patterns: [PARENT_IMPORT] },
       ],
     },
   },
@@ -181,7 +190,7 @@ export default defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [SQLITE_IMPORT, ...DEVICE_ID_IMPORTS], patterns: [PARENT_IMPORT] },
+        { paths: [SQLITE_IMPORT, ...DEVICE_ID_IMPORTS, TEXT_INPUT_IMPORT], patterns: [PARENT_IMPORT] },
       ],
     },
   },
@@ -191,7 +200,17 @@ export default defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS], patterns: [PARENT_IMPORT] },
+        { paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, TEXT_INPUT_IMPORT], patterns: [PARENT_IMPORT] },
+      ],
+    },
+  },
+  {
+    // The one place allowed to draw a TextInput.
+    files: ["apps/mobile/src/ui/text-field.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS], patterns: [PARENT_IMPORT] },
       ],
     },
   },

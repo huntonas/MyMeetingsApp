@@ -13,6 +13,8 @@ const PATH = `/api/v1/meetings/${ID}`;
 const STARTED = "2026-10-05T17:00:00Z";
 const SUGGEST = "/api/v1/suggestions";
 const THANKS = "Thanks. We'll review it, and if it's added, it'll appear in the list for everyone.";
+const NOT_A_TAG =
+  "Use 2 to 40 letters or numbers, starting with a letter or number (spaces, apostrophes, hyphens and & are fine).";
 const HELPER = "We review every suggestion. Don't include names or anything that could identify someone.";
 
 let api: TestApi;
@@ -72,20 +74,27 @@ describe("Suggest a tag", () => {
       expect.objectContaining({ props: expect.objectContaining({ children: HELPER }) as unknown }),
       "focus",
     );
-    expect(screen.getByLabelText("Your suggested tag")).toHaveProp("maxLength", 60);
+    const field = screen.getByLabelText("Your suggested tag");
+    expect(field).toHaveProp("maxLength", 60);
+    // The rule is read with the field, before anything is typed.
+    expect(field).toHaveProp("accessibilityHint", "2 to 40 letters or numbers");
   });
 
-  it.each(["x", "a".repeat(41), "<b>bold</b>", "https://x.y", "   "])(
+  it.each(["ab", "a".repeat(40), " " + "a".repeat(40) + " "])("sends %p, trimmed", async (text) => {
+    api.reply(SUGGEST, { status: "received" }, 202, "POST");
+    await openPicker();
+    await suggest(text);
+    expect(await screen.findByText(THANKS)).toBeOnTheScreen();
+    expect(suggestions().map((r) => r.body)).toEqual([JSON.stringify({ text: text.trim() })]);
+  });
+
+  it.each(["x", "a".repeat(41), "<b>bold</b>", "https://x.y", "   ", "-dash"])(
     "checks %p on the phone and sends nothing",
     async (text) => {
       await openPicker();
       await suggest(text);
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Use 2 to 40 letters or numbers (spaces, apostrophes, hyphens and & are fine).",
-      );
-      expect(announce).toHaveBeenCalledWith(
-        "Use 2 to 40 letters or numbers (spaces, apostrophes, hyphens and & are fine).",
-      );
+      expect(screen.getByRole("alert")).toHaveTextContent(NOT_A_TAG);
+      expect(announce).toHaveBeenCalledWith(NOT_A_TAG);
       expect(suggestions()).toEqual([]);
     },
   );
@@ -121,6 +130,9 @@ describe("Suggest a tag", () => {
     await suggest("Candlelight");
     expect(await screen.findByLabelText("Sending your suggestion")).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Send suggestion" })).toBeNull();
+    // Return on the keyboard doesn't send it again either.
+    expect(screen.getByLabelText("Your suggested tag")).toHaveProp("editable", false);
+    await fireEvent(screen.getByLabelText("Your suggested tag"), "submitEditing");
     answer({ status: "received" });
     expect(await screen.findByText(THANKS)).toBeOnTheScreen();
     expect(suggestions()).toHaveLength(1);

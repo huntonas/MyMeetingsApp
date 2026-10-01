@@ -11,7 +11,8 @@ import { useNotice } from "@/ui/notice";
 import { TextField } from "@/ui/text-field";
 
 const THANKS = "Thanks. We'll review it, and if it's added, it'll appear in the list for everyone.";
-const NOT_A_TAG = "Use 2 to 40 letters or numbers (spaces, apostrophes, hyphens and & are fine).";
+const NOT_A_TAG =
+  "Use 2 to 40 letters or numbers, starting with a letter or number (spaces, apostrophes, hyphens and & are fine).";
 // A suggestion that timed out may still have reached the server, so this can't say it didn't arrive.
 const OFFLINE_SUGGESTION =
   "We couldn't reach mymeetingapp, so we can't tell whether your suggestion arrived. Try again.";
@@ -42,6 +43,8 @@ export function SuggestTag() {
     );
   }
   const send = () => {
+    // Return on the keyboard can still fire while a suggestion is out.
+    if (sending) return;
     if (!TagLabelText.safeParse(text).success) {
       result.tell(NOT_A_TAG);
       return;
@@ -69,6 +72,8 @@ export function SuggestTag() {
       </AppText>
       <TextField
         accessibilityLabel="Your suggested tag"
+        accessibilityHint="2 to 40 letters or numbers"
+        editable={!sending}
         value={text}
         onChangeText={setText}
         maxLength={60}

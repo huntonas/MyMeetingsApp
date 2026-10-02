@@ -44,7 +44,7 @@ function deviceId(): Promise<string> {
 }
 
 // Spec §7: the headers every write carries, and only writes. Parsed with the server's own contract, so an ID or a
-// version the server would refuse stops the write before anything is sent. X-Attestation joins them in Phase 6.
+// version the server would refuse stops the write before anything is sent. sendWrite adds X-Attestation itself.
 export async function writeHeaders(): Promise<Record<string, string>> {
   const headers = WriteHeaders.parse({
     deviceId: await deviceId(),

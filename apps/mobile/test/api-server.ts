@@ -7,6 +7,9 @@ export interface TestApi {
   requests: RecordedRequest[];
   // A reply given a method answers only that method on the path (PUT and DELETE share /api/v1/tags/:id).
   reply(path: string, json: unknown, status?: number, method?: string): void;
+  // Answers only the next request on this path (and method), as a server that changes its answer; later requests get
+  // what reply() set.
+  replyOnce(path: string, json: unknown, status?: number, method?: string): void;
   // The server takes the request and never answers.
   hang(path: string): void;
   // Requests on this path wait until the test calls the returned function with the reply, as a slow server does. A
@@ -19,6 +22,7 @@ export interface TestApi {
 // app treats as unreachable, so a test can't pass on a request it didn't expect.
 export async function startApi(): Promise<TestApi> {
   const replies = new Map<string, { status: number; json: unknown } | "hang" | Promise<unknown>>();
+  const once = new Map<string, { status: number; json: unknown }[]>();
   // Every reply closes its connection: tests close and restart this server on the same port, and Node's fetch would
   // otherwise reuse a kept-alive socket to the closed one, failing a POST (never retried) as unreachable.
   const CLOSE = { connection: "close" };
@@ -29,6 +33,8 @@ export async function startApi(): Promise<TestApi> {
   });
   const server = await startServer(
     (path, _headers, method) => {
+      const queued = once.get(`${method} ${path}`)?.shift() ?? once.get(path)?.shift();
+      if (queued !== undefined) return jsonReply(queued.status, queued.json);
       const reply = replies.get(`${method} ${path}`) ?? replies.get(path);
       if (reply === "hang") return new Promise<never>(() => undefined);
       if (reply === undefined) return { status: 599, body: `no reply set for ${path}`, headers: CLOSE };
@@ -41,6 +47,10 @@ export async function startApi(): Promise<TestApi> {
     requests: server.requests,
     reply: (path, json, status = 200, method) => {
       replies.set(method === undefined ? path : `${method} ${path}`, { status, json });
+    },
+    replyOnce: (path, json, status = 200, method) => {
+      const key = method === undefined ? path : `${method} ${path}`;
+      once.set(key, [...(once.get(key) ?? []), { status, json }]);
     },
     hang: (path) => {
       replies.set(path, "hang");

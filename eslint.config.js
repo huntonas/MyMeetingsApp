@@ -25,6 +25,10 @@ const DEVICE_ID_IMPORTS = [
     importNames: ["getAndroidId", "getIosIdForVendorAsync"],
     message: "Use writeHeaders() from @/device/write-headers.",
   },
+  {
+    name: "@modules/app-integrity",
+    message: "Use sendWrite() from @/api/client; it attests writes through @/device/app-integrity.",
+  },
 ];
 
 // The app's one way to each UI building block that carries a rule of its own (docs/standards.md).

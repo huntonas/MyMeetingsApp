@@ -42,6 +42,7 @@ const Config = z.object({
       CFBundleDisplayName: z.string(),
       NSLocationTemporaryUsageDescriptionDictionary: z.object({ AttendanceCheck: z.string() }),
     }),
+    entitlements: z.record(z.string(), z.string()),
   }),
   android: z.object({
     package: z.string(),
@@ -231,6 +232,14 @@ describe("the app config", () => {
   it("declares no non-exempt encryption, so TestFlight uploads skip the compliance question", () => {
     const config = Config.parse(appConfig(CONTEXT));
     expect(config.ios.config).toEqual({ usesNonExemptEncryption: false });
+  });
+
+  // Spec §6. Xcode's App Attest capability writes "development"; TestFlight and App Store builds ignore it and always
+  // attest in production, so only a dev build on a device uses Apple's development environment.
+  it("asks for App Attest", () => {
+    expect(Config.parse(appConfig(CONTEXT)).ios.entitlements).toEqual({
+      "com.apple.developer.devicecheck.appattest-environment": "development",
+    });
   });
 
   it("asks only for While Using location, never in the background (spec §2, §11)", () => {

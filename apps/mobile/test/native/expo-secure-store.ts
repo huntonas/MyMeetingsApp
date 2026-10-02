@@ -19,6 +19,12 @@ export function setItemAsync(key: string, value: string, options?: unknown): Pro
   return Promise.resolve();
 }
 
+export function deleteItemAsync(key: string): Promise<void> {
+  if (trouble === "fails") return Promise.reject(new Error("Keychain unavailable"));
+  items.delete(key);
+  return Promise.resolve();
+}
+
 export const keychainItem = (key: string) => items.get(key);
 export const keychainWrites = () => writes;
 export function setKeychainItem(key: string, value: string): void {

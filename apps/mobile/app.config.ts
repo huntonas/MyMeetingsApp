@@ -67,6 +67,9 @@ export default ({ config }: ConfigContext): ExpoConfig =>
           AttendanceCheck: `${DISPLAY_NAME} checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.`,
         },
       },
+      // Spec §6: App Attest. "development" is what Xcode's capability writes; TestFlight and App Store builds ignore it and
+      // always attest in production. EAS turns the capability on for the App ID from this entitlement.
+      entitlements: { "com.apple.developer.devicecheck.appattest-environment": "development" },
     },
     android: {
       package: "com.goodersoftware.mymeetingapp",

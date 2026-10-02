@@ -1,5 +1,6 @@
 import { act } from "react";
 
+import { resetIntegrity } from "./native/app-integrity";
 import { resetDatePicker } from "./native/datetimepicker";
 import { setAndroidId, setAppVersion } from "./native/expo-application";
 import { resetLocation } from "./native/expo-location";
@@ -24,4 +25,5 @@ beforeEach(() => {
   resetLocation();
   resetPlaces();
   resetDatePicker();
+  resetIntegrity();
 });

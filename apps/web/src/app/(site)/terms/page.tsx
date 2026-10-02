@@ -1,6 +1,5 @@
 import { BRAND } from "@mymeetingapp/shared";
 
-import { DraftNotice } from "@/components/draft-notice";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
@@ -13,7 +12,6 @@ export default function TermsPage() {
   return (
     <>
       <h1>Terms of use</h1>
-      <DraftNotice />
       <p>
         These terms cover the {BRAND.name} app and this website, made by {BRAND.publisher} (“we”). By using
         them, you agree to these terms.
@@ -62,7 +60,7 @@ export default function TermsPage() {
         We&apos;ll post any change here with a new date. Questions go to{" "}
         <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
       </p>
-      <p className="fine-print">Draft of 29 September 2026.</p>
+      <p className="fine-print">Updated 2 October 2026.</p>
     </>
   );
 }

@@ -10,13 +10,17 @@ describe("the terms of use", () => {
   const text = renderText(<TermsPage />);
 
   it.each([
-    "Draft, pending legal review.",
+    "Updated 2 October 2026.",
     "not affiliated with, endorsed by or approved by Alcoholics Anonymous or A.A. World Services, Inc.",
     "Listings can be out of date",
     "isn't medical advice",
     "governed by the laws of the State of Tennessee",
   ])("say %j (spec §9)", (words) => {
     expect(text).toContain(words);
+  });
+
+  it("carry no draft notice (owner decision, 2026-10-02)", () => {
+    expect(text).not.toContain("Draft");
   });
 
   it("name the app they cover", () => {

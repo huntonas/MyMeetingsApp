@@ -345,7 +345,7 @@ The phone's own backups (to iCloud, Google, the phone maker's cloud or a compute
 
 ## 16. Before launch (non-engineering)
 
-- Legal review of whether Washington's My Health My Data Act and the FTC Health Breach Notification Rule apply, and of the privacy policy and terms.
+- Legal review of whether Washington's My Health My Data Act and the FTC Health Breach Notification Rule apply, and of the privacy policy and terms. Owner decision (2026-10-02): the privacy policy and terms go live as written, without the draft notice; an outside review remains optional.
 - Confirm use of the "AA" mark in store metadata is descriptive only.
 
 ## Changes from v1

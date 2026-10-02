@@ -240,8 +240,10 @@ describe("the privacy policy page", () => {
     expect(text).toContain("“Delete all my tags” on the app's Me tab");
   });
 
-  it("is marked as a draft pending legal review", () => {
-    expect(text).toContain("Draft, pending legal review.");
+  // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
+  it("is dated, with no draft notice", () => {
+    expect(text).toContain("Updated 2 October 2026.");
+    expect(text).not.toContain("Draft");
   });
 
   it("names the app and who makes it", () => {

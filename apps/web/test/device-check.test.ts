@@ -176,13 +176,14 @@ describe("a DeviceCheck token", () => {
 
   it("is kept only as its SHA-256, with the day", async () => {
     await apple(200);
+    // The write may straddle UTC midnight, so the day is either side of it.
+    const before = new Date().toISOString().slice(0, 10);
     expect((await tag()).status).toBe(201);
-    expect(await db.select().from(deviceCheckTokens)).toEqual([
-      {
-        tokenHash: createHash("sha256").update(TOKEN).digest("hex"),
-        seenOn: new Date().toISOString().slice(0, 10),
-      },
-    ]);
+    const after = new Date().toISOString().slice(0, 10);
+    const rows = await db.select().from(deviceCheckTokens);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.tokenHash).toBe(createHash("sha256").update(TOKEN).digest("hex"));
+    expect([before, after]).toContain(rows[0]?.seenOn);
   });
 
   it("isn't spent by a write the server refuses for another reason", async () => {

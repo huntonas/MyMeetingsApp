@@ -260,7 +260,6 @@ describe("the privacy policy page", () => {
     expect(text).not.toContain("once switched on, App Attest");
   });
 
-  // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   // Task 7: a DeviceCheck token works once, so its hash is kept, linked to nothing.
   it("says a used DeviceCheck code is kept only as a fingerprint, linked to nothing, so it can't be used twice", () => {
     expect(text).toContain("a fingerprint of each code we accept (its SHA-256 hash, never the code itself)");
@@ -268,6 +267,7 @@ describe("the privacy policy page", () => {
     expect(text).toContain("Nothing. We don't record which phone sent it.");
   });
 
+  // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   it("is dated, with no draft notice", () => {
     expect(text).toContain("Updated 2 October 2026.");
     expect(text).not.toContain("Draft");

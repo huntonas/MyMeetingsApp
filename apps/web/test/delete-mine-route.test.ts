@@ -3,10 +3,18 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 
 import { POST as deleteMineRoute } from "@/app/api/v1/tags/delete-mine/route";
 import { POST } from "@/app/api/v1/tags/route";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db, pool } from "@/db/client";
-import { aiDecisions, devices, rateLimits, suggestions, tagAudit, tagSubmissions } from "@/db/schema";
+import {
+  aiDecisions,
+  devices,
+  rateLimits,
+  suggestions,
+  tagAudit,
+  tagCounts,
+  tagSubmissions,
+} from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
@@ -32,6 +40,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 afterAll(() => pool.end());
+
+const KEY_ID = "zgSY9YSD+7TaDXssY6WlOPVS1K3Lmk+pFhlcSWE+ZV0=";
+const KEY = { attestKeyId: KEY_ID, attestPublicKey: "MFkw", attestCounter: 7 };
 
 function tag(meetingId: string, headers = deviceHeaders()) {
   return POST(
@@ -101,12 +112,37 @@ describe("POST /api/v1/tags/delete-mine", () => {
   it("keeps only a blocked device's hash and block, so deleting can't lift it", async () => {
     const meetingId = await seedMeetingStarted(1);
     await tag(meetingId);
-    await db.update(devices).set({ blocked: true });
+    await db.update(devices).set({ blocked: true, ...KEY });
     expect((await deleteMine()).status).toBe(200);
     expect(await db.select().from(tagSubmissions)).toEqual([]);
-    expect((await db.select().from(devices)).map((row) => [row.deviceHash, row.blocked])).toEqual([
-      [DEVICE_A_HASH, true],
-    ]);
+    // Spec §7: delete-mine deletes the attestation data too, even on the row a block keeps.
+    expect(
+      (await db.select().from(devices)).map((row) => [
+        row.deviceHash,
+        row.blocked,
+        row.attestKeyId,
+        row.attestPublicKey,
+        row.attestCounter,
+      ]),
+    ).toEqual([[DEVICE_A_HASH, true, null, null, null]]);
+  });
+
+  it("leaves no transaction id linking a blocked device's kept record to the counts it rewrote (spec §2)", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    await tag(meetingId);
+    await tag(meetingId, deviceHeaders(DEVICE_B, "android"));
+    await db
+      .update(devices)
+      .set({ blocked: true, ...KEY })
+      .where(eq(devices.deviceHash, DEVICE_A_HASH));
+    expect((await deleteMine()).status).toBe(200);
+    // The meeting keeps a count (device B's tag), rewritten by the deletion, beside the record the block keeps.
+    expect(await countsOf(meetingId)).toEqual([["quiet", 1, 0]]);
+    const { rows } = await db.execute<{ linked: number }>(sql`
+      select count(*)::int as linked from ${devices} d join ${tagCounts} c on c.xmin = d.xmin
+      where d.device_hash = ${DEVICE_A_HASH}
+    `);
+    expect(rows).toEqual([{ linked: 0 }]);
   });
 
   it("works while tagging is switched off", async () => {

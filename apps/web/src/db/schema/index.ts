@@ -1,3 +1,4 @@
+export * from "./attestation";
 export * from "./feeds";
 export * from "./meetings";
 export * from "./suggestions";

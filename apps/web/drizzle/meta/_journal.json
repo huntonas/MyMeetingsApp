@@ -113,6 +113,13 @@
       "when": 1790706524336,
       "tag": "0015_suggestion-approved",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790964385610,
+      "tag": "0016_attestation",
+      "breakpoints": true
     }
   ]
 }

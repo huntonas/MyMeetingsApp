@@ -6,6 +6,7 @@ import { db, pool, type Executor } from "@/db/client";
 
 // Add each new table here when it is created.
 const APP_TABLES = [
+  "attest_challenges",
   "ai_decisions",
   "suggestions",
   "rate_limits",

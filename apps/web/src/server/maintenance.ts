@@ -2,7 +2,7 @@ import { and, eq, isNotNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
-import { devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
+import { attestChallenges, devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
 import { utcToday } from "@/db/sql";
 import { RETENTION } from "@/server/retention";
 import { recountAllTags } from "@/server/tags/counts";
@@ -13,6 +13,7 @@ export const MaintenanceSummary = z.object({
   rateLimitRowsPurged: z.number().int(),
   suggestionsUnlinked: z.number().int(),
   devicesPurged: z.number().int(),
+  challengesPurged: z.number().int(),
 });
 export type MaintenanceSummary = z.infer<typeof MaintenanceSummary>;
 
@@ -55,11 +56,17 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
         ),
       )
       .returning({ deviceHash: devices.deviceHash });
+    // Spec §6: a challenge lives 5 minutes; spending one deletes it, so only unused ones are left here.
+    const challenges = await tx
+      .delete(attestChallenges)
+      .where(lt(attestChallenges.expiresAt, sql`now()`))
+      .returning({ challenge: attestChallenges.challenge });
     return {
       auditRowsPurged: audit.length,
       rateLimitRowsPurged: limits.length,
       suggestionsUnlinked: unlinked.length,
       devicesPurged: purged.length,
+      challengesPurged: challenges.length,
     };
   });
   const meetingsWithTags = await db.transaction((tx) => recountAllTags(tx));

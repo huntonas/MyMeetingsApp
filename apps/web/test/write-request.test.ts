@@ -43,6 +43,9 @@ describe("write request headers", () => {
         firstSeenDate: utcToday(),
         lastSeenDate: utcToday(),
         blocked: false,
+        attestKeyId: null,
+        attestPublicKey: null,
+        attestCounter: null,
       },
     ]);
   });

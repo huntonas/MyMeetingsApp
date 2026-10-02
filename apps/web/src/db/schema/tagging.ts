@@ -1,6 +1,7 @@
 import { PLATFORMS } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   check,
@@ -103,10 +104,21 @@ export const devices = pgTable(
     firstSeenDate: date("first_seen_date").notNull().default(utcToday),
     lastSeenDate: date("last_seen_date").notNull().default(utcToday),
     blocked: boolean("blocked").notNull().default(false),
+    // Spec §6: the phone's App Attest key once registered: Apple's key id, the public key (SPKI DER, base64) and the
+    // highest assertion counter seen, which every write must exceed. All three or none.
+    attestKeyId: text("attest_key_id"),
+    attestPublicKey: text("attest_public_key"),
+    attestCounter: bigint("attest_counter", { mode: "number" }),
   },
   (table) => [
     check("devices_platform_check", sql`${table.platform} in (${sqlStringList(PLATFORMS)})`),
     check("devices_hash_check", sql`${table.deviceHash} ~ '^[0-9a-f]{64}$'`),
+    // Apple: a key belongs to one device. Postgres treats nulls as distinct, so phones without a key don't collide.
+    uniqueIndex("devices_attest_key_idx").on(table.attestKeyId),
+    check(
+      "devices_attest_check",
+      sql`(${table.attestKeyId} is null) = (${table.attestPublicKey} is null) and (${table.attestKeyId} is null) = (${table.attestCounter} is null)`,
+    ),
   ],
 );
 

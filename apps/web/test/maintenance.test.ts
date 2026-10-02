@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { GET } from "@/app/api/cron/maintenance/route";
 import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
-import { devices, rateLimits, suggestions, tagAudit, tagCounts } from "@/db/schema";
+import { attestChallenges, devices, rateLimits, suggestions, tagAudit, tagCounts } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
 import { recountTags } from "@/server/tags/counts";
@@ -120,6 +120,17 @@ describe("runMaintenance", () => {
     expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual(["a".repeat(64)]);
   });
 
+  it("deletes challenges past their 5 minutes and keeps live ones", async () => {
+    await db.insert(attestChallenges).values([
+      { challenge: "expired", expiresAt: new Date(Date.now() - 1000) },
+      { challenge: "live", expiresAt: new Date(Date.now() + 60_000) },
+    ]);
+    expect((await runMaintenance()).challengesPurged).toBe(1);
+    expect(await db.select({ challenge: attestChallenges.challenge }).from(attestChallenges)).toEqual([
+      { challenge: "live" },
+    ]);
+  });
+
   it("leaves no table linking a device to the meetings it tagged once 7 days pass", async () => {
     const first = await seedMeetingStarted(1, elsewhere(1));
     const second = await seedMeetingStarted(1, elsewhere(2));
@@ -218,6 +229,7 @@ describe("GET /api/cron/maintenance", () => {
       rateLimitRowsPurged: 0,
       suggestionsUnlinked: 0,
       devicesPurged: 0,
+      challengesPurged: 0,
     });
   });
 });

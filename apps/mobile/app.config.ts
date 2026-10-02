@@ -84,7 +84,8 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         NSPrivacyTracking: false,
         NSPrivacyTrackingDomains: [],
         NSPrivacyCollectedDataTypes: [
-          // The rounded search point (spec §11; owner decision, 2026-10-02).
+          // The rounded search point, and the stored near-meeting yes or no (within 200–500 m of a meeting) (spec §11;
+          // owner decision, 2026-10-02).
           collected("NSPrivacyCollectedDataTypeCoarseLocation"),
           // The keyed hash of the phone's ID, and its App Attest key.
           collected("NSPrivacyCollectedDataTypeDeviceID"),

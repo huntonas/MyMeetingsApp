@@ -5,6 +5,7 @@ import { startApi, type TestApi } from "./api-server";
 import { resetAppData, storedCells } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, VOCABULARY } from "./fixtures";
+import { LARGEST_TEXT, setFontScale } from "./font-scale";
 import { launchReadsLanded, renderApp } from "./render-app";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -100,6 +101,20 @@ describe("Suggest a tag", () => {
     expect(row).toHaveStyle({ flexDirection: "row" });
     expect(within(row).getByRole("button", { name: "Send" })).toBeOnTheScreen();
     expect(scrollViewAround(field)).toHaveProp("automaticallyAdjustKeyboardInsets", true);
+  });
+
+  // At the largest size an uncapped Send took half the row. It can't go under the field instead: only the focused field
+  // is scrolled above the keyboard, so Send would be covered.
+  it("keeps the field readable beside Send at the largest text size", async () => {
+    setFontScale(LARGEST_TEXT);
+    await openPicker();
+    await fireEvent.press(screen.getByRole("button", { name: "Suggest a tag" }));
+    const field = screen.getByLabelText("Your suggested tag");
+    expect(field.parent).toHaveStyle({ minWidth: 160 });
+    expect(within(screen.getByRole("button", { name: "Send" })).getByText("Send")).toHaveProp(
+      "maxFontSizeMultiplier",
+      2,
+    );
   });
 
   // Otherwise the first tap on Send, with the keyboard up, would only put the keyboard away.

@@ -41,7 +41,7 @@ export function Button({ label, onPress, kind = "primary", hint, ref }: ButtonPr
         opacity: pressed ? 0.8 : 1,
       })}
     >
-      <AppText variant="label" style={{ color: primary ? colors.accentText : colors.accent }}>
+      <AppText variant="button" style={{ color: primary ? colors.accentText : colors.accent }}>
         {label}
       </AppText>
     </Pressable>

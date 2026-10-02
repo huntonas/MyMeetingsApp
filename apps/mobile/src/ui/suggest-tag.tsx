@@ -70,9 +70,10 @@ export function SuggestTag() {
       <AppText ref={helper} tone="muted">
         We review every suggestion. Don't include names or anything that could identify someone.
       </AppText>
-      {/* Side by side: the page scrolls the focused field above the keyboard, and Send with it. */}
+      {/* Side by side: the page scrolls the focused field above the keyboard, and Send with it (under the field, Send
+      would stay covered). The field keeps room for a readable word or two at the largest text size. */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 160 }}>
           <TextField
             accessibilityLabel="Your suggested tag"
             accessibilityHint="2 to 40 letters or numbers"

@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
-import ReactNative, { AppState, type AppStateStatus, Linking, Platform } from "react-native";
+import { AppState, type AppStateStatus, Linking, Platform } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
 import { appDatabase } from "@/db/database";
@@ -11,6 +11,7 @@ import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, VOCABULARY } from "./fixtures";
+import { LARGEST_TEXT, setFontScale } from "./font-scale";
 import { permissionChecks, permissionRequests } from "./native/expo-location";
 import { renderApp } from "./render-app";
 
@@ -387,22 +388,14 @@ describe("the meeting page", () => {
   });
 });
 
-// iOS's largest Dynamic Type size, accessibility-extra-extra-extra-large, scales fonts by 3.12.
-const LARGEST_TEXT = 3.12;
-
-// The text size the phone reports, as React Native hands it to the app.
-function setFontScale(fontScale: number) {
-  const real = ReactNative.useWindowDimensions;
-  jest.spyOn(ReactNative, "useWindowDimensions").mockImplementation(() => ({ ...real(), fontScale }));
-}
-
 describe("the meeting page at large text sizes", () => {
   beforeEach(() => {
     api.reply(PATH, { meeting: meeting({ name: "Spiritual Progress" }) });
   });
 
-  it("keeps Save beside the title at the usual sizes", async () => {
-    setFontScale(1);
+  // 1.35 is iOS's largest standard size, the last one before the accessibility sizes.
+  it.each([1, 1.35])("keeps Save beside the title at the standard sizes (%p)", async (fontScale) => {
+    setFontScale(fontScale);
     await renderApp(`/meeting/${ID}`);
     const title = await screen.findByRole("header", { name: "Spiritual Progress" });
     const around = title.parent;

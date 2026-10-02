@@ -28,7 +28,7 @@ Coarse Location is declared (spec §11; owner decision, 2026-10-02) because it i
 
 The privacy manifest's `NSPrivacyCollectedDataTypes` in `apps/mobile/app.config.ts` declares the same three, and `privacy-manifest.test.ts` holds them to SPEC.md.
 
-react-native-maps' own `PrivacyInfo.xcprivacy` declares Precise Location as collected, but it isn't in the build: the default `Maps` subspec (Apple Maps) doesn't bundle it; only the Google Maps subspec, which the iOS app doesn't use, does. If Xcode's privacy report or a reviewer raises it, that's why it isn't declared.
+react-native-maps' own `PrivacyInfo.xcprivacy` declares Precise Location as collected, but it isn't in the build: the default `Maps` subspec (Apple Maps), the one the app uses, bundles no resources, so that file never ships. (The Google Maps subspec bundles Google's own privacy file; the iOS app doesn't use it.) If Xcode's privacy report or a reviewer raises it, that's why it isn't declared.
 
 ## Age rating
 

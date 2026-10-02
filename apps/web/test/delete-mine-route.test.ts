@@ -145,6 +145,16 @@ describe("POST /api/v1/tags/delete-mine", () => {
     expect(rows).toEqual([{ linked: 0 }]);
   });
 
+  it("leaves a blocked device's record untouched when it has no App Attest key to clear", async () => {
+    await tag(await seedMeetingStarted(1));
+    await db.update(devices).set({ blocked: true });
+    const xmin = () => db.execute<{ xmin: string }>(sql`select xmin::text from ${devices}`);
+    const before = (await xmin()).rows;
+    expect((await deleteMine()).status).toBe(200);
+    // A fresh xmin would sit right after the deletion's, beside the counts it rewrote (spec §2).
+    expect((await xmin()).rows).toEqual(before);
+  });
+
   it("works while tagging is switched off", async () => {
     vi.stubEnv("FEATURE_TAGGING", "off");
     expect((await deleteMine()).status).toBe(200);

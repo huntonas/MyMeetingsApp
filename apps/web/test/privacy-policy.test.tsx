@@ -240,6 +240,11 @@ describe("the privacy policy page", () => {
     expect(text).toContain("“Delete all my tags” on the app's Me tab");
   });
 
+  it("counts a phone's inactivity from its last tags, suggestion or app check, as it says it records", () => {
+    expect(text).toContain("the first and last day the app sent us tags, a suggestion or its app check");
+    expect(text).toContain("months after the app last sent us tags, a suggestion or its app check.");
+  });
+
   // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   it("is dated, with no draft notice", () => {
     expect(text).toContain("Updated 2 October 2026.");

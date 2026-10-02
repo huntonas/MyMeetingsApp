@@ -12,9 +12,12 @@ afterAll(() => pool.end());
 const KEY_ID = "zgSY9YSD+7TaDXssY6WlOPVS1K3Lmk+pFhlcSWE+ZV0=";
 
 describe("a phone's App Attest key", () => {
-  it("is stored whole or not at all", async () => {
+  it.each([
+    ["the public key", { attestKeyId: KEY_ID }],
+    ["the counter", { attestKeyId: KEY_ID, attestPublicKey: "MFkw" }],
+  ])("is stored whole or not at all: never without %s", async (_missing, partial) => {
     await expect(
-      db.insert(devices).values({ deviceHash: DEVICE_A_HASH, platform: "ios", attestKeyId: KEY_ID }),
+      db.insert(devices).values({ deviceHash: DEVICE_A_HASH, platform: "ios", ...partial }),
     ).rejects.toMatchObject({ cause: { constraint: "devices_attest_check" } });
   });
 

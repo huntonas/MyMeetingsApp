@@ -13,8 +13,10 @@ import { changeEverySubmission } from "@/server/tags/own-submissions";
 // deleting can't lift a block; that row links to no meeting. Then the App Attest key on a blocked device's kept row
 // goes too (spec §7: delete-mine deletes attestation data). That is its own statement after the transaction, so the
 // kept row never shares a transaction id (xmin) with the tag_counts rows the deletion rewrote, which would join a
-// blocked device to the meetings it tagged (spec §2). It touches only a row still holding a key, and if it fails,
-// deleting again finishes it.
+// blocked device to the meetings it tagged (spec §2). It usually lands on the next one, though, and that adjacency
+// lasts until the nightly rebuild deletes and re-inserts every tag_counts row (recountAllTags). It touches only a
+// row still holding a key, so a keyless row isn't moved next to those counts at all, and if it fails, deleting again
+// finishes it.
 export async function deleteMine(device: WriteDevice): Promise<DeleteMineResponse> {
   const response = await db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);

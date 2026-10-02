@@ -39,6 +39,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@expo/plist": "0.8.1",
     "@mymeetingapp/test-server": "workspace:*",
     "@react-native/jest-preset": "0.86.3",
     "@testing-library/react-native": "^14.0.1",

@@ -1,3 +1,4 @@
+import { BRAND } from "@mymeetingapp/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 
@@ -12,8 +13,7 @@ export type ReadState<T> =
   | { status: "failed"; message: string; gone: boolean };
 
 // About this read only: the phone may well hold other saved copies (a search elsewhere, other meetings).
-const NO_COPY =
-  "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.";
+const NO_COPY = `We couldn't reach ${BRAND.name}, and this isn't saved on your phone yet. Check your connection and try again.`;
 
 // Reads `read` whenever its key changes, and again on refresh(); a refresh keeps showing what's already there.
 export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {

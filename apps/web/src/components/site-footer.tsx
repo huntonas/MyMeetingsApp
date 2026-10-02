@@ -5,8 +5,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <p>
-        {BRAND.appName} is not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services,
-        Inc.
+        {BRAND.name} is not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services, Inc.
       </p>
       <nav aria-label="Legal">
         <a href="/privacy">Privacy policy</a>

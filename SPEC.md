@@ -1,6 +1,6 @@
-# mymeetingapp — Build Spec (v2)
+# My Meeting App — Build Spec (v2)
 
-App name: **mymeetingapp**. Domain: **mymeetingapp.com** (already owned). Both live in one config value (`packages/shared/src/brand.ts`).
+App name: **My Meeting App** (slug `mymeetingapp` for technical identifiers). Domain: **mymeetingapp.com** (already owned). They live in one config value (`packages/shared/src/brand.ts`).
 Publisher: Gooder Software LLC (Tennessee).
 
 Revised 2026-09-26 after spec review. See [Changes from v1](#changes-from-v1) at the end.

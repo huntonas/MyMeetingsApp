@@ -190,7 +190,7 @@ describe("the Online tab", () => {
     await renderApp("/online");
     expect(
       await screen.findByText(
-        "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.",
+        "We couldn't reach My Meeting App, and this isn't saved on your phone yet. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByText(NOTHING_ON)).toBeNull();
@@ -210,7 +210,7 @@ describe("the Online tab", () => {
     expect(await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(
       screen.getByText(
-        "Showing the copy saved today at 3:40 PM. mymeetingapp is having trouble right now, so it may be out of date.",
+        "Showing the copy saved today at 3:40 PM. My Meeting App is having trouble right now, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
   });

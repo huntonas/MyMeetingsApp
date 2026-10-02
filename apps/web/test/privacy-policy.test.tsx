@@ -5,7 +5,7 @@ import { getTableName, is } from "drizzle-orm";
 import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 
-import PrivacyPage from "@/app/(site)/privacy/page";
+import PrivacyPage, { metadata } from "@/app/(site)/privacy/page";
 import {
   DATA_INVENTORY,
   ON_PHONE,
@@ -242,6 +242,13 @@ describe("the privacy policy page", () => {
 
   it("is marked as a draft pending legal review", () => {
     expect(text).toContain("Draft, pending legal review.");
+  });
+
+  it("names the app and who makes it", () => {
+    expect(text).toContain("My Meeting App is made by Gooder Software LLC, a Tennessee company.");
+    expect(metadata.description).toBe(
+      "Everything My Meeting App stores, why, for how long, and who else receives it.",
+    );
   });
 
   it("shows every inventory entry, everything that stays on the phone and every third party", () => {

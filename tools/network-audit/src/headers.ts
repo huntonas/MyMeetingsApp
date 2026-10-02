@@ -38,10 +38,11 @@ type HeaderValidator = (value: string, context: HeaderContext) => boolean;
 // and a narrower shape leaves less room for a coordinate fragment to pass as a plausible-looking subtag.
 const LANGUAGE_TAG = /^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|419))?(?:;q=(?:0\.\d|1\.0))?$/;
 const ACCEPT_ENCODING_TOKENS = new Set(["gzip", "deflate", "br", "zstd", "identity"]);
-// APP_NAME in apps/mobile/app.config.ts is a literal kept equal to this by app-shell.test.tsx; imported here
-// instead of hand-duplicated, so the two can't drift without a compile error.
+// iOS starts the User-Agent with the app's executable name: Expo's `name`, APP_SLUG in apps/mobile/app.config.ts, a
+// literal kept equal to this by app-shell.test.tsx; imported here instead of hand-duplicated, so the two can't drift
+// without a compile error. The home-screen name (BRAND.name) is separate and never reaches the User-Agent.
 const USER_AGENT_IOS = new RegExp(
-  `^${BRAND.appName}/\\d+ CFNetwork/\\d+(?:\\.\\d+){0,2} Darwin/\\d+(?:\\.\\d+){0,2}$`,
+  `^${BRAND.slug}/\\d+ CFNetwork/\\d+(?:\\.\\d+){0,2} Darwin/\\d+(?:\\.\\d+){0,2}$`,
 );
 const USER_AGENT_ANDROID = /^okhttp\/\d\.\d{1,2}\.\d{1,2}$/;
 const PRIORITY = /^u=[0-7](?:, ?i)?$/;

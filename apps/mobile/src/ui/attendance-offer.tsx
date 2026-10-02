@@ -1,3 +1,4 @@
+import { BRAND } from "@mymeetingapp/shared";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -12,7 +13,7 @@ import { useNotice } from "@/ui/notice";
 const ANSWERS: Record<AttendanceAnswer, string> = {
   near: "You're near the meeting. Your tags will say so.",
   notNear: "You don't seem to be at the meeting, so your tags will go without that.",
-  denied: "Location isn't allowed for mymeetingapp, so your tags will go without the check.",
+  denied: `Location isn't allowed for ${BRAND.name}, so your tags will go without the check.`,
   approximate: "Only your approximate location is shared, so your tags will go without the check.",
   unavailable: "Your phone couldn't find where it is, so your tags will go without the check.",
 };

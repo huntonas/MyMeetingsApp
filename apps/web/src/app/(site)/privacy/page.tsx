@@ -14,7 +14,7 @@ import { RETENTION } from "@/server/retention";
 export const metadata = pageMetadata({
   path: "/privacy",
   title: "Privacy policy",
-  description: "Everything mymeetingapp stores, why, for how long, and who else receives it.",
+  description: `Everything ${BRAND.name} stores, why, for how long, and who else receives it.`,
 });
 
 export default function PrivacyPage() {
@@ -23,8 +23,8 @@ export default function PrivacyPage() {
       <h1>Privacy policy</h1>
       <DraftNotice />
       <p>
-        {BRAND.appName} is made by {BRAND.publisher}, a Tennessee company. This policy covers the app for
-        iPhone and Android and this website. It describes each kind of data we keep, why, and for how long.
+        {BRAND.name} is made by {BRAND.publisher}, a Tennessee company. This policy covers the app for iPhone
+        and Android and this website. It describes each kind of data we keep, why, and for how long.
       </p>
 
       <h2>In short</h2>

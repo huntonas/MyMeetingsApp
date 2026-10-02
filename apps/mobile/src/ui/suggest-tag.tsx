@@ -1,4 +1,4 @@
-import { TagLabelText } from "@mymeetingapp/shared";
+import { BRAND, TagLabelText } from "@mymeetingapp/shared";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, type Text, View } from "react-native";
 
@@ -14,8 +14,7 @@ const THANKS = "Thanks. We'll review it, and if it's added, it'll appear in the 
 const NOT_A_TAG =
   "Use 2 to 40 letters or numbers, starting with a letter or number (spaces, apostrophes, hyphens and & are fine).";
 // A suggestion that timed out may still have reached the server, so this can't say it didn't arrive.
-const OFFLINE_SUGGESTION =
-  "We couldn't reach mymeetingapp, so we can't tell whether your suggestion arrived. Try again.";
+const OFFLINE_SUGGESTION = `We couldn't reach ${BRAND.name}, so we can't tell whether your suggestion arrived. Try again.`;
 
 // Spec §5: a new word for the tag list, checked on the phone with the server's own rule before it's sent. The server
 // screens it and never says what it decided, so a suggestion that went through only ever gets a thank-you. The words
@@ -89,7 +88,7 @@ export function SuggestTag() {
         {sending ? (
           <ActivityIndicator accessibilityLabel="Sending your suggestion" />
         ) : (
-          <Button label="Send" hint="Sends only these words to mymeetingapp" onPress={send} />
+          <Button label="Send" hint={`Sends only these words to ${BRAND.name}`} onPress={send} />
         )}
       </View>
       {result.text !== null && <AppText accessibilityRole="alert">{result.text}</AppText>}

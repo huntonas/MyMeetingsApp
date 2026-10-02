@@ -7,7 +7,7 @@ import { RETENTION } from "@/server/retention";
 export const metadata = pageMetadata({
   path: "/support",
   title: "Support",
-  description: "Help with mymeetingapp, and how intergroups and groups can opt out.",
+  description: `Help with ${BRAND.name}, and how intergroups and groups can opt out.`,
 });
 
 export default function SupportPage() {
@@ -52,7 +52,7 @@ export default function SupportPage() {
       <h2>Opting out</h2>
       <h3>For intergroups and other service entities</h3>
       <p>
-        If you publish a meeting list and don&apos;t want {BRAND.appName} to use it, email {email} with your
+        If you publish a meeting list and don&apos;t want {BRAND.name} to use it, email {email} with your
         website or list address, and we&apos;ll act on it within a few days. Once we do, we stop using your
         list at the next sync; meetings that other lists also publish keep appearing from those lists. The app
         catches up within {CATCH_UP_MINUTES.feedOptOut} minutes. You never need to give a reason.

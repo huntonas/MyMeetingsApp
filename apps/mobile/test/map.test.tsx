@@ -740,7 +740,7 @@ describe("the map's notices", () => {
     await moveTo(map, PAN);
     expect(
       await screen.findByText(
-        "Showing your last search, near Maryville, TN, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing your last search, near Maryville, TN, saved today at 3:40 PM. We couldn't reach My Meeting App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
@@ -758,7 +758,7 @@ describe("the map's notices", () => {
     await moveTo(map, { latitude: 35.91, longitude: -84.11, latitudeDelta: 0.2, longitudeDelta: 0.3 });
     expect(
       await screen.findByText(
-        "Showing your last search, near the map area you searched, saved today at 3:40 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing your last search, near the map area you searched, saved today at 3:40 PM. We couldn't reach My Meeting App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near the map area you searched")).toBeOnTheScreen();
@@ -784,7 +784,7 @@ describe("the map's notices", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
     expect(
       await screen.findByText(
-        "Showing the copy saved today at 3:00 PM. We couldn't reach mymeetingapp, so it may be out of date.",
+        "Showing the copy saved today at 3:00 PM. We couldn't reach My Meeting App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();

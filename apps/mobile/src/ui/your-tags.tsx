@@ -1,4 +1,5 @@
 import {
+  BRAND,
   ERROR_MESSAGES,
   type ErrorCode,
   type MeetingSummary,
@@ -71,8 +72,7 @@ function attendanceOffer(meeting: MeetingSummary, now: Date) {
 }
 
 // A removal that timed out may still have reached the server, so this can't say the tags are still there.
-const OFFLINE_REMOVE =
-  "We couldn't reach mymeetingapp, so we can't tell whether your tags were removed. Check your connection and try again.";
+const OFFLINE_REMOVE = `We couldn't reach ${BRAND.name}, so we can't tell whether your tags were removed. Check your connection and try again.`;
 
 // The server holds no tags from this phone on the meeting (or knows no such meeting): the phone's record is stale.
 const NOTHING_TO_REMOVE: readonly ErrorCode[] = ["not_tagged", "meeting_not_found"];

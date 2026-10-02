@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { POST as tagMeeting } from "@/app/api/v1/tags/route";
 import { db } from "@/db/client";
 import { suggestions, tagSwings } from "@/db/schema";
+import { foldDeviceDays } from "@/server/devices/device-days";
 
 import { DEVICE_A_HASH, DEVICE_B, deviceHeaders, seedMeetingStarted, testDevice } from "./tag-fixtures";
 
@@ -54,6 +55,7 @@ export async function seedSwing(): Promise<{ meetingId: string; swingId: number 
   await tag(meetingId, ["serious-tone"], deviceHeaders());
   for (let n = 1; n <= 4; n++) await tag(meetingId, ["serious-tone"], deviceHeaders(testDevice(n)));
   await tag(meetingId, ["quiet"], deviceHeaders(DEVICE_B, "android"));
+  await foldDeviceDays();
   const [swing] = await db.select({ id: tagSwings.id }).from(tagSwings);
   if (swing === undefined) throw new Error("no swing was flagged");
   return { meetingId, swingId: swing.id };

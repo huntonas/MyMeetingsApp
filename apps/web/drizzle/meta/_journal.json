@@ -127,6 +127,13 @@
       "when": 1790969390699,
       "tag": "0017_attestation-limit",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790971208104,
+      "tag": "0018_device-days",
+      "breakpoints": true
     }
   ]
 }

@@ -5,8 +5,9 @@ import { z } from "zod";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
-import { devices } from "@/db/schema";
+import { deviceDays, devices } from "@/db/schema";
 import { jsonResponse, withErrors } from "@/lib/api/respond";
+import { foldDeviceDays } from "@/server/devices/device-days";
 import { identifyDevice, readWriteRequest, writeAsDevice } from "@/server/devices/write-request";
 
 import { resetDb } from "./db";
@@ -36,6 +37,11 @@ describe("write request headers", () => {
   it("hashes the device id and records the device by date only", async () => {
     const res = await call(deviceHeaders());
     expect(await res.json()).toEqual({ deviceHash: DEVICE_A_HASH });
+    expect(await db.select().from(devices)).toEqual([]);
+    expect(await db.select().from(deviceDays)).toEqual([
+      { deviceHash: DEVICE_A_HASH, day: utcToday(), platform: "ios", attestKeyId: null, attestCounter: null },
+    ]);
+    await foldDeviceDays();
     expect(await db.select().from(devices)).toEqual([
       {
         deviceHash: DEVICE_A_HASH,
@@ -52,11 +58,16 @@ describe("write request headers", () => {
 
   it("never stores the raw device id", async () => {
     await call(deviceHeaders());
-    const { rows } = await db.execute(sql`select row_to_json(d)::text as row from devices d`);
+    await foldDeviceDays();
+    const { rows } = await db.execute(sql`
+      select row_to_json(d)::text as row from devices d
+      union all select row_to_json(d)::text from device_days d
+    `);
+    expect(rows).toHaveLength(2);
     expect(JSON.stringify(rows).toLowerCase()).not.toContain(DEVICE_A.toLowerCase());
   });
 
-  it("moves last_seen_date forward and keeps first_seen_date", async () => {
+  it("moves last_seen_date forward and keeps first_seen_date, at the nightly fold", async () => {
     await db.insert(devices).values({
       deviceHash: DEVICE_A_HASH,
       platform: "ios",
@@ -64,16 +75,22 @@ describe("write request headers", () => {
       lastSeenDate: "2026-01-02",
     });
     await call(deviceHeaders());
+    await foldDeviceDays();
     const [row] = await db.select().from(devices);
     expect([row?.firstSeenDate, row?.lastSeenDate]).toEqual(["2026-01-01", utcToday()]);
   });
 
-  it("leaves the device's record untouched on a later write the same UTC day", async () => {
+  it("leaves an existing record's xmin and xmax untouched", async () => {
+    await db
+      .insert(devices)
+      .values({ deviceHash: DEVICE_A_HASH, platform: "ios", lastSeenDate: "2026-01-02" });
+    const stamps = async () =>
+      (await db.execute<{ xmin: string; xmax: string }>(sql`select xmin::text, xmax::text from devices`))
+        .rows;
+    const before = await stamps();
     await call(deviceHeaders());
-    const xmin = () => db.execute<{ xmin: string }>(sql`select xmin::text from devices`);
-    const before = (await xmin()).rows;
     await call(deviceHeaders());
-    expect((await xmin()).rows).toEqual(before);
+    expect(await stamps()).toEqual(before);
   });
 
   it.each<[string, Record<string, string>]>([

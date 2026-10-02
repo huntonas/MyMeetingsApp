@@ -1,13 +1,13 @@
 import { DEVICE_HEADERS, isOlderVersion, type Platform, WriteHeaders } from "@mymeetingapp/shared";
-import { eq, lt, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { db, type Executor } from "@/db/client";
 import { devices } from "@/db/schema";
-import { utcToday } from "@/db/sql";
 import { parseInput } from "@/lib/api/request";
 import { ApiError } from "@/lib/api/respond";
 import { readAppConfig } from "@/server/app-config";
 import { verifyAttestation } from "@/server/devices/attestation";
+import { recordDeviceDay } from "@/server/devices/device-days";
 import { deviceHash } from "@/server/devices/ids";
 
 export interface WriteDevice {
@@ -62,20 +62,12 @@ export async function lockDevice(hash: string, executor: Executor): Promise<void
   await executor.execute(sql`select pg_advisory_xact_lock(hashtextextended(${hash}, 0))`);
 }
 
-// Runs a device's write in a transaction, after recording the device's latest UTC day (spec §6), and refuses a
-// blocked device. The record is its own transaction, committed first and skipped when already today, so the
-// devices row never shares a transaction id (xmin) with the write's tag or audit rows: that would join a device
-// to the meeting it last tagged, for as long as both rows stand (spec §2). The block is read again under the
-// device lock, so a device blocked in between is still refused.
+// Runs a device's write in one transaction under the device lock: refuses a blocked device, notes today in
+// device_days, then writes. It never writes the device's record in `devices` (spec §2: that row would sit one
+// transaction id from the write's tag rows); reading `blocked` takes no transaction id and stamps nothing. The nightly
+// fold (foldDeviceDays) brings last-seen up to date. The block is read under the lock, so a device blocked in between
+// is still refused.
 export async function writeAsDevice<T>(device: WriteDevice, write: (tx: Executor) => Promise<T>): Promise<T> {
-  await db
-    .insert(devices)
-    .values({ deviceHash: device.deviceHash, platform: device.platform })
-    .onConflictDoUpdate({
-      target: devices.deviceHash,
-      set: { lastSeenDate: utcToday },
-      setWhere: lt(devices.lastSeenDate, utcToday),
-    });
   return db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);
     const [row] = await tx
@@ -83,6 +75,7 @@ export async function writeAsDevice<T>(device: WriteDevice, write: (tx: Executor
       .from(devices)
       .where(eq(devices.deviceHash, device.deviceHash));
     if (row?.blocked === true) throw new ApiError("device_blocked");
+    await recordDeviceDay(device, tx);
     return write(tx);
   });
 }

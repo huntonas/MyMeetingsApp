@@ -8,6 +8,7 @@ import { eq, sql } from "drizzle-orm";
 import { db, pool } from "@/db/client";
 import {
   aiDecisions,
+  deviceDays,
   devices,
   rateLimits,
   suggestions,
@@ -16,6 +17,7 @@ import {
   tagSubmissions,
 } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { foldDeviceDays } from "@/server/devices/device-days";
 import { runMaintenance } from "@/server/maintenance";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
@@ -83,6 +85,8 @@ describe("POST /api/v1/tags/delete-mine", () => {
       })),
     );
 
+    await foldDeviceDays();
+
     const res = await deleteMine();
     expect(res.status).toBe(200);
     expect(DeleteMineResponse.parse(await res.json())).toEqual({ deletedTags: 2 });
@@ -99,6 +103,7 @@ describe("POST /api/v1/tags/delete-mine", () => {
     ]);
     expect(await db.select({ id: aiDecisions.suggestionId }).from(aiDecisions)).toHaveLength(2);
     expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
+    expect((await db.select().from(deviceDays)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
   });
 
   it("finds the device's rows under a merged-away meeting id", async () => {
@@ -112,6 +117,7 @@ describe("POST /api/v1/tags/delete-mine", () => {
   it("keeps only a blocked device's hash and block, so deleting can't lift it", async () => {
     const meetingId = await seedMeetingStarted(1);
     await tag(meetingId);
+    await foldDeviceDays();
     await db.update(devices).set({ blocked: true, ...KEY });
     expect((await deleteMine()).status).toBe(200);
     expect(await db.select().from(tagSubmissions)).toEqual([]);
@@ -131,6 +137,7 @@ describe("POST /api/v1/tags/delete-mine", () => {
     const meetingId = await seedMeetingStarted(1);
     await tag(meetingId);
     await tag(meetingId, deviceHeaders(DEVICE_B, "android"));
+    await foldDeviceDays();
     await db
       .update(devices)
       .set({ blocked: true, ...KEY })
@@ -147,6 +154,7 @@ describe("POST /api/v1/tags/delete-mine", () => {
 
   it("leaves a blocked device's record untouched when it has no App Attest key to clear", async () => {
     await tag(await seedMeetingStarted(1));
+    await foldDeviceDays();
     await db.update(devices).set({ blocked: true });
     const xmin = () => db.execute<{ xmin: string }>(sql`select xmin::text from ${devices}`);
     const before = (await xmin()).rows;

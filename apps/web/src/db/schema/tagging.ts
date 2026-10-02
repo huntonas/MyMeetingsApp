@@ -122,6 +122,25 @@ export const devices = pgTable(
   ],
 );
 
+// Spec §2 and §6: the day a device wrote, and (Task 6) the highest App Attest counter it signed that day. Written inside
+// the write's own transaction, so a device's record in `devices` is never written by a tag write; the nightly fold
+// (foldDeviceDays) carries these into `devices`. Kept two UTC days, like rate_limits, and inside the 7-day audit window.
+export const deviceDays = pgTable(
+  "device_days",
+  {
+    deviceHash: text("device_hash").notNull(),
+    day: date("day").notNull(),
+    platform: text("platform", { enum: PLATFORMS }).notNull(),
+    attestKeyId: text("attest_key_id"),
+    attestCounter: bigint("attest_counter", { mode: "number" }),
+  },
+  (table) => [
+    primaryKey({ name: "device_days_pkey", columns: [table.deviceHash, table.day] }),
+    check("device_days_platform_check", sql`${table.platform} in (${sqlStringList(PLATFORMS)})`),
+    check("device_days_attest_check", sql`(${table.attestKeyId} is null) = (${table.attestCounter} is null)`),
+  ],
+);
+
 const RATE_LIMIT_BUCKETS = ["tag_submission", "suggestion", "metrics_login", "attestation"] as const;
 export type RateLimitBucket = (typeof RATE_LIMIT_BUCKETS)[number];
 

@@ -10,6 +10,7 @@ const APP_TABLES = [
   "ai_decisions",
   "suggestions",
   "rate_limits",
+  "device_days",
   "devices",
   "tag_audit",
   "tag_counts",

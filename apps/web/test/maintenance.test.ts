@@ -230,6 +230,8 @@ describe("GET /api/cron/maintenance", () => {
       suggestionsUnlinked: 0,
       devicesPurged: 0,
       challengesPurged: 0,
+      devicesFolded: 0,
+      deviceDaysPurged: 0,
     });
   });
 });

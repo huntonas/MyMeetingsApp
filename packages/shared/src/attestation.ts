@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { BRAND } from "./brand";
-
 // Spec §6: an iPhone proves a write came from the real app with an App Attest assertion, or, on an iPhone without App
 // Attest, a DeviceCheck token. The phone builds X-Attestation and the server reads it here, so the two can't drift;
 // the network audit holds the header to the same shape.
@@ -43,7 +41,8 @@ export function assertionClientData(request: {
   body: string;
 }): string {
   return [
-    `${BRAND.slug} write v1`,
+    // A protocol constant, not the brand: renaming the app must never change what a signature covers.
+    "mymeetingapp write v1",
     request.method,
     request.path,
     String(request.timestamp),

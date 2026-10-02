@@ -46,8 +46,12 @@ this automatically against a HAR capture:
     (`WriteHeaders.shape.deviceId`/`.platform`/`.appVersion`): a 16-64 character id of letters, digits and
     hyphens, `ios` or `android`, and a `1.2.3`-style version. A capture that carries more than one distinct
     `X-Device-Id` value is itself a finding ("sends more than one device ID") — the id itself is never
-    printed, there or anywhere else in the report. `X-Attestation` is a finding on every write until Phase 6
-    turns it on ("sends X-Attestation, which isn't switched on yet");
+    printed, there or anywhere else in the report. `X-Attestation` is required on the five writes and must be
+    exactly `appattest.v1.<44-character key id>.<13-digit clock>.<base64>` or `devicecheck.v1.<base64>` (the
+    shared `parseAttestation`). The app check's own `POST /attest/challenge` (no body) and
+    `POST /attest/register` (`AttestRegisterRequest`, byte-exact) carry the device headers and never a proof.
+    A simulator can't attest, so from Phase 6 the audit runs on an iPhone (Task 14 of the Phase 6 plan has the
+    steps);
   - `If-None-Match`/`If-Modified-Since` are allowed only on a GET read, and only when the value exactly
     equals an `etag`/`Last-Modified` that an **earlier response to that same URL, in this same capture**
     actually returned — never an arbitrary value. Vercel's ETags are a hash of the response body, shared by

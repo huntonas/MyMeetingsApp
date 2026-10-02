@@ -201,7 +201,7 @@ describe("auditHar", () => {
 
   it("flags a request to a path the app never uses (not a read, the search, or one of the writes)", () => {
     expect(
-      problems(har(entry("POST", `https://${SERVER}/api/v1/attest/challenge`, { body: "{}" }), VALID_SEARCH)),
+      problems(har(entry("POST", `https://${SERVER}/api/v1/attest/unknown`, { body: "{}" }), VALID_SEARCH)),
     ).toEqual(["isn't one of the app's requests"]);
   });
 
@@ -959,11 +959,15 @@ describe("auditHar", () => {
   });
 
   describe("writes", () => {
+    const PROOF = `appattest.v1.${"A".repeat(43)}=.1791201600000.omlzaWduYXR1cmU=`;
     const WRITE_HEADERS: [string, string][] = [
       ["X-Device-Id", "6F9619FF-8B86-D011-B42D-00C04FC964FF"],
       ["X-Platform", "ios"],
       ["X-App-Version", "0.1.0"],
+      ["X-Attestation", PROOF],
     ];
+    // The app check's own requests (challenge, register) carry the device headers but never a proof.
+    const DEVICE_ONLY = WRITE_HEADERS.filter(([name]) => name !== "X-Attestation");
     const TAG_BODY = `{"meetingId":"${ID}","tags":["quiet"],"nearMeeting":true}`;
     // problems(), above, always appends VALID_SEARCH; this is the same idea for a single write entry.
     const problemsWith = (write: ReturnType<typeof entry>) => problems(har(VALID_SEARCH, write));
@@ -991,11 +995,16 @@ describe("auditHar", () => {
             headers: WRITE_HEADERS,
             body: '{"text":"Candlelight"}',
           }),
+          entry("POST", `https://${SERVER}/api/v1/attest/challenge`, { headers: DEVICE_ONLY }),
+          entry("POST", `https://${SERVER}/api/v1/attest/register`, {
+            headers: DEVICE_ONLY,
+            body: `{"keyId":"${"A".repeat(43)}=","attestation":"o2NmbXQ=","challenge":"${"c".repeat(43)}"}`,
+          }),
         ),
         OPTIONS,
       );
       expect(report.findings).toEqual([]);
-      expect(report.writeRequests).toBe(6);
+      expect(report.writeRequests).toBe(8);
     });
 
     it.each([
@@ -1013,6 +1022,7 @@ describe("auditHar", () => {
       ["X-Device-Id", "x-device-id"],
       ["X-Platform", "x-platform"],
       ["X-App-Version", "x-app-version"],
+      ["X-Attestation", "x-attestation"],
     ])("fails a write missing %s", (headerName, lower) => {
       const headers = WRITE_HEADERS.filter(([name]) => name !== headerName);
       expect(
@@ -1026,15 +1036,29 @@ describe("auditHar", () => {
       ).toContain("sends the device header X-Device-Id");
     });
 
-    it("fails X-Attestation until Phase 6 turns it on", () => {
+    it("fails a registration whose body isn't exactly what the app sends", () => {
       expect(
         problemsWith(
-          entry("POST", `https://${SERVER}/api/v1/tags`, {
-            headers: [...WRITE_HEADERS, ["X-Attestation", "abc"]],
-            body: TAG_BODY,
+          entry("POST", `https://${SERVER}/api/v1/attest/register`, {
+            headers: DEVICE_ONLY,
+            body: `{"keyId":"${"A".repeat(43)}=","attestation":"o2NmbXQ=","challenge":"${"c".repeat(43)}","lat":36.16}`,
           }),
         ),
-      ).toContain("sends X-Attestation, which isn't switched on yet");
+      ).toContain("write body isn't exactly what the app sends");
+    });
+
+    it("fails a challenge request that carries a body or a proof", () => {
+      expect(
+        problemsWith(
+          entry("POST", `https://${SERVER}/api/v1/attest/challenge`, {
+            headers: DEVICE_ONLY,
+            body: '{"x":1}',
+          }),
+        ),
+      ).toContain("sends a body on a write that has none");
+      expect(
+        problemsWith(entry("POST", `https://${SERVER}/api/v1/attest/challenge`, { headers: WRITE_HEADERS })),
+      ).toContain("sends X-Attestation on a request that never carries one");
     });
 
     it("fails a malformed device ID", () => {

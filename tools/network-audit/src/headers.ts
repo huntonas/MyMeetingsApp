@@ -1,4 +1,4 @@
-import { BRAND, DEVICE_HEADERS, WriteHeaders } from "@mymeetingapp/shared";
+import { BRAND, DEVICE_HEADERS, parseAttestation, WriteHeaders } from "@mymeetingapp/shared";
 
 import { normalizeHost } from "./host";
 
@@ -16,9 +16,12 @@ export interface HeaderContext {
   method: string;
   // Already normalized (lowercased, trailing dot stripped) — see host.ts.
   server: string;
-  // Whether this request is one of Phase 5b's writes (audit.ts's WRITES): device headers are allowed only
-  // here, and only here can Content-Length legitimately be 0 (a bodiless write still gets one from the OS).
+  // Whether this request is one of audit.ts's WRITES: device headers are allowed only here, and only here can
+  // Content-Length legitimately be 0 (a bodiless write still gets one from the OS).
   write: boolean;
+  // Whether this write must carry X-Attestation (spec §6): the five writes do; the app check's own two requests,
+  // which run before the phone has a key, never do.
+  attested: boolean;
   // The request's real body size (mitmdump always records it, even with no postData). content-length must
   // equal this exactly, and is a finding at all when there's no body (bodySize is 0 or unset) — unless it's
   // a bodiless write, where 0 is expected.
@@ -56,7 +59,7 @@ function commaList(value: string, isValidPart: (part: string) => boolean, maxPar
   );
 }
 
-// Phase 5b's writes (audit.ts's WRITES) get their own header names, one validator per WriteHeaders field —
+// The app's writes (audit.ts's WRITES) get their own header names, one validator per WriteHeaders field —
 // looked up by the lowercased DEVICE_HEADERS name so a header's value is held to its own shape, not just its
 // name being on the allowlist.
 const DEVICE_HEADER_VALIDATORS: Record<string, (value: string) => boolean> = {
@@ -96,9 +99,13 @@ export function headerFinding(name: string, value: string, context: HeaderContex
   if (DEVICE_HEADER_NAMES.has(lower)) {
     // On a read, any device header is itself a finding — spec §7 carries these on writes only.
     if (!context.write) return `sends the device header ${name}`;
-    // Attestation isn't switched on until Phase 6; every other device header must match the app's own shape.
+    // X-Attestation reads shape through the shared contract, since every other device header must match the
+    // app's own shape.
     if (lower === DEVICE_HEADERS.attestation.toLowerCase()) {
-      return "sends X-Attestation, which isn't switched on yet";
+      if (!context.attested) return "sends X-Attestation on a request that never carries one";
+      return parseAttestation(value) === null
+        ? `sends an unexpected value for the ${name} header`
+        : undefined;
     }
     const deviceValidator = DEVICE_HEADER_VALIDATORS[lower];
     return deviceValidator?.(value) ? undefined : `sends an unexpected value for the ${name} header`;

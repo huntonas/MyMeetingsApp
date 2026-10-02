@@ -44,9 +44,10 @@
   },
   "submit": {
     "testflight": {
-      "ios": {
-        "ascAppId": "6817873804"
-      }
+      "ios": { "ascAppId": "6817873804", "appleTeamId": "PVCZBLDJ73" }
+    },
+    "production": {
+      "ios": { "ascAppId": "6817873804", "appleTeamId": "PVCZBLDJ73", "metadataPath": "./store.config.json" }
     }
   }
 }

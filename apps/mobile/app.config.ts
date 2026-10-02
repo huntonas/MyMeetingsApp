@@ -57,7 +57,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     name: APP_SLUG,
     slug: APP_SLUG,
     scheme: APP_SLUG,
-    version: "0.1.0",
+    version: "1.0.0",
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     icon: "./assets/icon.png",
@@ -65,6 +65,9 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     updates: { enabled: false },
     ios: {
       bundleIdentifier: "com.goodersoftware.mymeetingapp",
+      // Gooder Software LLC's team (converted from the owner's individual membership): the App ID prefix App Attest
+      // checks, and APPLE_TEAM_ID on the server.
+      appleTeamId: "PVCZBLDJ73",
       supportsTablet: false,
       // HTTPS and the Keychain through the OS only: exempt, so `ITSAppUsesNonExemptEncryption` is false.
       config: { usesNonExemptEncryption: false },

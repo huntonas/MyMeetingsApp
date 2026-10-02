@@ -37,6 +37,7 @@ const Config = z.object({
   icon: z.string(),
   ios: z.object({
     bundleIdentifier: z.string(),
+    appleTeamId: z.string(),
     config: z.object({ usesNonExemptEncryption: z.boolean() }),
     infoPlist: z.object({
       CFBundleDisplayName: z.string(),
@@ -284,8 +285,14 @@ describe("the app config", () => {
     expect(mapsKey()).toBe("key-from-eas");
   });
 
-  it("keeps its version parseable as the semantic version installedVersion() expects (owner ruling M3)", () => {
+  // APPLE_TEAM_ID on the server and appleTeamId in eas.json name the same team: App Attest's App ID is team.bundle.
+  it("builds for the team the server's App Attest checks name", () => {
+    expect(Config.parse(appConfig(CONTEXT)).ios.appleTeamId).toBe("PVCZBLDJ73");
+  });
+
+  it("is version 1.0.0, the first store release, parseable as the semantic version installedVersion() expects (owner ruling M3)", () => {
     const config = Config.parse(appConfig(CONTEXT));
+    expect(config.version).toBe("1.0.0");
     expect(SemVer.safeParse(config.version).success).toBe(true);
   });
 });

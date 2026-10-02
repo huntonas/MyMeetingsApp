@@ -4,7 +4,12 @@ import path from "node:path";
 import { z } from "zod";
 
 const EasJson = z.object({
-  submit: z.record(z.string(), z.object({ ios: z.object({ ascAppId: z.string() }) })),
+  submit: z.record(
+    z.string(),
+    z.object({
+      ios: z.object({ ascAppId: z.string(), appleTeamId: z.string(), metadataPath: z.string().optional() }),
+    }),
+  ),
   build: z.record(
     z.string(),
     z.looseObject({
@@ -44,8 +49,16 @@ describe("EAS build profiles", () => {
     expect(build.production?.environment).toBe("production");
   });
 
-  it("submits TestFlight builds to the App Store Connect app EAS created on the first submit", () => {
-    expect(easJson().submit.testflight?.ios.ascAppId).toBe("6817873804");
+  // One app record and one team for both: TestFlight builds and the store build are builds of the same app
+  // (finding: no transfer and no new record; owner decision 1). The team is the App ID prefix App Attest checks.
+  it("submits TestFlight and store builds to the same App Store Connect app, on team PVCZBLDJ73", () => {
+    const { submit } = easJson();
+    expect(submit.testflight?.ios).toEqual({ ascAppId: "6817873804", appleTeamId: "PVCZBLDJ73" });
+    expect(submit.production?.ios).toEqual({
+      ascAppId: "6817873804",
+      appleTeamId: "PVCZBLDJ73",
+      metadataPath: "./store.config.json",
+    });
   });
 
   // EAS installs this pnpm itself. With corepack enabled as well, its install collided with corepack's shim and the

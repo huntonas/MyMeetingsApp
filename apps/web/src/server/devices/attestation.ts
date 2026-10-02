@@ -10,7 +10,8 @@ import { readEnv } from "@/env";
 import { ApiError } from "@/lib/api/respond";
 import { verifyAssertion } from "@/server/attest/app-attest";
 import { appAttestConfig } from "@/server/attest/config";
-import { highestCounter, registeredKey } from "@/server/attest/keys";
+import { validDeviceCheckToken } from "@/server/attest/device-check";
+import { hasAttestKey, highestCounter, registeredKey } from "@/server/attest/keys";
 import type { DeviceProof } from "@/server/devices/write-request";
 
 // The counter, not the clock, stops replays; the clock only stops an assertion being held for days, and a tighter
@@ -63,11 +64,18 @@ async function verifyAppAttest(
   return { keyId: proof.keyId, counter };
 }
 
-// Spec §6: an iPhone's write carries an App Attest assertion over this exact request. Play Integrity arrives in Phase
-// 6b, so until then a required check refuses Android. Off, the header is ignored entirely and there's no proof.
+// Spec §6: an iPhone's write carries an App Attest assertion over this exact request, or, on an iPhone without App
+// Attest, a DeviceCheck token. Play Integrity arrives in Phase 6b, so until then a required check refuses Android. Off,
+// the header is ignored entirely and there's no proof.
 export async function verifyAttestation(request: AttestedRequest): Promise<DeviceProof | undefined> {
   if (!attestationRequired()) return undefined;
   const proof = request.attestation === undefined ? null : parseAttestation(request.attestation);
-  if (request.platform !== "ios" || proof?.kind !== "appAttest") throw new ApiError("attestation_failed");
-  return verifyAppAttest(request, proof);
+  if (request.platform !== "ios" || proof === null) throw new ApiError("attestation_failed");
+  if (proof.kind === "appAttest") return verifyAppAttest(request, proof);
+  // DeviceCheck proves less than an assertion (decision 8): a phone with an App Attest key can't fall back to it.
+  if ((await hasAttestKey(request.deviceHash)) || !(await validDeviceCheckToken(proof.token))) {
+    throw new ApiError("attestation_failed");
+  }
+  // A DeviceCheck token carries no counter, so the write keeps nothing but its day (Task 5A).
+  return undefined;
 }

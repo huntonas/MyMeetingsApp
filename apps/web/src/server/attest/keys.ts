@@ -38,6 +38,15 @@ export async function registeredKey(deviceHash: string, keyId: string): Promise<
   return row?.publicKey ?? null;
 }
 
+// Whether the phone has registered an App Attest key: such a phone must prove each write with it (decision 8).
+export async function hasAttestKey(deviceHash: string): Promise<boolean> {
+  const [row] = await db
+    .select({ keyId: devices.attestKeyId })
+    .from(devices)
+    .where(eq(devices.deviceHash, deviceHash));
+  return (row?.keyId ?? null) !== null;
+}
+
 // The highest counter this key is known to have signed: the folded one on the device's record, or a higher one on a
 // device_days row (Task 5A: a write keeps its counter there, never on devices). 0 for a key with neither.
 export async function highestCounter(deviceHash: string, keyId: string, executor: Executor): Promise<number> {

@@ -290,7 +290,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - **Cold starts:** Neon can scale to zero. Cacheable endpoints use `s-maxage`, and search results use Runtime Cache, which hides most of this.
 - **Cron:** defined in `vercel.ts`: `sync-feeds` every 15 minutes, `maintenance` nightly. Cron only runs on production deployments. Routes must be idempotent. Staging's nightly maintenance runs from a scheduled GitHub Actions workflow with a staging-only secret (owner decision, 2026-10-01).
 - **Discovery:** on-demand GitHub Actions workflow (section 4).
-- **Secrets:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `METRICS_USER`, `METRICS_PASSWORD`, `DEVICE_ID_PEPPER`, `CRON_SECRET`, `REQUIRE_ATTESTATION`, `AI_GATEWAY_API_KEY` (or OIDC), `SUGGESTION_MODEL`, Apple App Attest team/bundle IDs, Google Play Integrity credentials. All in Vercel environment variables. Never commit them.
+- **Secrets:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `METRICS_USER`, `METRICS_PASSWORD`, `DEVICE_ID_PEPPER`, `CRON_SECRET`, `REQUIRE_ATTESTATION`, `AI_GATEWAY_API_KEY` (or OIDC), `SUGGESTION_MODEL`, `APPLE_TEAM_ID`, `APPLE_BUNDLE_ID` and `APP_ATTEST_ENVIRONMENT` (App Attest), `DEVICECHECK_KEY_ID` and `DEVICECHECK_PRIVATE_KEY` (the DeviceCheck `.p8`, production only), Google Play Integrity credentials. All in Vercel environment variables. Never commit them.
 
 ## 13. Data inventory (source of truth for the privacy policy)
 

@@ -26,7 +26,10 @@ type EnvName =
   | "METRICS_PASSWORD"
   | "APPLE_TEAM_ID"
   | "APPLE_BUNDLE_ID"
-  | "APP_ATTEST_ENVIRONMENT";
+  | "APP_ATTEST_ENVIRONMENT"
+  | "DEVICECHECK_KEY_ID"
+  | "DEVICECHECK_PRIVATE_KEY"
+  | "DEVICECHECK_API_URL";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

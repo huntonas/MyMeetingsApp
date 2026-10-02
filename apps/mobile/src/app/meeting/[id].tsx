@@ -1,7 +1,7 @@
 import type { MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useCallback, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, useWindowDimensions, View } from "react-native";
 import { z } from "zod";
 
 import { useCachedRead } from "@/cache/use-cached-read";
@@ -24,6 +24,9 @@ import { TagChips, useLabelledTags } from "@/ui/tag-chips";
 import { RemoveMyTags, YourTags } from "@/ui/your-tags";
 
 const Params = z.object({ id: z.uuid() });
+
+// iOS's largest text size before the accessibility sizes (Android's largest steps, 1.5 and up, are past it too).
+const LARGEST_STANDARD_TEXT = 1.35;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -85,10 +88,18 @@ function MeetingInfo({
     phoneTime === null || meeting.timezone === null ? listed : `${listed} (${zoneName(meeting.timezone)})`;
   const directions = directionsUrl(meeting, appPlatform());
   useAttendanceCheck(meeting);
+  // Beside Save, a title at the accessibility text sizes is left a narrow column and breaks mid-word.
+  const largeText = useWindowDimensions().fontScale > LARGEST_STANDARD_TEXT;
   return (
     <>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-        <AppText variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+      <View
+        style={
+          largeText
+            ? { flexDirection: "column", alignItems: "flex-start", gap: 8 }
+            : { flexDirection: "row", alignItems: "flex-start", gap: 12 }
+        }
+      >
+        <AppText variant="title" accessibilityRole="header" style={largeText ? undefined : { flex: 1 }}>
           {meeting.name}
         </AppText>
         <SaveButton meetingId={meeting.id} />

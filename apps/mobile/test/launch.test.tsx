@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import { AppState, type AppStateStatus, Linking } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
@@ -172,6 +172,21 @@ describe("Help now", () => {
     await waitFor(() => {
       expect(app.getPathname()).toBe("/me");
     });
+  });
+
+  // The header bar keeps its height, so a header word left to grow with the largest Dynamic Type was cut in half. Like
+  // iOS's own navigation bars, the header's words stop growing at one and a half times.
+  it("keeps the header's words to a size the header can hold", async () => {
+    api.reply("/api/v1/config", CONFIG);
+    await renderApp("/");
+    const help = await screen.findByRole("button", { name: "Help now: crisis lines" });
+    expect(within(help).getByText("Help")).toHaveProp("maxFontSizeMultiplier", 1.5);
+    expect(screen.getByRole("header", { name: "Nearby" })).toHaveProp("maxFontSizeMultiplier", 1.5);
+    await fireEvent.press(help);
+    expect(within(await screen.findByRole("button", { name: "Close" })).getByText("Close")).toHaveProp(
+      "maxFontSizeMultiplier",
+      1.5,
+    );
   });
 
   it("is on the upgrade notice too", async () => {

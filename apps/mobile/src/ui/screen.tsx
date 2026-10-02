@@ -3,14 +3,21 @@ import { ScrollView, View } from "react-native";
 
 import { useColors } from "@/theme/colors";
 
-// One left-aligned column with the website's 20-point gutter.
+// One left-aligned column with the website's 20-point gutter. A scrolling one keeps a focused text field above the
+// keyboard (iOS scrolls it into view), and a tap on a button while typing presses it rather than only putting the
+// keyboard away.
 export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
   const colors = useColors();
   const style = { backgroundColor: colors.bg };
   const content = { padding: 20, gap: 16 };
   if (!scroll) return <View style={[style, content, { flex: 1 }]}>{children}</View>;
   return (
-    <ScrollView style={style} contentContainerStyle={content}>
+    <ScrollView
+      style={style}
+      contentContainerStyle={content}
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+    >
       {children}
     </ScrollView>
   );

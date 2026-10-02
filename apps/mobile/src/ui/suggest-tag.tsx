@@ -1,6 +1,6 @@
 import { TagLabelText } from "@mymeetingapp/shared";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, type Text, View } from "react-native";
+import { ActivityIndicator, Keyboard, type Text, View } from "react-native";
 
 import { failureMessage } from "@/api/failure-message";
 import { suggestTag } from "@/api/writes";
@@ -43,6 +43,8 @@ export function SuggestTag() {
     );
   }
   const send = () => {
+    // So what it says next isn't under the keyboard.
+    Keyboard.dismiss();
     if (!TagLabelText.safeParse(text).success) {
       result.tell(NOT_A_TAG);
       return;
@@ -68,23 +70,28 @@ export function SuggestTag() {
       <AppText ref={helper} tone="muted">
         We review every suggestion. Don't include names or anything that could identify someone.
       </AppText>
-      <TextField
-        accessibilityLabel="Your suggested tag"
-        accessibilityHint="2 to 40 letters or numbers"
-        editable={!sending}
-        value={text}
-        onChangeText={setText}
-        maxLength={60}
-        autoCorrect={false}
-        onSubmitEditing={send}
-        returnKeyType="send"
-      />
+      {/* Side by side: the page scrolls the focused field above the keyboard, and Send with it. */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <TextField
+            accessibilityLabel="Your suggested tag"
+            accessibilityHint="2 to 40 letters or numbers"
+            editable={!sending}
+            value={text}
+            onChangeText={setText}
+            maxLength={60}
+            autoCorrect={false}
+            onSubmitEditing={send}
+            returnKeyType="send"
+          />
+        </View>
+        {sending ? (
+          <ActivityIndicator accessibilityLabel="Sending your suggestion" />
+        ) : (
+          <Button label="Send" hint="Sends only these words to mymeetingapp" onPress={send} />
+        )}
+      </View>
       {result.text !== null && <AppText accessibilityRole="alert">{result.text}</AppText>}
-      {sending ? (
-        <ActivityIndicator accessibilityLabel="Sending your suggestion" />
-      ) : (
-        <Button label="Send suggestion" hint="Sends only these words to mymeetingapp" onPress={send} />
-      )}
     </View>
   );
 }

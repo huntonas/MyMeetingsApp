@@ -21,7 +21,7 @@ export function HeaderButton({ label, onPress, accessibilityLabel = label }: Hea
       onPress={onPress}
       style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 12, justifyContent: "center" }}
     >
-      <AppText variant="label" style={{ color: colors.accent }}>
+      <AppText variant="header" style={{ color: colors.accent }}>
         {label}
       </AppText>
     </Pressable>

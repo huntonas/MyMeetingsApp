@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo } from "react-native";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react-native";
+import { AccessibilityInfo, Keyboard } from "react-native";
 
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData, storedCells } from "./app-data";
@@ -40,10 +40,19 @@ async function openPicker() {
   await fireEvent.press(await screen.findByRole("button", { name: "Tag this meeting" }));
 }
 
+type Element = ReturnType<typeof screen.getByLabelText>;
+
+// The scrolling page a field sits on.
+function scrollViewAround(node: Element) {
+  let at: Element | null = node;
+  while (at !== null && at.type !== "RCTScrollView") at = at.parent;
+  return at;
+}
+
 async function suggest(text: string) {
   await fireEvent.press(screen.getByRole("button", { name: "Suggest a tag" }));
   await fireEvent.changeText(screen.getByLabelText("Your suggested tag"), text);
-  await fireEvent.press(screen.getByRole("button", { name: "Send suggestion" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Send" }));
 }
 
 describe("Suggest a tag", () => {
@@ -78,6 +87,33 @@ describe("Suggest a tag", () => {
     expect(field).toHaveProp("maxLength", 60);
     // The rule is read with the field, before anything is typed.
     expect(field).toHaveProp("accessibilityHint", "2 to 40 letters or numbers");
+  });
+
+  // The keyboard covered both the field and Send (task 11's simulator check). The page scrolls what's focused, the
+  // field, above the keyboard, so Send sits beside it rather than under it.
+  it("keeps Send beside the field, and the field above the keyboard", async () => {
+    await openPicker();
+    await fireEvent.press(screen.getByRole("button", { name: "Suggest a tag" }));
+    const field = screen.getByLabelText("Your suggested tag");
+    const row = field.parent?.parent;
+    if (!row) throw new Error("the field has no row around it");
+    expect(row).toHaveStyle({ flexDirection: "row" });
+    expect(within(row).getByRole("button", { name: "Send" })).toBeOnTheScreen();
+    expect(scrollViewAround(field)).toHaveProp("automaticallyAdjustKeyboardInsets", true);
+  });
+
+  // Otherwise the first tap on Send, with the keyboard up, would only put the keyboard away.
+  it("sends on the first tap, and puts the keyboard away so the answer shows", async () => {
+    api.reply(SUGGEST, { status: "received" }, 202, "POST");
+    const dismiss = jest.spyOn(Keyboard, "dismiss");
+    await openPicker();
+    await suggest("Candlelight");
+    expect(scrollViewAround(screen.getByLabelText("Your suggested tag"))).toHaveProp(
+      "keyboardShouldPersistTaps",
+      "handled",
+    );
+    expect(dismiss).toHaveBeenCalled();
+    expect(await screen.findByText(THANKS)).toBeOnTheScreen();
   });
 
   it.each(["ab", "a".repeat(40), " " + "a".repeat(40) + " "])("sends %p, trimmed", async (text) => {
@@ -129,7 +165,7 @@ describe("Suggest a tag", () => {
     await openPicker();
     await suggest("Candlelight");
     expect(await screen.findByLabelText("Sending your suggestion")).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Send suggestion" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
     // Return on the keyboard doesn't send it again either.
     expect(screen.getByLabelText("Your suggested tag")).toHaveProp("editable", false);
     await fireEvent(screen.getByLabelText("Your suggested tag"), "submitEditing");

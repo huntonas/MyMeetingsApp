@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { AppState, type AppStateStatus, Linking, Platform } from "react-native";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
+import ReactNative, { AppState, type AppStateStatus, Linking, Platform } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
 import { appDatabase } from "@/db/database";
@@ -384,5 +384,50 @@ describe("the meeting page", () => {
     await renderApp("/meeting/not-a-meeting");
     expect(await screen.findByText("That meeting link isn't valid.")).toBeOnTheScreen();
     expect(meetingRequests()).toEqual([]);
+  });
+});
+
+// iOS's largest Dynamic Type size, accessibility-extra-extra-extra-large, scales fonts by 3.12.
+const LARGEST_TEXT = 3.12;
+
+// The text size the phone reports, as React Native hands it to the app.
+function setFontScale(fontScale: number) {
+  const real = ReactNative.useWindowDimensions;
+  jest.spyOn(ReactNative, "useWindowDimensions").mockImplementation(() => ({ ...real(), fontScale }));
+}
+
+describe("the meeting page at large text sizes", () => {
+  beforeEach(() => {
+    api.reply(PATH, { meeting: meeting({ name: "Spiritual Progress" }) });
+  });
+
+  it("keeps Save beside the title at the usual sizes", async () => {
+    setFontScale(1);
+    await renderApp(`/meeting/${ID}`);
+    const title = await screen.findByRole("header", { name: "Spiritual Progress" });
+    const around = title.parent;
+    if (!around) throw new Error("the title has nothing around it");
+    expect(around).toHaveStyle({ flexDirection: "row" });
+    expect(within(around).getByRole("button", { name: "Save" })).toBeOnTheScreen();
+  });
+
+  // Beside it, the heart took a column on the right and the title broke mid-word: "Spi / ritu / al".
+  it("puts Save under the title at the accessibility sizes, so the title has the whole width", async () => {
+    setFontScale(LARGEST_TEXT);
+    await renderApp(`/meeting/${ID}`);
+    const title = await screen.findByRole("header", { name: "Spiritual Progress" });
+    const around = title.parent;
+    if (!around) throw new Error("the title has nothing around it");
+    expect(around).toHaveStyle({ flexDirection: "column" });
+    expect(within(around).getByRole("button", { name: "Save" })).toBeOnTheScreen();
+  });
+
+  // At 3.12 times, one long word is wider than the phone; twice the size still fits one.
+  it("lets the title grow to twice its size and no further", async () => {
+    await renderApp(`/meeting/${ID}`);
+    expect(await screen.findByRole("header", { name: "Spiritual Progress" })).toHaveProp(
+      "maxFontSizeMultiplier",
+      2,
+    );
   });
 });

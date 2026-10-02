@@ -3,6 +3,7 @@ import { Tabs } from "expo-router/js-tabs";
 
 import { useColors } from "@/theme/colors";
 import { FONT } from "@/theme/type";
+import { AppText } from "@/ui/app-text";
 import { HelpNowButton } from "@/ui/help-now-button";
 
 // The owner's design: Nearby, Online, Saved, Me.
@@ -19,7 +20,12 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: { backgroundColor: colors.bg },
-        headerTitleStyle: { fontFamily: FONT.bold, color: colors.text },
+        // The header bar keeps its height, so its title is the header's own capped words, not react-navigation's.
+        headerTitle: ({ children }) => (
+          <AppText variant="header" accessibilityRole="header" numberOfLines={1}>
+            {children}
+          </AppText>
+        ),
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,

@@ -122,7 +122,7 @@ export const devices = pgTable(
   ],
 );
 
-const RATE_LIMIT_BUCKETS = ["tag_submission", "suggestion", "metrics_login"] as const;
+const RATE_LIMIT_BUCKETS = ["tag_submission", "suggestion", "metrics_login", "attestation"] as const;
 export type RateLimitBucket = (typeof RATE_LIMIT_BUCKETS)[number];
 
 // Spec §5: per device per UTC day, with no meeting id. Kept two days. metrics_login is one site-wide count of

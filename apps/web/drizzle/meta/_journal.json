@@ -120,6 +120,13 @@
       "when": 1790964385610,
       "tag": "0016_attestation",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790969390699,
+      "tag": "0017_attestation-limit",
+      "breakpoints": true
     }
   ]
 }

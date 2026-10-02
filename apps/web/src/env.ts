@@ -23,7 +23,10 @@ type EnvName =
   | "NEON_PREVIEW_BRANCH_ID"
   | "SITE_URL"
   | "METRICS_USER"
-  | "METRICS_PASSWORD";
+  | "METRICS_PASSWORD"
+  | "APPLE_TEAM_ID"
+  | "APPLE_BUNDLE_ID"
+  | "APP_ATTEST_ENVIRONMENT";
 
 export function readEnv(name: EnvName): string | undefined {
   const value = process.env[name]?.trim();

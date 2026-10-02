@@ -31,6 +31,13 @@ function verifiedDevice(headers: WriteHeaders): WriteDevice {
   return device;
 }
 
+// The phone a request names, hashed but not attested: for the app check's own endpoints, which run before the phone
+// has a key. No version check (an app of any version may need a key to delete its data).
+export function identifyDevice(req: Request): WriteDevice {
+  const headers = readDeviceHeaders(req);
+  return { platform: headers.platform, deviceHash: deviceHash(headers.platform, headers.deviceId) };
+}
+
 // Spec §7: every write carries X-Device-Id, X-Platform, X-App-Version and (when required) X-Attestation, and an
 // app below the platform's minimum version must upgrade first.
 export function readWriteRequest(req: Request): WriteDevice {

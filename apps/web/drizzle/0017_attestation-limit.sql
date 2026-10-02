@@ -1,0 +1,2 @@
+ALTER TABLE "rate_limits" DROP CONSTRAINT "rate_limits_bucket_check";--> statement-breakpoint
+ALTER TABLE "rate_limits" ADD CONSTRAINT "rate_limits_bucket_check" CHECK ("rate_limits"."bucket" in ('tag_submission', 'suggestion', 'metrics_login', 'attestation'));

@@ -134,6 +134,13 @@
       "when": 1790971208104,
       "tag": "0018_device-days",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790978005591,
+      "tag": "0019_devicecheck-tokens",
+      "breakpoints": true
     }
   ]
 }

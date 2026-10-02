@@ -77,6 +77,19 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     kept: `${String(RETENTION.challengeMinutes)} minutes. A code is deleted as soon as it's used, and unused ones in the next nightly cleanup.`,
   },
   {
+    specRow: "devicecheck_tokens",
+    specCells: {
+      contents: "SHA-256 of each accepted DeviceCheck token, UTC day seen",
+      linkedTo: "nothing",
+      retention: "2 days",
+    },
+    table: { name: "devicecheck_tokens", columns: ["token_hash", "seen_on"] },
+    title: "Used DeviceCheck codes",
+    what: "On an iPhone without App Attest, the app proves each write with a one-time DeviceCheck code from Apple, which our server asks Apple to check. We keep a fingerprint of each code we accept (its SHA-256 hash, never the code itself) and the day (UTC) we saw it, so the same code can't be used twice.",
+    linkedTo: "Nothing. We don't record which phone sent it.",
+    kept: `${String(RETENTION.deviceCheckTokenDays)} days: today's and yesterday's are kept, and older ones are deleted in the next nightly cleanup.`,
+  },
+  {
     specRow: "tag_submissions",
     specCells: {
       contents: "per-meeting submitter ID, tags, nearMeeting, dates",

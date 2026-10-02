@@ -6,6 +6,7 @@ import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
 import {
   attestChallenges,
+  deviceCheckTokens,
   deviceDays,
   devices,
   rateLimits,
@@ -167,6 +168,17 @@ describe("runMaintenance", () => {
     ]);
   });
 
+  it("deletes DeviceCheck token hashes after 2 days, keeping today's and yesterday's", async () => {
+    await db.insert(deviceCheckTokens).values([
+      { tokenHash: "a".repeat(64), seenOn: utcDate(daysAgo(2)) },
+      { tokenHash: "b".repeat(64), seenOn: utcDate(daysAgo(1)) },
+      { tokenHash: "c".repeat(64), seenOn: utcDate(new Date()) },
+    ]);
+    expect((await runMaintenance()).deviceCheckTokensPurged).toBe(1);
+    const kept = await db.select({ tokenHash: deviceCheckTokens.tokenHash }).from(deviceCheckTokens);
+    expect(kept.map((row) => row.tokenHash).sort()).toEqual(["b".repeat(64), "c".repeat(64)]);
+  });
+
   it("leaves no table linking a device to the meetings it tagged once 7 days pass", async () => {
     const first = await seedMeetingStarted(1, elsewhere(1));
     const second = await seedMeetingStarted(1, elsewhere(2));
@@ -268,6 +280,7 @@ describe("GET /api/cron/maintenance", () => {
       challengesPurged: 0,
       devicesFolded: 0,
       deviceDaysPurged: 0,
+      deviceCheckTokensPurged: 0,
     });
   });
 });

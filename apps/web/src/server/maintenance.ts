@@ -2,7 +2,15 @@ import { and, eq, isNotNull, lt, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
-import { attestChallenges, deviceDays, devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
+import {
+  attestChallenges,
+  deviceCheckTokens,
+  deviceDays,
+  devices,
+  rateLimits,
+  suggestions,
+  tagAudit,
+} from "@/db/schema";
 import { utcToday } from "@/db/sql";
 import { foldDeviceDays } from "@/server/devices/device-days";
 import { RETENTION } from "@/server/retention";
@@ -17,6 +25,7 @@ export const MaintenanceSummary = z.object({
   challengesPurged: z.number().int(),
   devicesFolded: z.number().int(),
   deviceDaysPurged: z.number().int(),
+  deviceCheckTokensPurged: z.number().int(),
 });
 export type MaintenanceSummary = z.infer<typeof MaintenanceSummary>;
 
@@ -75,6 +84,11 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
       .delete(attestChallenges)
       .where(lt(attestChallenges.expiresAt, sql`now()`))
       .returning({ challenge: attestChallenges.challenge });
+    // Two days, as device_days: today's and yesterday's tokens stay spent.
+    const tokens = await tx
+      .delete(deviceCheckTokens)
+      .where(lt(deviceCheckTokens.seenOn, sql`${utcToday} - ${RETENTION.deviceCheckTokenDays - 1}::int`))
+      .returning({ tokenHash: deviceCheckTokens.tokenHash });
     return {
       auditRowsPurged: audit.length,
       rateLimitRowsPurged: limits.length,
@@ -82,6 +96,7 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
       devicesPurged: purged.length,
       challengesPurged: challenges.length,
       deviceDaysPurged: days.length,
+      deviceCheckTokensPurged: tokens.length,
     };
   });
   const meetingsWithTags = await db.transaction((tx) => recountAllTags(tx));

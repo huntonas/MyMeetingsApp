@@ -3,7 +3,7 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { aiDecisions, deviceDays, devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
-import { assertFreshCounter } from "@/server/devices/device-days";
+import { assertFreshProof } from "@/server/devices/device-days";
 import { lockDevice, type WriteDevice } from "@/server/devices/write-request";
 import { recountTags } from "@/server/tags/counts";
 import { changeEverySubmission } from "@/server/tags/own-submissions";
@@ -21,7 +21,7 @@ import { changeEverySubmission } from "@/server/tags/own-submissions";
 export async function deleteMine(device: WriteDevice): Promise<DeleteMineResponse> {
   const response = await db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);
-    await assertFreshCounter(device, tx);
+    await assertFreshProof(device, tx);
     const deleted = await changeEverySubmission(device.deviceHash, "delete", tx);
     await tx.delete(tagAudit).where(eq(tagAudit.deviceHash, device.deviceHash));
     await tx.delete(rateLimits).where(eq(rateLimits.deviceHash, device.deviceHash));

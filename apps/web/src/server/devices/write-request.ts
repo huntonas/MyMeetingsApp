@@ -11,11 +11,10 @@ import { verifyAttestation } from "@/server/devices/attestation";
 import { recordDeviceDay } from "@/server/devices/device-days";
 import { deviceHash } from "@/server/devices/ids";
 
-// The App Attest key and counter a write's assertion carried, once verified; absent while checks are off.
-export interface DeviceProof {
-  keyId: string;
-  counter: number;
-}
+// What a write's verified proof carried: the App Attest key and counter of its assertion, or the DeviceCheck token
+// Apple accepted (spent in the write's transaction). Absent while checks are off.
+export type DeviceProof =
+  { kind: "appAttest"; keyId: string; counter: number } | { kind: "deviceCheck"; token: string };
 
 export interface WriteDevice {
   platform: Platform;
@@ -75,7 +74,7 @@ export async function readWriteRequest<Schema extends z.ZodType>(
 // A write that only deletes the device's own data. Spec §5 allows deletes at any time and §2 puts privacy over
 // convenience, so no app version is too old to delete. The device is identified and attested exactly as for any
 // write (over an empty body), so a forged id can't delete another device's data. Pair it with lockDevice and
-// assertFreshCounter, not writeAsDevice.
+// assertFreshProof, not writeAsDevice.
 export async function readDeletionRequest(req: Request): Promise<WriteDevice> {
   return verifiedDevice(req, readDeviceHeaders(req), await req.text());
 }
@@ -88,10 +87,11 @@ export async function lockDevice(hash: string, executor: Executor): Promise<void
 }
 
 // Runs a device's write in one transaction under the device lock: refuses a blocked device, notes today in
-// device_days (checking and keeping the proof's counter there), then writes. It never writes the device's record in
-// `devices` (spec §2: that row would sit one transaction id from the write's tag rows); reading `blocked` takes no
-// transaction id and stamps nothing. The nightly fold (foldDeviceDays) brings last-seen up to date. The block is read
-// under the lock, so a device blocked in between is still refused.
+// device_days (spending the proof: an App Attest counter is checked and kept there, a DeviceCheck token used up), then
+// writes. It never writes the device's record in `devices` (spec §2: that row would sit one transaction id from the
+// write's tag rows); reading `blocked` takes no transaction id and stamps nothing. A spent DeviceCheck token's row does
+// share the write's transaction id, but it names no device. The nightly fold (foldDeviceDays) brings last-seen up to
+// date. The block is read under the lock, so a device blocked in between is still refused.
 export async function writeAsDevice<T>(device: WriteDevice, write: (tx: Executor) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);

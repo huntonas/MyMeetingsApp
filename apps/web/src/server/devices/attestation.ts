@@ -38,7 +38,7 @@ function attestationRequired(): boolean {
 }
 
 // Checks the assertion and returns the key and counter it carries. The counter is checked here against what's known,
-// and again under the device lock in the write's own transaction (assertFreshCounter), where it is kept on today's
+// and again under the device lock in the write's own transaction (assertFreshProof), where it is kept on today's
 // device_days row: of two writes signed with one counter, only the first through the lock gets past.
 async function verifyAppAttest(
   request: AttestedRequest,
@@ -61,7 +61,7 @@ async function verifyAppAttest(
     appId: config.appId,
     storedCounter: await highestCounter(request.deviceHash, proof.keyId, db),
   });
-  return { keyId: proof.keyId, counter };
+  return { kind: "appAttest", keyId: proof.keyId, counter };
 }
 
 // Spec §6: an iPhone's write carries an App Attest assertion over this exact request, or, on an iPhone without App
@@ -76,6 +76,6 @@ export async function verifyAttestation(request: AttestedRequest): Promise<Devic
   if ((await hasAttestKey(request.deviceHash)) || !(await validDeviceCheckToken(proof.token))) {
     throw new ApiError("attestation_failed");
   }
-  // A DeviceCheck token carries no counter, so the write keeps nothing but its day (Task 5A).
-  return undefined;
+  // A DeviceCheck token carries no counter: the write spends the token (assertFreshProof) and keeps only its day.
+  return { kind: "deviceCheck", token: proof.token };
 }

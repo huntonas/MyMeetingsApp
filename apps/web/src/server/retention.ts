@@ -7,4 +7,5 @@ export const RETENTION = {
   suggestionLinkDays: 30,
   inactiveDeviceMonths: 13,
   challengeMinutes: 5,
+  deviceCheckTokenDays: 2,
 } as const;

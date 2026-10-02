@@ -12,6 +12,8 @@ function describeError(error: unknown): string {
     const { code, severity, constraint, table, column, routine } = error;
     return `database error ${JSON.stringify({ code, severity, constraint, table, column, routine })}`;
   }
+  // The stack only, never util.inspect: an error's cause (fetch's, say) can carry request details, and only inspect
+  // prints it.
   return error instanceof Error ? (error.stack ?? error.message) : String(error);
 }
 

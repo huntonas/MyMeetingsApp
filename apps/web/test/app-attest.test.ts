@@ -6,7 +6,7 @@ import { APPLE_APP_ATTESTATION_ROOT } from "@/server/attest/apple-root";
 import { sha256, verifyAssertion, verifyAttestationObject } from "@/server/attest/app-attest";
 
 import { APPLE_SAMPLE_ATTESTATION } from "./apple-attestation-sample";
-import { APP_ID, FORGED_VALID_AT, type Forgery, forgedAttestation, testAttestKey } from "./attest-fixtures";
+import { APP_ID, type Forgery, forgedAttestation, testAttestKey } from "./attest-fixtures";
 
 // Apple's sample (apple-attestation-sample.ts), checked while its leaf certificate was valid.
 const SAMPLE = {
@@ -59,7 +59,7 @@ describe("verifyAttestationObject", () => {
         attestation: made.attestation,
         keyId: made.keyId,
         appId: APP_ID,
-        at: FORGED_VALID_AT,
+        at: new Date(),
         root: root ?? made.root,
       });
     return { check, publicKey: made.publicKey };

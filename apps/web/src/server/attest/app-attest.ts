@@ -90,7 +90,7 @@ function refuseOnError<T>(check: () => T): T {
 
 // Apple's attestation steps, in its order. `clientDataHash` is what the phone passed to attestKey (the route passes
 // SHA-256 of the challenge, as modules/app-integrity makes it); `at` is the moment the certificates must be valid, and
-// `root` the certificate the chain must end at (register.ts passes APPLE_APP_ATTESTATION_ROOT; tests pass their own).
+// `root` the certificate the chain must end at (the register route passes APPLE_APP_ATTESTATION_ROOT; tests pass their own).
 export function verifyAttestationObject(input: {
   attestation: string;
   keyId: string;

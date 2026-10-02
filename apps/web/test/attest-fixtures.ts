@@ -51,9 +51,6 @@ export function testAttestKey(): TestAttestKey {
   };
 }
 
-// A moment inside the validity of every certificate forgedAttestation makes.
-export const FORGED_VALID_AT = new Date("2026-06-01T00:00:00Z");
-
 const oid = (id: string) => new ObjectIdentifier({ value: id });
 const explicit = (tagNumber: number, inner: Constructed | Integer | OctetString) =>
   new Constructed({ idBlock: { tagClass: 3, tagNumber }, value: [inner] });
@@ -65,7 +62,9 @@ const commonName = (name: string) =>
     ],
   });
 
-// A minimal X.509 v3 certificate for `subject`, signed by `issuerKey`, valid through 2026, with Apple's nonce extension
+const DAY_MS = 86_400_000;
+
+// A minimal X.509 v3 certificate for `subject`, signed by `issuerKey`, valid from a day ago to a year from now, with Apple's nonce extension
 // when `nonce` is given.
 function certificate(subject: KeyObject, issuerKey: KeyObject, nonce?: Buffer): Buffer {
   const extensions = nonce
@@ -97,8 +96,8 @@ function certificate(subject: KeyObject, issuerKey: KeyObject, nonce?: Buffer): 
       commonName("Forged"),
       new Sequence({
         value: [
-          new UTCTime({ valueDate: new Date("2026-01-01T00:00:00Z") }),
-          new UTCTime({ valueDate: new Date("2026-12-31T00:00:00Z") }),
+          new UTCTime({ valueDate: new Date(Date.now() - DAY_MS) }),
+          new UTCTime({ valueDate: new Date(Date.now() + 365 * DAY_MS) }),
         ],
       }),
       commonName("Forged"),

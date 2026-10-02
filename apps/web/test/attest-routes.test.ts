@@ -1,4 +1,3 @@
-import type { X509Certificate } from "node:crypto";
 import { format } from "node:util";
 
 import { AttestChallengeResponse, AttestRegisterResponse, ERROR_MESSAGES } from "@mymeetingapp/shared";
@@ -9,31 +8,19 @@ import { POST as challengeRoute } from "@/app/api/v1/attest/challenge/route";
 import { POST as registerRoute } from "@/app/api/v1/attest/register/route";
 import { db, pool } from "@/db/client";
 import { attestChallenges, devices } from "@/db/schema";
-import type * as AppleRoot from "@/server/attest/apple-root";
 import { sha256 } from "@/server/attest/app-attest";
+import { issueChallenge } from "@/server/attest/challenges";
 import { saveAttestKey } from "@/server/attest/keys";
+import { registerAppAttestKey } from "@/server/attest/register";
+import type { WriteDevice } from "@/server/devices/write-request";
 
 import { APPLE_SAMPLE_ATTESTATION } from "./apple-attestation-sample";
-import { FORGED_VALID_AT, forgedAttestation } from "./attest-fixtures";
+import { forgedAttestation } from "./attest-fixtures";
 import { resetDb } from "./db";
 import { DEVICE_A_HASH, DEVICE_B, DEVICE_B_HASH, deviceHeaders } from "./tag-fixtures";
 
-// A real iPhone's attestation can't be made in a test, so the success path trusts a made-up root in Apple's place, for
-// the tests that set it. Everything else register.ts does runs as in production.
-const trusted = vi.hoisted(() => ({ root: undefined as X509Certificate | undefined }));
-vi.mock("@/server/attest/apple-root", async (importOriginal) => {
-  const apple = await importOriginal<typeof AppleRoot>();
-  return {
-    get APPLE_APP_ATTESTATION_ROOT() {
-      return trusted.root ?? apple.APPLE_APP_ATTESTATION_ROOT;
-    },
-  };
-});
-
 beforeEach(resetDb);
 afterEach(() => {
-  trusted.root = undefined;
-  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
@@ -123,55 +110,18 @@ describe("POST /api/v1/attest/register", () => {
     challenge: given,
   });
 
-  // An attestation for this app over the challenge's SHA-256 (as modules/app-integrity asks Apple for one), under a
-  // made-up root that this test trusts in Apple's place, checked at a moment its certificates are valid.
-  function attested(given: string) {
-    const made = forgedAttestation(sha256(Buffer.from(given)));
-    trusted.root = made.root;
-    vi.useFakeTimers({ toFake: ["Date"], now: FORGED_VALID_AT });
-    return { ...made, body: { keyId: made.keyId, attestation: made.attestation, challenge: given } };
-  }
-
-  it("verifies the attestation, stores the phone's key with a counter of 0 and spends the challenge", async () => {
-    const made = attested(await issued());
-    const res = await register(made.body);
-    expect(res.status).toBe(201);
-    expect(res.headers.get("cache-control")).toBe("no-store");
-    const body = AttestRegisterResponse.parse(await res.json());
-    expect(body).toEqual({ registered: true });
-    // registered is always true: a refusal is an error, never `false` (tsc checks the type line).
-    expectTypeOf(body).toEqualTypeOf<{ registered: true }>();
+  it("answers registered: true, which can't be false: a refusal is an error", () => {
+    // tsc checks the type line.
+    expectTypeOf(AttestRegisterResponse.parse({ registered: true })).toEqualTypeOf<{ registered: true }>();
     expect(AttestRegisterResponse.safeParse({ registered: false }).success).toBe(false);
-    const rows = await db.select().from(devices);
-    expect(
-      rows.map((row) => [row.deviceHash, row.attestKeyId, row.attestPublicKey, row.attestCounter]),
-    ).toEqual([[DEVICE_A_HASH, made.keyId, made.publicKey, 0]]);
-    expect(await db.select().from(attestChallenges)).toEqual([]);
   });
 
-  it("refuses the same registration a second time: its challenge is spent", async () => {
-    const made = attested(await issued());
-    expect((await register(made.body)).status).toBe(201);
-    expect(await (await register(made.body)).json()).toEqual(refusal);
-  });
-
-  it("checks the certificates are valid now", async () => {
-    const made = attested(await issued());
-    vi.setSystemTime(new Date("2027-01-01T00:00:00Z"));
-    expect(await (await register(made.body)).json()).toEqual(refusal);
-  });
-
-  it("refuses an attestation for another app id", async () => {
-    vi.stubEnv("APPLE_BUNDLE_ID", "com.goodersoftware.other");
-    const made = attested(await issued());
-    expect(await (await register(made.body)).json()).toEqual(refusal);
+  it("trusts Apple's root only: an attestation made under another root is refused", async () => {
+    const given = await issued();
+    const made = forgedAttestation(sha256(Buffer.from(given)));
+    const body = { keyId: made.keyId, attestation: made.attestation, challenge: given };
+    expect(await (await register(body)).json()).toEqual(refusal);
     expect(await db.select().from(devices)).toEqual([]);
-  });
-
-  it("expects Apple's development environment when APP_ATTEST_ENVIRONMENT=development", async () => {
-    vi.stubEnv("APP_ATTEST_ENVIRONMENT", "development");
-    const made = attested(await issued());
-    expect(await (await register(made.body)).json()).toEqual(refusal);
   });
 
   // Apple's sample is for another app, over another challenge, with an expired leaf: a real attestation that must fail.
@@ -191,22 +141,12 @@ describe("POST /api/v1/attest/register", () => {
     await db
       .insert(attestChallenges)
       .values({ challenge: "e".repeat(43), expiresAt: new Date(Date.now() - 1000) });
-    const made = attested("e".repeat(43));
-    expect((await register(made.body)).status).toBe(401);
+    expect((await register(registration("e".repeat(43)))).status).toBe(401);
   });
 
   it("refuses an Android phone: App Attest is Apple's", async () => {
-    const made = attested(await issued());
-    expect((await register(made.body, deviceHeaders(DEVICE_B, "android"))).status).toBe(401);
-    expect(await db.select().from(devices)).toEqual([]);
-  });
-
-  it("refuses a key another phone already holds, leaving it with that phone", async () => {
-    const made = attested(await issued());
-    const key = { attestKeyId: made.keyId, attestPublicKey: made.publicKey, attestCounter: 3 };
-    await db.insert(devices).values({ deviceHash: DEVICE_B_HASH, platform: "ios", ...key });
-    expect(await (await register(made.body)).json()).toEqual(refusal);
-    expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
+    const given = await issued();
+    expect((await register(registration(given), deviceHeaders(DEVICE_B, "android"))).status).toBe(401);
   });
 
   it("refuses, and warns, while the App ID isn't configured", async () => {
@@ -220,6 +160,84 @@ describe("POST /api/v1/attest/register", () => {
 
   it("refuses a body that isn't a registration", async () => {
     expect((await register({ keyId: KEY_ID })).status).toBe(400);
+  });
+});
+
+// A real iPhone's attestation can't be made in a test, so these call registration with a made-up root in Apple's place
+// (the route always passes Apple's), against the real database.
+describe("registerAppAttestKey", () => {
+  beforeEach(() => {
+    vi.stubEnv("APPLE_TEAM_ID", "PVCZBLDJ73");
+    vi.stubEnv("APPLE_BUNDLE_ID", "com.goodersoftware.mymeetingapp");
+  });
+
+  const phone: WriteDevice = { platform: "ios", deviceHash: DEVICE_A_HASH };
+
+  // An attestation for this app over the challenge's SHA-256 (as modules/app-integrity asks Apple for one), and
+  // registration of it under the made-up root it chains to.
+  function attested(given: string) {
+    const made = forgedAttestation(sha256(Buffer.from(given)));
+    const request = { keyId: made.keyId, attestation: made.attestation, challenge: given };
+    const register = (device = phone, at = new Date()) =>
+      registerAppAttestKey(device, request, { root: made.root, at });
+    return { ...made, register };
+  }
+  const issuedTo = async (device = phone) => (await issueChallenge(device)).challenge;
+  const refused = { code: "attestation_failed" };
+
+  it("verifies the attestation, stores the phone's key with a counter of 0 and spends the challenge", async () => {
+    const made = attested(await issuedTo());
+    await made.register();
+    const rows = await db.select().from(devices);
+    expect(
+      rows.map((row) => [row.deviceHash, row.attestKeyId, row.attestPublicKey, row.attestCounter]),
+    ).toEqual([[DEVICE_A_HASH, made.keyId, made.publicKey, 0]]);
+    expect(await db.select().from(attestChallenges)).toEqual([]);
+  });
+
+  it("refuses the same registration a second time: its challenge is spent", async () => {
+    const made = attested(await issuedTo());
+    await made.register();
+    await expect(made.register()).rejects.toMatchObject(refused);
+  });
+
+  it("checks the certificates are valid at the moment it's given", async () => {
+    const made = attested(await issuedTo());
+    await expect(made.register(phone, new Date(Date.now() + 2 * 365 * 86_400_000))).rejects.toMatchObject(
+      refused,
+    );
+  });
+
+  it("refuses an attestation for another app id", async () => {
+    vi.stubEnv("APPLE_BUNDLE_ID", "com.goodersoftware.other");
+    await expect(attested(await issuedTo()).register()).rejects.toMatchObject(refused);
+    expect(await db.select().from(devices)).toEqual([]);
+  });
+
+  it("expects Apple's development environment when APP_ATTEST_ENVIRONMENT=development", async () => {
+    vi.stubEnv("APP_ATTEST_ENVIRONMENT", "development");
+    await expect(attested(await issuedTo()).register()).rejects.toMatchObject(refused);
+  });
+
+  it("refuses a challenge past its 5 minutes", async () => {
+    await db
+      .insert(attestChallenges)
+      .values({ challenge: "e".repeat(43), expiresAt: new Date(Date.now() - 1000) });
+    await expect(attested("e".repeat(43)).register()).rejects.toMatchObject(refused);
+  });
+
+  it("refuses an Android phone: App Attest is Apple's", async () => {
+    const android: WriteDevice = { platform: "android", deviceHash: DEVICE_B_HASH };
+    await expect(attested(await issuedTo(android)).register(android)).rejects.toMatchObject(refused);
+    expect(await db.select().from(devices)).toEqual([]);
+  });
+
+  it("refuses a key another phone already holds, leaving it with that phone", async () => {
+    const made = attested(await issuedTo());
+    const key = { attestKeyId: made.keyId, attestPublicKey: made.publicKey, attestCounter: 3 };
+    await db.insert(devices).values({ deviceHash: DEVICE_B_HASH, platform: "ios", ...key });
+    await expect(made.register()).rejects.toMatchObject(refused);
+    expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
   });
 });
 

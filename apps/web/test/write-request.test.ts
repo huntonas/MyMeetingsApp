@@ -22,13 +22,13 @@ afterAll(() => pool.end());
 
 // A write route reduced to its header handling.
 const write = withErrors(async (req: Request) => {
-  const device = readWriteRequest(req);
+  const { device } = await readWriteRequest(req, z.object({}));
   await writeAsDevice(device, () => Promise.resolve());
   return jsonResponse(z.object({ deviceHash: z.string() }), device, "none");
 });
 
 function call(headers: Record<string, string>) {
-  return write(new Request("http://test/api/v1/tags", { method: "POST", headers }));
+  return write(new Request("http://test/api/v1/tags", { method: "POST", headers, body: "{}" }));
 }
 
 const utcToday = () => new Date().toISOString().slice(0, 10);
@@ -130,7 +130,7 @@ describe("write request headers", () => {
     expect((await call(deviceHeaders())).status).toBe(200);
   });
 
-  it("refuses every write while attestation is required and no verifier exists", async () => {
+  it("refuses a write with no valid proof while attestation is required", async () => {
     vi.stubEnv("REQUIRE_ATTESTATION", "on");
     const res = await call({ ...deviceHeaders(), "X-Attestation": "assertion" });
     expect(res.status).toBe(401);

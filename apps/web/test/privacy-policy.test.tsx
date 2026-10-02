@@ -252,6 +252,14 @@ describe("the privacy policy page", () => {
     expect(text).not.toContain("last sent us tags, a suggestion or its app check");
   });
 
+  // Task 6: every iPhone write is checked, so the app check is no longer described as switched on later.
+  it("says App Attest, or DeviceCheck without it, confirms tags and suggestions come from the real app", () => {
+    expect(text).toContain(
+      "App Attest (or DeviceCheck, on an iPhone without it) confirms that tags and suggestions come from the real app.",
+    );
+    expect(text).not.toContain("once switched on, App Attest");
+  });
+
   // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   it("is dated, with no draft notice", () => {
     expect(text).toContain("Updated 2 October 2026.");

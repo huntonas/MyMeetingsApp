@@ -298,7 +298,7 @@ export const THIRD_PARTIES: readonly { specName: string; name: string; role: str
   {
     specName: "Apple",
     name: "Apple",
-    role: "On iPhone, Apple Maps draws the map and gives directions, Apple's geocoder turns a place you type into a map point, and, once switched on, App Attest and DeviceCheck confirm that requests come from the real app.",
+    role: "On iPhone, Apple Maps draws the map and gives directions, Apple's geocoder turns a place you type into a map point, and App Attest (or DeviceCheck, on an iPhone without it) confirms that tags and suggestions come from the real app.",
   },
   {
     specName: "Google",

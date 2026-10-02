@@ -1,7 +1,8 @@
+import { and, eq, sql } from "drizzle-orm";
 import { DatabaseError } from "pg";
 
-import { db } from "@/db/client";
-import { devices } from "@/db/schema";
+import { db, type Executor } from "@/db/client";
+import { deviceDays, devices } from "@/db/schema";
 import { ApiError } from "@/lib/api/respond";
 import type { WriteDevice } from "@/server/devices/write-request";
 
@@ -26,4 +27,25 @@ export async function saveAttestKey(device: WriteDevice, keyId: string, publicKe
     if (constraint === "devices_attest_key_idx") throw new ApiError("attestation_failed");
     throw error;
   }
+}
+
+// The phone's registered public key, when keyId is it.
+export async function registeredKey(deviceHash: string, keyId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ publicKey: devices.attestPublicKey })
+    .from(devices)
+    .where(and(eq(devices.deviceHash, deviceHash), eq(devices.attestKeyId, keyId)));
+  return row?.publicKey ?? null;
+}
+
+// The highest counter this key is known to have signed: the folded one on the device's record, or a higher one on a
+// device_days row (Task 5A: a write keeps its counter there, never on devices). 0 for a key with neither.
+export async function highestCounter(deviceHash: string, keyId: string, executor: Executor): Promise<number> {
+  const { rows } = await executor.execute<{ highest: string | null }>(sql`
+    select greatest(
+      (select max(attest_counter) from ${deviceDays} where device_hash = ${deviceHash} and attest_key_id = ${keyId}),
+      (select attest_counter from ${devices} where device_hash = ${deviceHash} and attest_key_id = ${keyId})
+    )::text as highest
+  `);
+  return Number(rows[0]?.highest ?? 0);
 }

@@ -1,6 +1,5 @@
 import { TagSubmissionRequest, TagWriteResponse } from "@mymeetingapp/shared";
 
-import { readJsonBody } from "@/lib/api/request";
 import { jsonResponse, withErrors } from "@/lib/api/respond";
 import { assertFeatureEnabled } from "@/server/app-config";
 import { readWriteRequest } from "@/server/devices/write-request";
@@ -10,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 export const POST = withErrors(async (req: Request) => {
   assertFeatureEnabled("tagging");
-  const device = readWriteRequest(req);
-  const request = await readJsonBody(req, TagSubmissionRequest);
-  return jsonResponse(TagWriteResponse, await submitTags(device, request), "none", 201);
+  const { device, body } = await readWriteRequest(req, TagSubmissionRequest);
+  return jsonResponse(TagWriteResponse, await submitTags(device, body), "none", 201);
 });

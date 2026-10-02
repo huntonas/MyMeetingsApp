@@ -13,6 +13,10 @@ import {
   Utf8String,
 } from "asn1js";
 import { encode } from "cborg";
+import { appAttestHeader, assertionClientData } from "@mymeetingapp/shared";
+import { vi } from "vitest";
+
+import { deviceHeaders } from "./tag-fixtures";
 
 // The app's App ID as App Attest names it: team id, a period, the bundle identifier.
 export const APP_ID = "PVCZBLDJ73.com.goodersoftware.mymeetingapp";
@@ -29,6 +33,24 @@ export interface TestAttestKey {
   // An assertion as a phone's Secure Enclave makes one: authenticator data (the App ID's hash, flags, the counter) and
   // an ECDSA signature over SHA-256(authenticatorData ‖ SHA-256(clientData)), CBOR-encoded, base64.
   assert(counter: number, clientData: string, appId?: string): string;
+}
+
+// Checks switched on, for this app's App ID.
+export function stubAppAttest(): void {
+  vi.stubEnv("REQUIRE_ATTESTATION", "on");
+  vi.stubEnv("APPLE_TEAM_ID", "PVCZBLDJ73");
+  vi.stubEnv("APPLE_BUNDLE_ID", "com.goodersoftware.mymeetingapp");
+}
+
+// DEVICE_A's write headers with an App Attest proof over exactly this request, as the app's sendWrite builds them.
+export function attestedHeaders(
+  key: TestAttestKey,
+  counter: number,
+  request: { method: string; path: string; body: string; timestamp?: number },
+): Record<string, string> {
+  const timestamp = request.timestamp ?? Date.now();
+  const assertion = key.assert(counter, assertionClientData({ ...request, timestamp }));
+  return { ...deviceHeaders(), "X-Attestation": appAttestHeader(key.keyId, timestamp, assertion) };
 }
 
 // A real P-256 key, standing in for one an iPhone made and Apple attested: tests store its public key as a

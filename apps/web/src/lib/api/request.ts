@@ -8,15 +8,20 @@ export function parseInput<Schema extends z.ZodType>(schema: Schema, value: unkn
   return parsed.data;
 }
 
-export async function readJsonBody<Schema extends z.ZodType>(
-  req: Request,
-  schema: Schema,
-): Promise<z.output<Schema>> {
+// Parses a body already read as text: for a write, whose attestation signs that exact text (readWriteRequest).
+export function parseJsonText<Schema extends z.ZodType>(text: string, schema: Schema): z.output<Schema> {
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(text);
   } catch {
     throw new ApiError("invalid_request");
   }
   return parseInput(schema, body);
+}
+
+export async function readJsonBody<Schema extends z.ZodType>(
+  req: Request,
+  schema: Schema,
+): Promise<z.output<Schema>> {
+  return parseJsonText(await req.text(), schema);
 }

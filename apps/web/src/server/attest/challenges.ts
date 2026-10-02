@@ -10,13 +10,15 @@ import type { WriteDevice } from "@/server/devices/write-request";
 import { RETENTION } from "@/server/retention";
 
 // Spec §6: a single-use challenge, kept 5 minutes. The daily count is the only trace of who asked; the stored challenge
-// names no phone.
+// names no phone. Counted and stored in one transaction, so a failed insert spends no allowance.
 export async function issueChallenge(device: WriteDevice): Promise<AttestChallengeResponse> {
-  await consumeDailyLimit(device.deviceHash, "attestation", db);
   const challenge = randomBytes(32).toString("base64url");
-  await db.insert(attestChallenges).values({
-    challenge,
-    expiresAt: sql`now() + make_interval(mins => ${RETENTION.challengeMinutes}::int)`,
+  await db.transaction(async (tx) => {
+    await tx.insert(attestChallenges).values({
+      challenge,
+      expiresAt: sql`now() + make_interval(mins => ${RETENTION.challengeMinutes}::int)`,
+    });
+    await consumeDailyLimit(device.deviceHash, "attestation", tx);
   });
   return { challenge };
 }

@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, expectTypeOf, it, vi
 import { POST as challengeRoute } from "@/app/api/v1/attest/challenge/route";
 import { POST as registerRoute } from "@/app/api/v1/attest/register/route";
 import { db, pool } from "@/db/client";
-import { attestChallenges, devices } from "@/db/schema";
+import { attestChallenges, devices, rateLimits } from "@/db/schema";
 import { sha256 } from "@/server/attest/app-attest";
 import { issueChallenge } from "@/server/attest/challenges";
 import { saveAttestKey } from "@/server/attest/keys";
@@ -16,7 +16,7 @@ import type { WriteDevice } from "@/server/devices/write-request";
 
 import { APPLE_SAMPLE_ATTESTATION } from "./apple-attestation-sample";
 import { forgedAttestation } from "./attest-fixtures";
-import { resetDb } from "./db";
+import { resetDb, untilWaitingOnLock, whileHolding } from "./db";
 import { DEVICE_A_HASH, DEVICE_B, DEVICE_B_HASH, deviceHeaders } from "./tag-fixtures";
 
 beforeEach(resetDb);
@@ -95,6 +95,19 @@ describe("POST /api/v1/attest/challenge", () => {
       error: { code: "rate_limited", message: ERROR_MESSAGES.rate_limited },
     });
     expect(await db.select().from(attestChallenges)).toHaveLength(10);
+    expect(
+      (await db.select().from(rateLimits)).map((row) => [row.deviceHash, row.bucket, row.count]),
+    ).toEqual([[DEVICE_A_HASH, "attestation", 10]]);
+    expect((await challenge(deviceHeaders(DEVICE_B, "android"))).status).toBe(201);
+  });
+
+  it("counts the challenge and stores it in one transaction, so a failed insert spends nothing", async () => {
+    await challenge();
+    const { rows } = await db.execute<{ ids: number }>(sql`
+      select count(distinct xmin::text)::int as ids
+        from (select xmin from rate_limits union all select xmin from attest_challenges) both_rows
+    `);
+    expect(rows).toEqual([{ ids: 1 }]);
   });
 });
 
@@ -274,5 +287,21 @@ describe("saveAttestKey", () => {
   it("refuses a key another phone already holds", async () => {
     await saveAttestKey({ platform: "ios", deviceHash: DEVICE_B_HASH }, KEY_ID, "MFkw");
     await expect(saveAttestKey(device, KEY_ID, "MFkw")).rejects.toMatchObject({ code: "attestation_failed" });
+  });
+
+  it("refuses, with attestation_failed, a key another phone saves at the same moment", async () => {
+    // The other phone's save sits uncommitted, so this one's own check can't see it; it waits on the key's index.
+    const { saving } = await whileHolding(
+      "insert into devices (device_hash, platform, attest_key_id, attest_public_key, attest_counter) values ($1, 'ios', $2, 'MFkw', 0)",
+      [DEVICE_B_HASH, KEY_ID],
+      async (holder) => {
+        let settled = false;
+        const saving = saveAttestKey(device, KEY_ID, "MFkw").finally(() => (settled = true));
+        await untilWaitingOnLock(holder.pid, () => settled);
+        return { saving };
+      },
+    );
+    await expect(saving).rejects.toMatchObject({ code: "attestation_failed" });
+    expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);
   });
 });

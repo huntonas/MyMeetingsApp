@@ -7,10 +7,10 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { db, pool } from "@/db/client";
 import { devices } from "@/db/schema";
 import { jsonResponse, withErrors } from "@/lib/api/respond";
-import { readWriteRequest, writeAsDevice } from "@/server/devices/write-request";
+import { identifyDevice, readWriteRequest, writeAsDevice } from "@/server/devices/write-request";
 
 import { resetDb } from "./db";
-import { DEVICE_A, DEVICE_A_HASH, deviceHeaders } from "./tag-fixtures";
+import { DEVICE_A, DEVICE_A_HASH, DEVICE_B, DEVICE_B_HASH, deviceHeaders } from "./tag-fixtures";
 
 beforeEach(resetDb);
 afterEach(() => {
@@ -134,5 +134,20 @@ describe("write request headers", () => {
     const res = await call(deviceHeaders());
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ error: { code: "device_blocked" } });
+  });
+});
+
+describe("identifyDevice", () => {
+  const request = (headers: Record<string, string>) =>
+    new Request("http://test/api/v1/attest/challenge", { method: "POST", headers });
+
+  it("hashes each phone's id with its platform, and checks no version", () => {
+    vi.stubEnv("MIN_VERSION_IOS", "9.0.0");
+    vi.stubEnv("MIN_VERSION_ANDROID", "9.0.0");
+    expect(identifyDevice(request(deviceHeaders()))).toEqual({ platform: "ios", deviceHash: DEVICE_A_HASH });
+    expect(identifyDevice(request(deviceHeaders(DEVICE_B, "android")))).toEqual({
+      platform: "android",
+      deviceHash: DEVICE_B_HASH,
+    });
   });
 });

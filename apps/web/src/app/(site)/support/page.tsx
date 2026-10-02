@@ -2,12 +2,11 @@ import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
 import { HelpResources } from "@/components/help-resources";
 import { pageMetadata } from "@/lib/page-metadata";
-import { RETENTION } from "@/server/retention";
 
 export const metadata = pageMetadata({
   path: "/support",
   title: "Support",
-  description: "Help with mymeetingapp, and how intergroups and groups can opt out.",
+  description: `Help with ${BRAND.name}, and how intergroups and groups can opt out.`,
 });
 
 export default function SupportPage() {
@@ -29,8 +28,8 @@ export default function SupportPage() {
       <h3>Switching phones?</h3>
       <p>
         Your tags stay with the phone that added them: a new phone gets a new ID, so it can&apos;t change
-        them. If you want them gone, use “Delete all my tags” on the old phone first. Otherwise they stop
-        counting {RETENTION.countWindowDays} days after you added them.
+        them. If you want them gone, use “Delete all my tags” on the old phone first. Otherwise they keep
+        counting until you change or remove them, or we block the phone for spam.
       </p>
       <h3>Why can&apos;t I tag a meeting?</h3>
       <p>
@@ -52,7 +51,7 @@ export default function SupportPage() {
       <h2>Opting out</h2>
       <h3>For intergroups and other service entities</h3>
       <p>
-        If you publish a meeting list and don&apos;t want {BRAND.appName} to use it, email {email} with your
+        If you publish a meeting list and don&apos;t want {BRAND.name} to use it, email {email} with your
         website or list address, and we&apos;ll act on it within a few days. Once we do, we stop using your
         list at the next sync; meetings that other lists also publish keep appearing from those lists. The app
         catches up within {CATCH_UP_MINUTES.feedOptOut} minutes. You never need to give a reason.

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -28,6 +29,8 @@ const CONTEXT = {
 
 const Config = z.object({
   name: z.string(),
+  slug: z.string(),
+  scheme: z.string(),
   owner: z.string(),
   extra: z.object({ eas: z.object({ projectId: z.string() }) }),
   version: z.string(),
@@ -36,6 +39,7 @@ const Config = z.object({
     bundleIdentifier: z.string(),
     config: z.object({ usesNonExemptEncryption: z.boolean() }),
     infoPlist: z.object({
+      CFBundleDisplayName: z.string(),
       NSLocationTemporaryUsageDescriptionDictionary: z.object({ AttendanceCheck: z.string() }),
     }),
   }),
@@ -76,6 +80,36 @@ const SplashPlugin = z.tuple([
   z.literal("expo-splash-screen"),
   z.object({ image: z.string(), imageWidth: z.number(), backgroundColor: z.string() }).strict(),
 ]);
+
+// The parts of the native projects prebuild would write that these tests check, from `expo config --type introspect`,
+// which runs every config plugin's changes to Info.plist and strings.xml without writing anything.
+const NativeConfig = z.object({
+  _internal: z.object({
+    modResults: z.object({
+      ios: z.object({ infoPlist: z.object({ CFBundleDisplayName: z.string() }) }),
+      android: z.object({
+        strings: z.object({
+          resources: z.object({
+            string: z.array(z.object({ $: z.object({ name: z.string() }), _: z.string() })),
+          }),
+        }),
+      }),
+    }),
+  }),
+});
+
+function nativeConfig() {
+  const json = execFileSync(
+    path.join(CONTEXT.projectRoot, "node_modules/.bin/expo"),
+    ["config", "--type", "introspect", "--json"],
+    {
+      cwd: CONTEXT.projectRoot,
+      env: { ...process.env, EXPO_NO_TELEMETRY: "1" },
+      encoding: "utf8",
+    },
+  );
+  return NativeConfig.parse(JSON.parse(json))._internal.modResults;
+}
 
 // Launch reads the config and the tag list.
 const LAUNCH_READS = 2;
@@ -163,12 +197,28 @@ describe("the app config", () => {
     expect(splash).toEqual({ image: foregroundImage, imageWidth: 200, backgroundColor: "#1f5f8b" });
   });
 
-  it("names the app from the brand, with the owner's bundle identifier", () => {
+  // Expo's `name` also names the Xcode project and the executable, which iOS puts at the front of the app's
+  // User-Agent (tools/network-audit pins it as BRAND.slug), so it stays the slug and only the display name changes.
+  it("keeps the brand's slug as the app's technical name, with the owner's bundle identifier", () => {
     const config = Config.parse(appConfig(CONTEXT));
-    expect(config.name).toBe(BRAND.appName);
+    expect(BRAND.slug).toBe("mymeetingapp");
+    expect(config.name).toBe("mymeetingapp");
+    expect(config.slug).toBe("mymeetingapp");
+    expect(config.scheme).toBe("mymeetingapp");
     expect(config.ios.bundleIdentifier).toBe("com.goodersoftware.mymeetingapp");
     expect(config.android.package).toBe("com.goodersoftware.mymeetingapp");
   });
+
+  it("shows the brand's name, My Meeting App, under the icon on both platforms", () => {
+    expect(BRAND.name).toBe("My Meeting App");
+    expect(Config.parse(appConfig(CONTEXT)).ios.infoPlist.CFBundleDisplayName).toBe("My Meeting App");
+    const native = nativeConfig();
+    expect(native.ios.infoPlist.CFBundleDisplayName).toBe("My Meeting App");
+    expect(native.android.strings.resources.string).toContainEqual({
+      $: { name: "app_name" },
+      _: "My Meeting App",
+    });
+  }, 30_000);
 
   it("builds under the huntonas Expo account, whose login also belongs to another account", () => {
     expect(Config.parse(appConfig(CONTEXT)).owner).toBe("huntonas");
@@ -191,7 +241,7 @@ describe("the app config", () => {
     ]);
     expect(config.android.blockedPermissions).toContain("android.permission.ACCESS_BACKGROUND_LOCATION");
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
-    expect(options.locationWhenInUsePermission).toMatch(new RegExp(`^${BRAND.appName} `));
+    expect(options.locationWhenInUsePermission).toMatch(/^My Meeting App /);
     expect(options.locationWhenInUsePermission).toContain("rounded to about 1 km");
     // Spec §8: the attendance check uses the same permission, so its purpose string names it too.
     expect(options.locationWhenInUsePermission).toContain("check you're near a meeting you tag");
@@ -202,14 +252,14 @@ describe("the app config", () => {
   it("carries an honest motion purpose string, saying the app never uses motion data", () => {
     const config = Config.parse(appConfig(CONTEXT));
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
-    expect(options.motionUsagePermission).toMatch(new RegExp(`^${BRAND.appName} `));
+    expect(options.motionUsagePermission).toMatch(/^My Meeting App /);
     expect(options.motionUsagePermission).toContain("never");
   });
 
   it("explains the attendance check's one-time request for full accuracy (spec §8, §11)", () => {
     const config = Config.parse(appConfig(CONTEXT));
     expect(config.ios.infoPlist.NSLocationTemporaryUsageDescriptionDictionary.AttendanceCheck).toBe(
-      "mymeetingapp checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.",
+      "My Meeting App checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.",
     );
   });
 

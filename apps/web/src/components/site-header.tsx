@@ -5,7 +5,7 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <a className="wordmark" href="/">
-        {BRAND.appName}
+        {BRAND.name}
       </a>
       <nav aria-label="Site">
         <a href="/support">Support</a>

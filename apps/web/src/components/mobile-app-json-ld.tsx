@@ -9,7 +9,7 @@ export function MobileAppJsonLd() {
   const data = {
     "@context": "https://schema.org",
     "@type": "MobileApplication",
-    name: BRAND.appName,
+    name: BRAND.name,
     operatingSystem: "iOS, Android",
     applicationCategory: "LifestyleApplication",
     description: SITE_DESCRIPTION,

@@ -1,3 +1,4 @@
+import { BRAND } from "@mymeetingapp/shared";
 import { serverUrl } from "@/config/server-url";
 import { AppText } from "@/ui/app-text";
 import { HandOffButton } from "@/ui/hand-off-button";
@@ -9,7 +10,7 @@ export function UpgradeNotice() {
   return (
     <Screen>
       <AppText variant="title" accessibilityRole="header">
-        Please update mymeetingapp
+        Please update {BRAND.name}
       </AppText>
       <AppText>
         This version is too old to find meetings. Your saved meetings, sobriety counter and help numbers still

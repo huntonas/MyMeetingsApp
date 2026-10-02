@@ -1,28 +1,26 @@
 import { BRAND } from "@mymeetingapp/shared";
 
-import { DraftNotice } from "@/components/draft-notice";
 import { pageMetadata } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
   path: "/terms",
   title: "Terms of use",
-  description: "The terms for using the mymeetingapp app and website.",
+  description: `The terms for using the ${BRAND.name} app and website.`,
 });
 
 export default function TermsPage() {
   return (
     <>
       <h1>Terms of use</h1>
-      <DraftNotice />
       <p>
-        These terms cover the {BRAND.appName} app and this website, made by {BRAND.publisher} (“we”). By using
+        These terms cover the {BRAND.name} app and this website, made by {BRAND.publisher} (“we”). By using
         them, you agree to these terms.
       </p>
 
       <h2>Not affiliated with AA</h2>
       <p>
-        {BRAND.appName} is an independent app. It is not affiliated with, endorsed by or approved by
-        Alcoholics Anonymous or A.A. World Services, Inc. We use “AA” only to describe the meetings listed.
+        {BRAND.name} is an independent app. It is not affiliated with, endorsed by or approved by Alcoholics
+        Anonymous or A.A. World Services, Inc. We use “AA” only to describe the meetings listed.
       </p>
 
       <h2>Listings can be out of date</h2>
@@ -62,7 +60,7 @@ export default function TermsPage() {
         We&apos;ll post any change here with a new date. Questions go to{" "}
         <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
       </p>
-      <p className="fine-print">Draft of 29 September 2026.</p>
+      <p className="fine-print">Updated 2 October 2026.</p>
     </>
   );
 }

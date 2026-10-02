@@ -53,14 +53,14 @@ async function purgeBoundary(): Promise<string> {
 }
 
 describe("runMaintenance", () => {
-  it("recounts every meeting, expiring submissions over 180 days old and applying exclusions", async () => {
+  it("recounts every meeting, keeping submissions however old and applying exclusions", async () => {
     const meetingId = await seedMeetingStarted(1);
     await insertSubmission(meetingId, ["quiet"]);
-    await insertSubmission(meetingId, ["quiet"], { confirmedAt: daysAgo(181) });
+    await insertSubmission(meetingId, ["quiet"], { confirmedAt: daysAgo(200) });
     await insertSubmission(meetingId, ["lively"], { excluded: true });
     await db.insert(tagCounts).values({ meetingId, tagId: 1, deviceCount: 9, verifiedCount: 9 });
     expect((await runMaintenance()).meetingsWithTags).toBe(1);
-    expect(await countsOf(meetingId)).toEqual([["quiet", 1, 0]]);
+    expect(await countsOf(meetingId)).toEqual([["quiet", 2, 0]]);
   });
 
   it("purges audit rows older than 7 days", async () => {

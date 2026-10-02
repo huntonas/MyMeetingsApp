@@ -35,16 +35,16 @@ describe("recountTags", () => {
     expect(await countsOf(meetingId)).toEqual([["quiet", 1, 1]]);
   });
 
-  it("counts non-excluded submissions confirmed in the last 180 days, and how many were near the meeting", async () => {
+  it("counts non-excluded submissions however old, and how many were near the meeting", async () => {
     const { older: meetingId } = await seedDuplicateCopies();
     await insertSubmission(meetingId, ["laid-back", "welcoming"], { nearMeeting: true });
     await insertSubmission(meetingId, ["laid-back"]);
     await insertSubmission(meetingId, ["laid-back"], { excluded: true });
-    await insertSubmission(meetingId, ["welcoming"], { confirmedAt: new Date(Date.now() - 181 * DAY_MS) });
+    await insertSubmission(meetingId, ["welcoming"], { confirmedAt: new Date(Date.now() - 200 * DAY_MS) });
     await recountTags([meetingId], db);
     expect(await countsOf(meetingId)).toEqual([
       ["laid-back", 2, 1],
-      ["welcoming", 1, 1],
+      ["welcoming", 2, 1],
     ]);
   });
 

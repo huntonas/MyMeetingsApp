@@ -1,3 +1,4 @@
+import { BRAND } from "@mymeetingapp/shared";
 import type { MeetingSearchResponse } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -43,8 +44,7 @@ import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { UpgradeNotice } from "@/ui/upgrade-notice";
 
-const DENIED =
-  "Location is off for mymeetingapp. Search by city, zip code or address instead, or turn location on in Settings.";
+const DENIED = `Location is off for ${BRAND.name}. Search by city, zip code or address instead, or turn location on in Settings.`;
 const UNAVAILABLE = "We couldn't get your location just now. Try again, or search by place.";
 const BLANK = "Type a city, zip code or address.";
 // findPlace can't tell "no such place" from a geocoder that failed or timed out, so this mustn't claim the place

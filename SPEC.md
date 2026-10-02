@@ -1,6 +1,6 @@
-# mymeetingapp — Build Spec (v2)
+# My Meeting App — Build Spec (v2)
 
-App name: **mymeetingapp**. Domain: **mymeetingapp.com** (already owned). Both live in one config value (`packages/shared/src/brand.ts`).
+App name: **My Meeting App** (slug `mymeetingapp` for technical identifiers). Domain: **mymeetingapp.com** (already owned). They live in one config value (`packages/shared/src/brand.ts`).
 Publisher: Gooder Software LLC (Tennessee).
 
 Revised 2026-09-26 after spec review. See [Changes from v1](#changes-from-v1) at the end.
@@ -156,9 +156,9 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 **Display rule:**
 
 - Tags appear as a **flat list with counts** (e.g. "Laid back 14"). No paired-opposite spectrums.
-- The count for a tag is the number of non-excluded submissions for that meeting whose current tag set includes it and whose `confirmed_at` is within the last 180 days. Each device counts at most once per tag per meeting.
+- The count for a tag is the number of non-excluded submissions for that meeting whose current tag set includes it, however old. Each device counts at most once per tag per meeting.
 - Sorted by count, highest first. Ties broken by the number of those submissions with `near_meeting = true`.
-- Counts are kept in a `tag_counts(meeting_id, tag_id, device_count, verified_count)` table, updated in the same transaction as each write. A nightly job recomputes it to expire entries older than 180 days and to apply exclusions.
+- Counts are kept in a `tag_counts(meeting_id, tag_id, device_count, verified_count)` table, updated in the same transaction as each write. A nightly job recomputes it to apply exclusions.
 - Every tag used on a meeting shows immediately. `POST`/`PUT`/`DELETE` tag responses return the meeting's updated counts so the app can show them without waiting on any cache.
 - Blocked devices' submissions are excluded, and counts update when a device is blocked or deletes its tags.
 
@@ -296,7 +296,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | Stored on server    | Contents                                                                                                    | Linked to                                               | Retention                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key                                  | nothing else                                            | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6)        |
-| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                                                          | one meeting only                                        | until edited/deleted; counts only use 180 days                                        |
+| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                                                          | one meeting only                                        | until edited/deleted; counts don't expire                                             |
 | `tag_counts`        | meeting, tag, device count, near-meeting count                                                              | one meeting only                                        | rebuilt on every tag write and nightly                                                |
 | `tag_audit`         | device hash, meeting, action, time                                                                          | device + meeting                                        | 7 days                                                                                |
 | `tag_swings`        | meeting, tag, new and prior device counts, flagged/reviewed time                                            | one meeting only                                        | kept                                                                                  |
@@ -345,7 +345,7 @@ The phone's own backups (to iCloud, Google, the phone maker's cloud or a compute
 
 ## 16. Before launch (non-engineering)
 
-- Legal review of whether Washington's My Health My Data Act and the FTC Health Breach Notification Rule apply, and of the privacy policy and terms.
+- Legal review of whether Washington's My Health My Data Act and the FTC Health Breach Notification Rule apply, and of the privacy policy and terms. Owner decision (2026-10-02): the privacy policy and terms go live as written, without the draft notice; an outside review remains optional.
 - Confirm use of the "AA" mark in store metadata is descriptive only.
 
 ## Changes from v1

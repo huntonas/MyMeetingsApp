@@ -42,7 +42,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     specCells: {
       contents: "per-meeting submitter ID, tags, nearMeeting, dates",
       linkedTo: "one meeting only",
-      retention: "until edited/deleted; counts only use 180 days",
+      retention: "until edited/deleted; counts don't expire",
     },
     table: {
       name: "tag_submissions",
@@ -61,7 +61,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     what: "The tags you chose for one meeting, whether the app confirmed you were near it (yes or no, never where you were), the dates, and whether we've set them aside because we blocked the phone for spam. They're stored under an ID made for that meeting alone, so someone with only a copy of our database can't connect your tags on two meetings.",
     linkedTo:
       "That one meeting. Our server finds one phone's tags on different meetings only when you use “Delete all my tags” or when we block a phone for spam.",
-    kept: `Until you change or remove them. The counts in the app only include tags confirmed in the last ${String(RETENTION.countWindowDays)} days.`,
+    kept: "Until you change or remove them. The counts in the app include them for as long as they stand, unless we block the phone for spam.",
   },
   {
     specRow: "tag_counts",

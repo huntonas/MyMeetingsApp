@@ -15,7 +15,7 @@ const atkinson = Atkinson_Hyperlegible({ weight: ["400", "700"], subsets: ["lati
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
-  applicationName: BRAND.appName,
+  applicationName: BRAND.name,
   description: SITE_DESCRIPTION,
   twitter: { card: "summary" },
 };

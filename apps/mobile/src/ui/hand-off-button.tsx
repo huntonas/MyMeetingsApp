@@ -1,3 +1,4 @@
+import { BRAND } from "@mymeetingapp/shared";
 import { useState } from "react";
 import { Linking, View } from "react-native";
 
@@ -19,8 +20,7 @@ const HAND_OFFS = {
   web: { hint: "Opens in your browser", failure: "This phone couldn't open that link." },
   settings: {
     hint: "Opens this app's settings",
-    failure:
-      "This phone couldn't open Settings. You can turn location on for mymeetingapp in the Settings app.",
+    failure: `This phone couldn't open Settings. You can turn location on for ${BRAND.name} in the Settings app.`,
   },
 } as const;
 

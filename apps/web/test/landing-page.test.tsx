@@ -77,7 +77,7 @@ describe("the landing page's content", () => {
     expect(data).toEqual({
       "@context": "https://schema.org",
       "@type": "MobileApplication",
-      name: "mymeetingapp",
+      name: "My Meeting App",
       operatingSystem: "iOS, Android",
       applicationCategory: "LifestyleApplication",
       description:

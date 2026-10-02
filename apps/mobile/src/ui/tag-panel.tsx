@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, MAX_TAGS_PER_SUBMISSION, TAG_CATEGORIES } from "@mymeetingapp/shared";
+import { BRAND, ERROR_MESSAGES, MAX_TAGS_PER_SUBMISSION, TAG_CATEGORIES } from "@mymeetingapp/shared";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type Text, View } from "react-native";
 
@@ -12,8 +12,7 @@ import { useNotice } from "@/ui/notice";
 import { Pill } from "@/ui/pill";
 
 // A write that timed out may still have reached the server, so this can't say the tags weren't saved.
-const OFFLINE_TAGS =
-  "We couldn't reach mymeetingapp, so we can't tell whether your tags were saved. Check your connection and try again.";
+const OFFLINE_TAGS = `We couldn't reach ${BRAND.name}, so we can't tell whether your tags were saved. Check your connection and try again.`;
 
 interface TagPanelProps {
   // "new" tags the meeting for this visit; "edit" replaces the tags this phone already has on it. The owner switches

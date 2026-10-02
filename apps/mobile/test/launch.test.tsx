@@ -30,7 +30,7 @@ async function expectNotBlocked() {
     expect(await readCache("config")).not.toBeNull();
   });
   await waitFor(() => {
-    expect(screen.queryByText("Please update mymeetingapp")).toBeNull();
+    expect(screen.queryByText("Please update My Meeting App")).toBeNull();
     expect(screen.getByText("Search by city, zip code or address, or use your location.")).toBeOnTheScreen();
   });
 }
@@ -40,7 +40,7 @@ describe("forced upgrade", () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
     api.reply("/api/v1/config", tooOld);
     await renderApp("/");
-    expect(await screen.findByText("Please update mymeetingapp")).toBeOnTheScreen();
+    expect(await screen.findByText("Please update My Meeting App")).toBeOnTheScreen();
     expect(screen.queryByText("Search by city, zip code or address, or use your location.")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Update the app" }));
     expect(openURL).toHaveBeenCalledWith("http://127.0.0.1:3197/");
@@ -52,7 +52,7 @@ describe("forced upgrade", () => {
     await waitFor(async () => {
       expect(await readCache("config")).not.toBeNull();
     });
-    expect(screen.queryByText("Please update mymeetingapp")).toBeNull();
+    expect(screen.queryByText("Please update My Meeting App")).toBeNull();
     expect(screen.getByText("Meetings you save appear here.")).toBeOnTheScreen();
 
     await cleanup();
@@ -66,7 +66,7 @@ describe("forced upgrade", () => {
     await waitFor(async () => {
       expect(await readCache("config")).not.toBeNull();
     });
-    expect(screen.queryByText("Please update mymeetingapp")).toBeNull();
+    expect(screen.queryByText("Please update My Meeting App")).toBeNull();
     expect(await screen.findByText("365 days")).toBeOnTheScreen();
     expect(screen.getByText("988 Suicide & Crisis Lifeline")).toBeOnTheScreen();
   });
@@ -75,7 +75,7 @@ describe("forced upgrade", () => {
     await writeCache("config", tooOld);
     await api.close();
     await renderApp("/online");
-    expect(await screen.findByText("Please update mymeetingapp")).toBeOnTheScreen();
+    expect(await screen.findByText("Please update My Meeting App")).toBeOnTheScreen();
     api = await startApi();
   });
 
@@ -106,7 +106,7 @@ describe("forced upgrade", () => {
     api.reply("/api/v1/config", tooOld);
     await play("background");
     await play("active");
-    expect(await screen.findByText("Please update mymeetingapp")).toBeOnTheScreen();
+    expect(await screen.findByText("Please update My Meeting App")).toBeOnTheScreen();
   });
 
   it("compares the installed version", async () => {

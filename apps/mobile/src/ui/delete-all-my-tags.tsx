@@ -1,4 +1,4 @@
-import { CATCH_UP_MINUTES } from "@mymeetingapp/shared";
+import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 import { useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -9,7 +9,7 @@ import { AppText } from "@/ui/app-text";
 import { ConfirmButton } from "@/ui/confirm-button";
 import { useNotice } from "@/ui/notice";
 
-const OFFLINE = "We couldn't reach mymeetingapp to finish deleting. Check your connection and try again.";
+const OFFLINE = `We couldn't reach ${BRAND.name} to finish deleting. Check your connection and try again.`;
 const RECORD_KEPT = "This phone couldn't clear its own list of tagged meetings. Try again.";
 
 function deleted(count: number): string {

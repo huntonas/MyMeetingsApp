@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import SupportPage from "@/app/(site)/support/page";
-import TermsPage from "@/app/(site)/terms/page";
+import SupportPage, { metadata as supportMetadata } from "@/app/(site)/support/page";
+import TermsPage, { metadata as termsMetadata } from "@/app/(site)/terms/page";
 
 import { renderText } from "./render";
 
@@ -10,7 +10,7 @@ describe("the terms of use", () => {
   const text = renderText(<TermsPage />);
 
   it.each([
-    "Draft, pending legal review.",
+    "Updated 2 October 2026.",
     "not affiliated with, endorsed by or approved by Alcoholics Anonymous or A.A. World Services, Inc.",
     "Listings can be out of date",
     "isn't medical advice",
@@ -18,10 +18,27 @@ describe("the terms of use", () => {
   ])("say %j (spec §9)", (words) => {
     expect(text).toContain(words);
   });
+
+  it("carry no draft notice (owner decision, 2026-10-02)", () => {
+    expect(text).not.toContain("Draft");
+  });
+
+  it("name the app they cover", () => {
+    expect(text).toContain("These terms cover the My Meeting App app and this website");
+    expect(text).toContain("My Meeting App is an independent app.");
+    expect(termsMetadata.description).toBe("The terms for using the My Meeting App app and website.");
+  });
 });
 
 describe("the support page", () => {
   const text = renderText(<SupportPage />);
+
+  it("names the app", () => {
+    expect(text).toContain("don't want My Meeting App to use it");
+    expect(supportMetadata.description).toBe(
+      "Help with My Meeting App, and how intergroups and groups can opt out.",
+    );
+  });
 
   it("gives the contact email as a link", () => {
     expect(renderToStaticMarkup(<SupportPage />)).toContain('href="mailto:admin@goodersoftwarellc.com"');
@@ -56,7 +73,9 @@ describe("the support page", () => {
   it("explains that tags stay with the phone that added them", () => {
     expect(text).toContain("Switching phones?");
     expect(text).toContain("use “Delete all my tags” on the old phone first");
-    expect(text).toContain("they stop counting 180 days after you added them");
+    expect(text).toContain(
+      "they keep counting until you change or remove them, or we block the phone for spam",
+    );
   });
 
   it("never asks for the app's ID, which nothing on our side uses", () => {

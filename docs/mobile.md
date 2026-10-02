@@ -33,7 +33,7 @@ this automatically against a HAR capture:
     like `en-86781` is refused;
   - `Accept-Encoding` is a comma list drawn only from `gzip`, `deflate`, `br`, `zstd`, `identity`;
   - `User-Agent` is exactly the app's own shape: iOS `mymeetingapp/<int> CFNetwork/<ver> Darwin/<ver>` (the
-    app name comes from `packages/shared/src/brand.ts`, so it can't silently drift from what the app actually
+    app's slug, `BRAND.slug` from `packages/shared/src/brand.ts`, not its display name, so it can't silently drift from what the app actually
     ships), or Android `okhttp/<major>.<minor>.<patch>` (a single-digit major, matching every real `okhttp`
     release) — critically, the _version_ fields are digits only, not `[\d.]+`, so a coordinate like
     `35.9614` can't hide there the way it could in an earlier, looser regex. Every `User-Agent` value seen

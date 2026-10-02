@@ -76,6 +76,15 @@ describe("swing flags", () => {
     expect(await openFlags()).toEqual([]);
   });
 
+  it("counts a submission confirmed 200 days ago toward the existing-device threshold", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    for (let n = 0; n < 10; n++) {
+      await insertSubmission(meetingId, ["welcoming"], { confirmedAt: new Date(Date.now() - 200 * DAY_MS) });
+    }
+    await tagFromDevices(meetingId, 1, 5, ["serious-tone"]);
+    expect(await openFlags()).toEqual([]);
+  });
+
   it("keeps one open flag per meeting and tag", async () => {
     const meetingId = await seedMeetingStarted(1);
     await tagFromDevices(meetingId, 1, 6, ["serious-tone"]);

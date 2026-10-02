@@ -103,6 +103,15 @@ describe("Suggest a tag", () => {
     expect(scrollViewAround(field)).toHaveProp("automaticallyAdjustKeyboardInsets", true);
   });
 
+  it("tells VoiceOver and TalkBack that Send sends only the words, to the app's server", async () => {
+    await openPicker();
+    await fireEvent.press(screen.getByRole("button", { name: "Suggest a tag" }));
+    expect(screen.getByRole("button", { name: "Send" })).toHaveProp(
+      "accessibilityHint",
+      "Sends only these words to My Meeting App",
+    );
+  });
+
   // At the largest size an uncapped Send took half the row. It can't go under the field instead: only the focused field
   // is scrolled above the keyboard, so Send would be covered.
   it("keeps the field readable beside Send at the largest text size", async () => {
@@ -171,7 +180,7 @@ describe("Suggest a tag", () => {
     await openPicker();
     await suggest("Candlelight");
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach mymeetingapp, so we can't tell whether your suggestion arrived. Try again.",
+      "We couldn't reach My Meeting App, so we can't tell whether your suggestion arrived. Try again.",
     );
   });
 

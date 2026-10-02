@@ -40,6 +40,8 @@ describe("/metrics in the built app", () => {
     expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     const html = await res.text();
     expect(html).toContain('<meta name="robots" content="noindex, nofollow"/>');
+    expect(html).toContain("<title>Metrics · My Meeting App</title>");
+    expect(html).toMatch(/<a class="wordmark" href="\/metrics">My Meeting App<!-- --> metrics<\/a>/);
     expect(html).toContain("broken-feed");
     expect(html).toContain("HTTP 503 from the feed");
     expect(html).not.toContain(DEVICE_A_HASH.slice(0, 12));

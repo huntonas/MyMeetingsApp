@@ -1,6 +1,5 @@
 import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
-import { DraftNotice } from "@/components/draft-notice";
 import {
   DATA_INVENTORY,
   ON_PHONE,
@@ -14,17 +13,16 @@ import { RETENTION } from "@/server/retention";
 export const metadata = pageMetadata({
   path: "/privacy",
   title: "Privacy policy",
-  description: "Everything mymeetingapp stores, why, for how long, and who else receives it.",
+  description: `Everything ${BRAND.name} stores, why, for how long, and who else receives it.`,
 });
 
 export default function PrivacyPage() {
   return (
     <>
       <h1>Privacy policy</h1>
-      <DraftNotice />
       <p>
-        {BRAND.appName} is made by {BRAND.publisher}, a Tennessee company. This policy covers the app for
-        iPhone and Android and this website. It describes each kind of data we keep, why, and for how long.
+        {BRAND.name} is made by {BRAND.publisher}, a Tennessee company. This policy covers the app for iPhone
+        and Android and this website. It describes each kind of data we keep, why, and for how long.
       </p>
 
       <h2>In short</h2>
@@ -127,7 +125,7 @@ export default function PrivacyPage() {
         We&apos;ll post any change here with a new date. Questions go to{" "}
         <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
       </p>
-      <p className="fine-print">Draft of 30 September 2026.</p>
+      <p className="fine-print">Updated 2 October 2026.</p>
     </>
   );
 }

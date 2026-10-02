@@ -1,7 +1,9 @@
+import { X509Certificate } from "node:crypto";
+
 // Apple App Attestation Root CA, from https://www.apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem
-// (valid to 2045-03-15). Pinned: an attestation must chain to exactly this certificate. app-attest.test.ts checks its
-// SHA-256 fingerprint, so an edit here fails the tests.
-export const APPLE_APP_ATTESTATION_ROOT_CA = `-----BEGIN CERTIFICATE-----
+// (valid to 2045-03-15). Pinned: register.ts passes it as the root an attestation must chain to. app-attest.test.ts
+// checks its SHA-256 fingerprint, so an edit here fails the tests.
+const PEM = `-----BEGIN CERTIFICATE-----
 MIICITCCAaegAwIBAgIQC/O+DvHN0uD7jG5yH2IXmDAKBggqhkjOPQQDAzBSMSYw
 JAYDVQQDDB1BcHBsZSBBcHAgQXR0ZXN0YXRpb24gUm9vdCBDQTETMBEGA1UECgwK
 QXBwbGUgSW5jLjETMBEGA1UECAwKQ2FsaWZvcm5pYTAeFw0yMDAzMTgxODMyNTNa
@@ -15,3 +17,5 @@ CgYIKoZIzj0EAwMDaAAwZQIwQgFGnByvsiVbpTKwSga0kP0e8EeDS4+sQmTvb7vn
 53O5+FRXgeLhpJ06ysC5PrOyAjEAp5U4xDgEgllF7En3VcE3iexZZtKeYnpqtijV
 oyFraWVIyd/dganmrduC1bmTBGwD
 -----END CERTIFICATE-----`;
+
+export const APPLE_APP_ATTESTATION_ROOT = new X509Certificate(PEM);

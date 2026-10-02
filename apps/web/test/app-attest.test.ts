@@ -1,14 +1,12 @@
-import { X509Certificate } from "node:crypto";
-
 import { decode } from "cborg";
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/respond";
-import { APPLE_APP_ATTESTATION_ROOT_CA } from "@/server/attest/apple-root";
+import { APPLE_APP_ATTESTATION_ROOT } from "@/server/attest/apple-root";
 import { sha256, verifyAssertion, verifyAttestationObject } from "@/server/attest/app-attest";
 
 import { APPLE_SAMPLE_ATTESTATION } from "./apple-attestation-sample";
-import { APP_ID, FORGED_VALID_AT, forgedAttestation, testAttestKey } from "./attest-fixtures";
+import { APP_ID, FORGED_VALID_AT, type Forgery, forgedAttestation, testAttestKey } from "./attest-fixtures";
 
 // Apple's sample (apple-attestation-sample.ts), checked while its leaf certificate was valid.
 const SAMPLE = {
@@ -18,6 +16,7 @@ const SAMPLE = {
   appId: "1234567890.com.example.myapp",
   environment: "production" as const,
   at: new Date("2026-04-21T12:00:00Z"),
+  root: APPLE_APP_ATTESTATION_ROOT,
 };
 
 // What a check ends in: "accepted", the ApiError's code, or "another error" (a bug: Apple's bytes must never crash it).
@@ -40,6 +39,7 @@ describe("verifyAttestationObject", () => {
 
   it.each([
     ["after its leaf certificate expired", { at: new Date("2026-10-02T12:00:00Z") }],
+    ["before its leaf certificate was valid", { at: new Date("2026-04-19T12:00:00Z") }],
     ["for another app", { appId: "1234567890.com.example.other" }],
     ["over another challenge", { clientDataHash: sha256(Buffer.from("example_server_challenge")) }],
     ["for another key id", { keyId: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" }],
@@ -50,26 +50,50 @@ describe("verifyAttestationObject", () => {
     expect(outcome(() => verifyAttestationObject({ ...SAMPLE, ...change }))).toBe("attestation_failed");
   });
 
-  // A forged chain, otherwise right in every check, so each test fails only if the chain itself goes unchecked.
-  const forged = (intermediate?: Uint8Array) => {
-    const { attestation, keyId } = forgedAttestation(SAMPLE.clientDataHash, intermediate);
-    return () =>
-      verifyAttestationObject({ ...SAMPLE, attestation, keyId, appId: APP_ID, at: FORGED_VALID_AT });
+  // A forged attestation checked under its own root, or under `root` when given (Apple's, say).
+  const forged = (forgery: Forgery = {}, root?: typeof APPLE_APP_ATTESTATION_ROOT) => {
+    const made = forgedAttestation(SAMPLE.clientDataHash, forgery);
+    const check = () =>
+      verifyAttestationObject({
+        ...SAMPLE,
+        attestation: made.attestation,
+        keyId: made.keyId,
+        appId: APP_ID,
+        at: FORGED_VALID_AT,
+        root: root ?? made.root,
+      });
+    return { check, publicKey: made.publicKey };
   };
 
+  it("accepts a forged attestation under its own root, so each refusal below fails on its one change", () => {
+    const { check, publicKey } = forged();
+    expect(check()).toEqual({ publicKey });
+  });
+
   it("refuses an attestation whose chain ends at a root other than Apple's", () => {
-    expect(outcome(forged())).toBe("attestation_failed");
+    expect(outcome(forged({}, APPLE_APP_ATTESTATION_ROOT).check)).toBe("attestation_failed");
   });
 
   it("refuses an attestation whose leaf Apple's intermediate didn't sign", () => {
     const sample = decode(Buffer.from(APPLE_SAMPLE_ATTESTATION, "base64")) as {
       attStmt: { x5c: Uint8Array[] };
     };
-    expect(outcome(forged(sample.attStmt.x5c[1]))).toBe("attestation_failed");
+    const intermediate = sample.attStmt.x5c[1];
+    expect(outcome(forged({ intermediate }, APPLE_APP_ATTESTATION_ROOT).check)).toBe("attestation_failed");
+  });
+
+  it.each<[string, Forgery]>([
+    ["whose counter isn't 0", { counter: 1 }],
+    ["whose credential id isn't its key id", { credentialId: Buffer.alloc(32, 7) }],
+    ["whose key id isn't the SHA-256 of its leaf's key", { keyId: Buffer.alloc(32, 7) }],
+    ["whose leaf key isn't P-256", { curve: "P-384" }],
+    ["with three certificates in x5c", { withRoot: true }],
+  ])("refuses an attestation %s", (_why, forgery) => {
+    expect(outcome(forged(forgery).check)).toBe("attestation_failed");
   });
 
   it("pins Apple's App Attestation root by its SHA-256 fingerprint", () => {
-    expect(new X509Certificate(APPLE_APP_ATTESTATION_ROOT_CA).fingerprint256).toBe(
+    expect(APPLE_APP_ATTESTATION_ROOT.fingerprint256).toBe(
       "1C:B9:82:3B:A2:8B:A6:AD:2D:33:A0:06:94:1D:E2:AE:4F:51:3E:F1:D4:E8:31:B9:F7:E0:FA:7B:62:42:C9:32",
     );
   });

@@ -1,4 +1,4 @@
-import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, type KeyObject, sign, X509Certificate } from "node:crypto";
 
 import {
   BitString,
@@ -112,31 +112,60 @@ function certificate(subject: KeyObject, issuerKey: KeyObject, nonce?: Buffer): 
   );
 }
 
+// What a test may change in a forged attestation; each is one of Apple's checks made to fail.
+export interface Forgery {
+  counter?: number;
+  // The credential id in authData (by default the key id).
+  credentialId?: Buffer;
+  // The key id the attestation claims, both as input and credential id (by default the SHA-256 of the leaf's point).
+  keyId?: Buffer;
+  curve?: "P-256" | "P-384";
+  // Put in x5c in place of the made-up intermediate, as if the forger claimed a real one signed their leaf.
+  intermediate?: Uint8Array;
+  // Appends the root itself to x5c, making three certificates.
+  withRoot?: boolean;
+}
+
 // An attestation as Apple's would be for APP_ID in production (counter 0, the key id as credential id, the nonce in
-// the leaf), but its leaf is signed by a made-up intermediate under a made-up root. `intermediate`, when given, is put in
-// x5c in place of the made-up one, as if the forger claimed a real intermediate signed their leaf.
+// the leaf), but its leaf is signed by a made-up intermediate under a made-up `root`. Under that root it passes every
+// check, so a test changing one thing (`forgery`) fails on that thing alone.
 export function forgedAttestation(
   clientDataHash: Uint8Array,
-  intermediate?: Uint8Array,
-): { attestation: string; keyId: string } {
-  const ec = () => generateKeyPairSync("ec", { namedCurve: "P-256" });
-  const [root, middle, leaf] = [ec(), ec(), ec()];
-  const keyId = sha256(leaf.publicKey.export({ format: "der", type: "spki" }).subarray(-65));
+  forgery: Forgery = {},
+): { attestation: string; keyId: string; publicKey: string; root: X509Certificate } {
+  const ec = (namedCurve = "P-256") => generateKeyPairSync("ec", { namedCurve });
+  const [root, middle, leaf] = [ec(), ec(), ec(forgery.curve)];
+  const spki = leaf.publicKey.export({ format: "der", type: "spki" });
+  // As the verifier reads it: the SHA-256 of the last 65 bytes of the SPKI, a P-256 key's uncompressed point.
+  const keyId = forgery.keyId ?? sha256(spki.subarray(-65));
+  const credentialId = forgery.credentialId ?? keyId;
+  const counter = Buffer.alloc(4);
+  counter.writeUInt32BE(forgery.counter ?? 0);
   const authData = Buffer.concat([
     sha256(Buffer.from(APP_ID)),
-    Buffer.from([0x40, 0, 0, 0, 0]),
+    Buffer.from([0x40]),
+    counter,
     Buffer.from("appattest"),
     Buffer.alloc(7),
-    Buffer.from([0, keyId.length]),
-    keyId,
+    Buffer.from([0, credentialId.length]),
+    credentialId,
     encode(new Map([[1, 2]])),
   ]);
-  const leafCertificate = certificate(leaf.publicKey, middle.privateKey, sha256(authData, clientDataHash));
-  const x5c = [leafCertificate, intermediate ?? certificate(middle.publicKey, root.privateKey)];
+  const rootCertificate = certificate(root.publicKey, root.privateKey);
+  const x5c = [
+    certificate(leaf.publicKey, middle.privateKey, sha256(authData, clientDataHash)),
+    forgery.intermediate ?? certificate(middle.publicKey, root.privateKey),
+    ...(forgery.withRoot === true ? [rootCertificate] : []),
+  ];
   const attestation = encode({
     fmt: "apple-appattest",
     attStmt: { x5c, receipt: Buffer.alloc(0) },
     authData,
   });
-  return { attestation: Buffer.from(attestation).toString("base64"), keyId: keyId.toString("base64") };
+  return {
+    attestation: Buffer.from(attestation).toString("base64"),
+    keyId: keyId.toString("base64"),
+    publicKey: spki.toString("base64"),
+    root: new X509Certificate(rootCertificate),
+  };
 }

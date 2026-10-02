@@ -5,11 +5,9 @@ import { decode, decodeFirst } from "cborg";
 import { z } from "zod";
 
 import { ApiError } from "@/lib/api/respond";
-import { APPLE_APP_ATTESTATION_ROOT_CA } from "@/server/attest/apple-root";
 
 export type AppAttestEnvironment = "production" | "development";
 
-const ROOT = new X509Certificate(APPLE_APP_ATTESTATION_ROOT_CA);
 // The leaf certificate's extension holding the nonce Apple signed.
 const NONCE_EXTENSION = "1.2.840.113635.100.8.2";
 // Apple's validation steps name "appattestdevelop" for development; its sandbox guide names "appattestsandbox".
@@ -77,7 +75,7 @@ function attestedAuthData(bytes: Uint8Array) {
 }
 
 function validAt(certificate: X509Certificate, at: Date): boolean {
-  return new Date(certificate.validFrom) <= at && at <= new Date(certificate.validTo);
+  return certificate.validFromDate <= at && at <= certificate.validToDate;
 }
 
 // Anything unexpected in Apple's bytes (bad CBOR, a certificate that won't parse) is a failed check, not a server error.
@@ -91,7 +89,8 @@ function refuseOnError<T>(check: () => T): T {
 }
 
 // Apple's attestation steps, in its order. `clientDataHash` is what the phone passed to attestKey (the route passes
-// SHA-256 of the challenge, as modules/app-integrity makes it); `at` is the moment the certificates must be valid.
+// SHA-256 of the challenge, as modules/app-integrity makes it); `at` is the moment the certificates must be valid, and
+// `root` the certificate the chain must end at (register.ts passes APPLE_APP_ATTESTATION_ROOT; tests pass their own).
 export function verifyAttestationObject(input: {
   attestation: string;
   keyId: string;
@@ -99,19 +98,22 @@ export function verifyAttestationObject(input: {
   appId: string;
   environment: AppAttestEnvironment;
   at: Date;
+  root: X509Certificate;
 }): { publicKey: string } {
   return refuseOnError(() => {
     const object = AttestationObject.parse(decode(Buffer.from(input.attestation, "base64")));
     const [leafBytes, intermediateBytes] = object.attStmt.x5c;
     const leaf = new X509Certificate(leafBytes);
     const intermediate = new X509Certificate(intermediateBytes);
-    if (!intermediate.verify(ROOT.publicKey) || !leaf.verify(intermediate.publicKey)) fail();
-    if (![leaf, intermediate, ROOT].every((certificate) => validAt(certificate, input.at))) fail();
+    if (!intermediate.verify(input.root.publicKey) || !leaf.verify(intermediate.publicKey)) fail();
+    if (![leaf, intermediate, input.root].every((certificate) => validAt(certificate, input.at))) fail();
     const nonce = certificateNonce(leaf);
     if (nonce?.equals(sha256(object.authData, input.clientDataHash)) !== true) fail();
+    // App Attest keys are P-256, and the key id is the SHA-256 of the raw (X9.62 uncompressed) point: the last 65 bytes
+    // of a P-256 SPKI.
+    if (leaf.publicKey.asymmetricKeyDetails?.namedCurve !== "prime256v1") fail();
     const publicKey = leaf.publicKey.export({ format: "der", type: "spki" });
     const keyId = Buffer.from(input.keyId, "base64");
-    // The key id is the SHA-256 of the raw (X9.62 uncompressed) point: the last 65 bytes of a P-256 SPKI.
     if (!sha256(publicKey.subarray(-65)).equals(keyId)) fail();
     const authData = attestedAuthData(object.authData);
     if (!authData.rpIdHash.equals(sha256(Buffer.from(input.appId)))) fail();

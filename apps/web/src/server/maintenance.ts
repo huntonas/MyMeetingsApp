@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lt, sql } from "drizzle-orm";
+import { and, eq, isNotNull, lt, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
@@ -55,6 +55,8 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
         ),
       )
       .returning({ id: suggestions.id });
+    // A device with a day noted but not yet folded wrote after the fold above, so it isn't inactive: its record, and
+    // its App Attest key, stay for the next fold to bring up to date.
     const purged = await tx
       .delete(devices)
       .where(
@@ -64,6 +66,7 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
             devices.lastSeenDate,
             sql`(${utcToday} - make_interval(months => ${RETENTION.inactiveDeviceMonths}::int))::date`,
           ),
+          notExists(tx.select().from(deviceDays).where(eq(deviceDays.deviceHash, devices.deviceHash))),
         ),
       )
       .returning({ deviceHash: devices.deviceHash });

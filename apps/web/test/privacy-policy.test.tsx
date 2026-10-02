@@ -240,9 +240,16 @@ describe("the privacy policy page", () => {
     expect(text).toContain("“Delete all my tags” on the app's Me tab");
   });
 
-  it("counts a phone's inactivity from its last tags, suggestion or app check, as it says it records", () => {
-    expect(text).toContain("the first and last day the app sent us tags, a suggestion or its app check");
-    expect(text).toContain("months after the app last sent us tags, a suggestion or its app check.");
+  // Task 5A: only tags or a suggestion move the last day on (folded in nightly); registering a key again never does.
+  it("counts a phone's inactivity from the last day on its record, which only tags or a suggestion move on", () => {
+    expect(text).toContain(
+      "the first day the app sent us tags, a suggestion or its app check, and the last day it sent us tags or a suggestion",
+    );
+    expect(text).toContain(
+      "until the app first sends tags or a suggestion, the last day is the day of its app check",
+    );
+    expect(text).toContain("months after the last day on that record.");
+    expect(text).not.toContain("last sent us tags, a suggestion or its app check");
   });
 
   // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.

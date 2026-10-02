@@ -4,12 +4,20 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { GET } from "@/app/api/cron/maintenance/route";
 import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
-import { attestChallenges, devices, rateLimits, suggestions, tagAudit, tagCounts } from "@/db/schema";
+import {
+  attestChallenges,
+  deviceDays,
+  devices,
+  rateLimits,
+  suggestions,
+  tagAudit,
+  tagCounts,
+} from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { runMaintenance } from "@/server/maintenance";
 import { recountTags } from "@/server/tags/counts";
 
-import { backendPid, resetDb, untilWaitingOnLock } from "./db";
+import { backendPid, resetDb, untilWaitingOnLock, whileHolding } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -109,6 +117,34 @@ describe("runMaintenance", () => {
     ]);
     expect((await runMaintenance()).devicesPurged).toBe(1);
     expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual(["b".repeat(64)]);
+  });
+
+  it("keeps a device inactive for 13 months that writes after the night's fold but before the purge", async () => {
+    const stale = "a".repeat(64);
+    await db
+      .insert(devices)
+      .values({ deviceHash: stale, platform: "ios", lastSeenDate: utcDate(daysAgo(400)) });
+    // An old daily-limit row the purge deletes before it reaches devices; holding it keeps the run between the two.
+    await db.insert(rateLimits).values({
+      deviceHash: "c".repeat(64),
+      bucket: "tag_submission",
+      windowStart: utcDate(daysAgo(5)),
+      count: 1,
+    });
+    const { run } = await whileHolding(
+      "select 1 from rate_limits where device_hash = $1 for update",
+      ["c".repeat(64)],
+      async (holder) => {
+        let settled = false;
+        const run = runMaintenance().finally(() => (settled = true));
+        await untilWaitingOnLock(holder.pid, () => settled);
+        // The phone's write, committed after the fold and before the purge reaches its record.
+        await db.insert(deviceDays).values({ deviceHash: stale, day: utcDate(new Date()), platform: "ios" });
+        return { run };
+      },
+    );
+    expect(await run).toMatchObject({ devicesFolded: 0, devicesPurged: 0 });
+    expect((await db.select().from(devices)).map((row) => row.deviceHash)).toEqual([stale]);
   });
 
   it("keeps a blocked device past 13 months of inactivity", async () => {

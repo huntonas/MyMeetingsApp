@@ -2,7 +2,7 @@ import { ERROR_MESSAGES } from "@mymeetingapp/shared";
 import { waitFor } from "@testing-library/react-native";
 import { Platform } from "react-native";
 
-import { deleteMine, editTags, submitTags, suggestTag } from "@/api/writes";
+import { deleteMine, editTags, removeTags, submitTags, suggestTag } from "@/api/writes";
 
 import { startApi, type TestApi } from "./api-server";
 import { setNow } from "./clock";
@@ -10,7 +10,7 @@ import {
   attestedChallenges,
   keyIdFor,
   makeKeyStale,
-  setAttestTrouble,
+  setAppleTrouble,
   setIntegrity,
   signedClientData,
 } from "./native/app-integrity";
@@ -20,6 +20,7 @@ const MEETING_ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const CHALLENGE = "q3Jw0F2nYc5yQ0d1Gk7mR8sT9uV0wX1yZ2aB3cD4eF5";
 const ANSWER = { meetingId: MEETING_ID, tags: [] };
 const REFUSED = { error: { code: "attestation_failed", message: ERROR_MESSAGES.attestation_failed } };
+const BLOCKED = { error: { code: "device_blocked", message: ERROR_MESSAGES.device_blocked } };
 const base64 = (text: string) => Buffer.from(text).toString("base64");
 const tagIt = () => submitTags({ meetingId: MEETING_ID, tags: ["quiet"] });
 
@@ -102,6 +103,27 @@ describe("on an iPhone with App Attest", () => {
     expect(sent().filter((request) => request === "POST /api/v1/tags")).toHaveLength(2);
   });
 
+  it("keeps its key when the server refuses a write for another reason, and shows the server's words", async () => {
+    setKeychainItem("attest-key-id", keyIdFor(1));
+    api.reply("/api/v1/tags", BLOCKED, 403, "POST");
+    await expect(tagIt()).rejects.toMatchObject(BLOCKED.error);
+    expect(sent()).toEqual(["POST /api/v1/tags"]);
+    expect(keychainItem("attest-key-id")?.value).toBe(keyIdFor(1));
+  });
+
+  it("signs an edit's body, and an empty body for the deletions, which send none", async () => {
+    setNow("2026-10-05T12:00:00Z");
+    setKeychainItem("attest-key-id", keyIdFor(1));
+    await editTags(MEETING_ID, ["lively"]);
+    await removeTags(MEETING_ID);
+    await deleteMine();
+    expect(signedClientData).toEqual([
+      `mymeetingapp write v1\nPUT\n/api/v1/tags/${MEETING_ID}\n1791201600000\n{"tags":["lively"]}`,
+      `mymeetingapp write v1\nDELETE\n/api/v1/tags/${MEETING_ID}\n1791201600000\n`,
+      "mymeetingapp write v1\nPOST\n/api/v1/tags/delete-mine\n1791201600000\n",
+    ]);
+  });
+
   it("registers again after Delete all my tags, whose server deleted the key", async () => {
     await tagIt();
     await deleteMine();
@@ -111,7 +133,7 @@ describe("on an iPhone with App Attest", () => {
   });
 
   it("sends the write without a proof when Apple can't attest right now, and saves no key", async () => {
-    setAttestTrouble("unavailable");
+    setAppleTrouble("unavailable");
     expect(await tagIt()).toEqual(ANSWER);
     expect(sent()).toEqual(["POST /api/v1/attest/challenge", "POST /api/v1/tags"]);
     expect(proofOf(1)).toBeUndefined();
@@ -129,10 +151,50 @@ describe("on an iPhone with App Attest", () => {
   it("forgets a key the phone no longer holds, even when Apple can't attest a new one", async () => {
     setKeychainItem("attest-key-id", keyIdFor(9));
     makeKeyStale(keyIdFor(9));
-    setAttestTrouble("unavailable");
+    setAppleTrouble("unavailable");
     expect(await tagIt()).toEqual(ANSWER);
     expect(proofOf(1)).toBeUndefined();
     expect(keychainItem("attest-key-id")).toBeUndefined();
+  });
+
+  it("forgets the deleted key before a write queued behind Delete all my tags starts", async () => {
+    setKeychainItem("attest-key-id", keyIdFor(9));
+    await Promise.all([deleteMine(), suggestTag("Candlelight")]);
+    expect(sent()).toEqual(["POST /api/v1/tags/delete-mine", ...REGISTERING, "POST /api/v1/suggestions"]);
+    expect(keychainItem("attest-key-id")?.value).toBe(keyIdFor(1));
+  });
+
+  it("makes no key while the server can't be reached for a challenge", async () => {
+    api.replyOnce("/api/v1/attest/challenge", "offline", 503);
+    expect(await tagIt()).toEqual(ANSWER);
+    expect(sent()).toEqual(["POST /api/v1/attest/challenge", "POST /api/v1/tags"]);
+    expect(proofOf(1)).toBeUndefined();
+    await suggestTag("Candlelight");
+    expect(keychainItem("attest-key-id")?.value).toBe(keyIdFor(1));
+  });
+
+  it("attests the same key again once Apple can be reached, as Apple asks", async () => {
+    setAppleTrouble("unavailable");
+    await tagIt();
+    expect(keychainItem("attest-key-unattested")).toEqual({
+      value: keyIdFor(1),
+      options: { keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY },
+    });
+    setAppleTrouble("none");
+    await suggestTag("Candlelight");
+    expect(attestedChallenges).toEqual([CHALLENGE, CHALLENGE]);
+    expect(keychainItem("attest-key-id")?.value).toBe(keyIdFor(1));
+    expect(keychainItem("attest-key-unattested")).toBeUndefined();
+  });
+
+  it("drops a kept key Apple no longer holds, and makes a new one next time", async () => {
+    setKeychainItem("attest-key-unattested", keyIdFor(9));
+    makeKeyStale(keyIdFor(9));
+    expect(await tagIt()).toEqual(ANSWER);
+    expect(proofOf(1)).toBeUndefined();
+    expect(keychainItem("attest-key-unattested")).toBeUndefined();
+    await suggestTag("Candlelight");
+    expect(keychainItem("attest-key-id")?.value).toBe(keyIdFor(1));
   });
 
   it("sends one write at a time, so its assertions arrive in order", async () => {
@@ -167,6 +229,14 @@ describe("where App Attest isn't offered", () => {
     await tagIt();
     await suggestTag("Candlelight");
     expect(proofOf(1)).toBe(`devicecheck.v1.${base64("device check token 2")}`);
+  });
+
+  it("sends the write without a proof when Apple can't make a DeviceCheck token right now", async () => {
+    setIntegrity("deviceCheck");
+    setAppleTrouble("unavailable");
+    expect(await tagIt()).toEqual(ANSWER);
+    expect(sent()).toEqual(["POST /api/v1/tags"]);
+    expect(proofOf(0)).toBeUndefined();
   });
 
   it("shows the server's words when it refuses a DeviceCheck token, and sends no other", async () => {

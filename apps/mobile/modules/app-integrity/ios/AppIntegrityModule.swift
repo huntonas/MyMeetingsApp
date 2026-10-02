@@ -39,19 +39,22 @@ private func hashed(_ text: String) -> Data {
   Data(SHA256.hash(data: Data(text.utf8)))
 }
 
-// A key the system no longer holds (after a reinstall, a restore or a migration) must be replaced, so it gets its own
-// code; any other failure is just a failure, and the write goes without a proof.
+// A key the system no longer holds (after a reinstall, a restore or a migration) must be replaced, and a key Apple's
+// servers couldn't attest is attested again later rather than replaced, so each gets its own code; any other failure is
+// just a failure, and the write goes without a proof.
 private func apple<T>(_ work: () async throws -> T) async throws -> T {
   do {
     return try await work()
   } catch let error as DCError where error.code == .invalidKey {
     throw AppIntegrityException("ERR_INVALID_KEY")
+  } catch let error as DCError where error.code == .serverUnavailable {
+    throw AppIntegrityException("ERR_SERVER_UNAVAILABLE")
   } catch {
     throw AppIntegrityException("ERR_APP_INTEGRITY")
   }
 }
 
-// Swift 6 wants a subclass to restate Exception's Sendable conformance; it holds only immutable strings.
+// Swift 6 wants a subclass to restate its base's @unchecked Sendable conformance. This one adds no state of its own.
 internal final class AppIntegrityException: Exception, @unchecked Sendable {
   init(_ code: String) {
     super.init(name: "AppIntegrityException", description: "[AppIntegrity] \(code)", code: code)

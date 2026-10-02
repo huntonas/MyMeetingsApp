@@ -19,10 +19,16 @@ export function setItemAsync(key: string, value: string, options?: unknown): Pro
   return Promise.resolve();
 }
 
+// The item goes on a later turn, as the Keychain answers across the bridge: a caller that doesn't wait for it can be
+// overtaken.
 export function deleteItemAsync(key: string): Promise<void> {
   if (trouble === "fails") return Promise.reject(new Error("Keychain unavailable"));
-  items.delete(key);
-  return Promise.resolve();
+  return new Promise((resolve) => {
+    setImmediate(() => {
+      items.delete(key);
+      resolve();
+    });
+  });
 }
 
 export const keychainItem = (key: string) => items.get(key);

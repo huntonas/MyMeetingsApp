@@ -8,16 +8,12 @@ import {
 } from "@mymeetingapp/shared";
 
 import { sendWrite } from "@/api/client";
-import { forgetAttestKey } from "@/device/app-integrity";
 
 // Spec §7: every tag, suggestion still linked, rate-limit, audit and attestation row for this phone. It has no body,
-// and works below the minimum version and with tagging switched off. The server deleted this phone's App Attest key
-// too, so the phone forgets it, best effort: a key it couldn't forget is replaced on the next write's retry.
-export const deleteMine = async () => {
-  const deleted = await sendWrite(DeleteMineResponse, "POST", "/api/v1/tags/delete-mine");
-  await forgetAttestKey().catch(() => undefined);
-  return deleted;
-};
+// and works below the minimum version and with tagging switched off. The server deletes this phone's App Attest key
+// too, so the phone forgets it.
+export const deleteMine = () =>
+  sendWrite(DeleteMineResponse, "POST", "/api/v1/tags/delete-mine", undefined, { forgetsAttestKey: true });
 
 // Spec §2: the body is exactly the contract's fields, parsed first, so nothing else about the phone can ride along.
 export const submitTags = (request: TagSubmissionRequest) =>

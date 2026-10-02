@@ -6,7 +6,7 @@ type Support = "appAttest" | "deviceCheck" | "none";
 let support: Support = "none";
 let keysMade = 0;
 let tokensMade = 0;
-let attestTrouble: "none" | "unavailable" = "none";
+let appleTrouble: "none" | "unavailable" = "none";
 const staleKeys = new Set<string>();
 // Each text an assertion signed, oldest first.
 export const signedClientData: string[] = [];
@@ -19,11 +19,13 @@ export const keyIdFor = (n: number) => Buffer.alloc(32, n).toString("base64");
 export function setIntegrity(next: Support): void {
   support = next;
 }
-// "unavailable": Apple's attestation server can't be reached (DCError.serverUnavailable).
-export function setAttestTrouble(next: typeof attestTrouble): void {
-  attestTrouble = next;
+// "unavailable": Apple's servers can't be reached (DCError.serverUnavailable), so neither a key's attestation nor a
+// DeviceCheck token can be made.
+export function setAppleTrouble(next: typeof appleTrouble): void {
+  appleTrouble = next;
 }
-// The key is gone from the Secure Enclave, as after a reinstall: assertions with it fail as DCError.invalidKey does.
+// The key is gone from the Secure Enclave, as after a reinstall: attesting it or asserting with it fails as
+// DCError.invalidKey does.
 export function makeKeyStale(keyId: string): void {
   staleKeys.add(keyId);
 }
@@ -31,7 +33,7 @@ export function resetIntegrity(): void {
   support = "none";
   keysMade = 0;
   tokensMade = 0;
-  attestTrouble = "none";
+  appleTrouble = "none";
   staleKeys.clear();
   signedClientData.length = 0;
   attestedChallenges.length = 0;
@@ -52,7 +54,8 @@ export default {
   },
   attestKey(keyId: string, challenge: string): Promise<string> {
     attestedChallenges.push(challenge);
-    if (attestTrouble === "unavailable") return Promise.reject(failure("ERR_APP_INTEGRITY"));
+    if (staleKeys.has(keyId)) return Promise.reject(failure("ERR_INVALID_KEY"));
+    if (appleTrouble === "unavailable") return Promise.reject(failure("ERR_SERVER_UNAVAILABLE"));
     return Promise.resolve(Buffer.from(`attestation of ${keyId}`).toString("base64"));
   },
   generateAssertion(keyId: string, clientData: string): Promise<string> {
@@ -62,6 +65,7 @@ export default {
   },
   // Numbered, as Apple's tokens are each different: the server takes each one once.
   deviceCheckToken(): Promise<string> {
+    if (appleTrouble === "unavailable") return Promise.reject(failure("ERR_SERVER_UNAVAILABLE"));
     tokensMade += 1;
     return Promise.resolve(Buffer.from(`device check token ${String(tokensMade)}`).toString("base64"));
   },

@@ -69,7 +69,9 @@ describe("the support page", () => {
   it("explains that tags stay with the phone that added them", () => {
     expect(text).toContain("Switching phones?");
     expect(text).toContain("use “Delete all my tags” on the old phone first");
-    expect(text).toContain("they stop counting 180 days after you added them");
+    expect(text).toContain(
+      "they keep counting until you change or remove them, or we block the phone for spam",
+    );
   });
 
   it("never asks for the app's ID, which nothing on our side uses", () => {

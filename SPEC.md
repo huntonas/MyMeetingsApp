@@ -156,9 +156,9 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 **Display rule:**
 
 - Tags appear as a **flat list with counts** (e.g. "Laid back 14"). No paired-opposite spectrums.
-- The count for a tag is the number of non-excluded submissions for that meeting whose current tag set includes it and whose `confirmed_at` is within the last 180 days. Each device counts at most once per tag per meeting.
+- The count for a tag is the number of non-excluded submissions for that meeting whose current tag set includes it, however old. Each device counts at most once per tag per meeting.
 - Sorted by count, highest first. Ties broken by the number of those submissions with `near_meeting = true`.
-- Counts are kept in a `tag_counts(meeting_id, tag_id, device_count, verified_count)` table, updated in the same transaction as each write. A nightly job recomputes it to expire entries older than 180 days and to apply exclusions.
+- Counts are kept in a `tag_counts(meeting_id, tag_id, device_count, verified_count)` table, updated in the same transaction as each write. A nightly job recomputes it to apply exclusions.
 - Every tag used on a meeting shows immediately. `POST`/`PUT`/`DELETE` tag responses return the meeting's updated counts so the app can show them without waiting on any cache.
 - Blocked devices' submissions are excluded, and counts update when a device is blocked or deletes its tags.
 
@@ -296,7 +296,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 | Stored on server    | Contents                                                                                                    | Linked to                                               | Retention                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `devices`           | device hash, platform, first/last seen date, blocked flag, attestation key                                  | nothing else                                            | until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6)        |
-| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                                                          | one meeting only                                        | until edited/deleted; counts only use 180 days                                        |
+| `tag_submissions`   | per-meeting submitter ID, tags, nearMeeting, dates                                                          | one meeting only                                        | until edited/deleted; counts don't expire                                             |
 | `tag_counts`        | meeting, tag, device count, near-meeting count                                                              | one meeting only                                        | rebuilt on every tag write and nightly                                                |
 | `tag_audit`         | device hash, meeting, action, time                                                                          | device + meeting                                        | 7 days                                                                                |
 | `tag_swings`        | meeting, tag, new and prior device counts, flagged/reviewed time                                            | one meeting only                                        | kept                                                                                  |

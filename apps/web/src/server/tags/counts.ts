@@ -5,11 +5,10 @@ import type { Executor } from "@/db/client";
 import { meetings, tagCounts, tagSubmissions } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import { tagCountsJson } from "@/server/meetings/summary";
-import { RETENTION } from "@/server/retention";
 
-// Spec §5: a tag's count on a meeting is the number of non-excluded submissions that include it and were confirmed
-// in the last 180 days. A device has one row per meeting, and counting distinct submitters keeps a row that lists a
-// tag twice from counting twice. verified_count is how many of those were near the meeting: the tie-breaker when sorting.
+// Spec §5: a tag's count on a meeting is the number of non-excluded submissions that include it, however old. A
+// device has one row per meeting, and counting distinct submitters keeps a row that lists a tag twice from counting
+// twice. verified_count is how many of those were near the meeting: the tie-breaker when sorting.
 // The CTE lets a caller that needs it (recountAllTags) get back how many distinct meetings were touched without
 // pulling every row into Node; a caller that doesn't (recountTags) just ignores the one row it returns.
 function insertCounts(executor: Executor, where: SQL) {
@@ -19,7 +18,7 @@ function insertCounts(executor: Executor, where: SQL) {
       select s.meeting_id, tag_id, count(distinct s.submitter_id),
         count(distinct s.submitter_id) filter (where s.near_meeting)
       from ${tagSubmissions} s cross join lateral unnest(s.tag_ids) tag_id
-      where ${where} and not s.excluded and s.confirmed_at > now() - make_interval(days => ${RETENTION.countWindowDays}::int)
+      where ${where} and not s.excluded
       group by s.meeting_id, tag_id
       returning meeting_id
     )
@@ -35,7 +34,7 @@ export async function recountTags(meetingIds: string[], executor: Executor): Pro
   await insertCounts(executor, sql`s.meeting_id = any(${ids})`);
 }
 
-// Spec §5: the nightly rebuild expires submissions older than 180 days and applies exclusions everywhere.
+// Spec §5: the nightly rebuild recomputes every meeting's counts and applies exclusions everywhere.
 // Locks tag_counts in EXCLUSIVE mode first (readers, e.g. meetingTagCounts, are still allowed) so this can't
 // race a live tag write's recountTags: both insert into the same table on the same (meeting_id, tag_id) primary
 // key, and without this lock either side can hit a duplicate-key error, failing a user's write or rolling back

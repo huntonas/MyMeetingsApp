@@ -2,20 +2,19 @@ import { sql } from "drizzle-orm";
 
 import type { Executor } from "@/db/client";
 import { tagSwings } from "@/db/schema";
-import { RETENTION } from "@/server/retention";
 
 const MIN_NEW_DEVICES = 5;
 const MAX_PRIOR_DEVICES = 10;
 
 // Spec §6: flags a tag that gained 5+ devices (new submissions or re-confirmations) in the last 48 hours on a
-// meeting that had fewer than 10 counted devices before them. Only counted rows take part (not excluded, confirmed
-// within 180 days). An open flag isn't repeated; the admin reviews it with the 7-day audit rows.
+// meeting that had fewer than 10 counted devices before them. Only counted rows take part (not excluded), however
+// old. An open flag isn't repeated; the admin reviews it with the 7-day audit rows.
 export async function flagTagSwings(meetingId: string, executor: Executor): Promise<void> {
   await executor.execute(sql`
     with counted as (
       select tag_ids, confirmed_at > now() - interval '48 hours' as recent
       from tag_submissions
-      where meeting_id = ${meetingId}::uuid and not excluded and confirmed_at > now() - make_interval(days => ${RETENTION.countWindowDays}::int)
+      where meeting_id = ${meetingId}::uuid and not excluded
     ),
     prior as (select count(*)::int as devices from counted where not recent),
     gained as (

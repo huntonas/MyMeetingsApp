@@ -2,7 +2,6 @@ import { BRAND, CATCH_UP_MINUTES } from "@mymeetingapp/shared";
 
 import { HelpResources } from "@/components/help-resources";
 import { pageMetadata } from "@/lib/page-metadata";
-import { RETENTION } from "@/server/retention";
 
 export const metadata = pageMetadata({
   path: "/support",
@@ -29,8 +28,8 @@ export default function SupportPage() {
       <h3>Switching phones?</h3>
       <p>
         Your tags stay with the phone that added them: a new phone gets a new ID, so it can&apos;t change
-        them. If you want them gone, use “Delete all my tags” on the old phone first. Otherwise they stop
-        counting {RETENTION.countWindowDays} days after you added them.
+        them. If you want them gone, use “Delete all my tags” on the old phone first. Otherwise they keep
+        counting until you change or remove them, or we block the phone for spam.
       </p>
       <h3>Why can&apos;t I tag a meeting?</h3>
       <p>

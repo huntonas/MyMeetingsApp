@@ -9,10 +9,30 @@ const SQLITE_IMPORT = { name: "expo-sqlite", message: "Use appDatabase() from @/
 const LOCATION_IMPORTS = [
   {
     name: "expo-location",
-    message: "Use currentPosition() from @/location/current-position.",
+    message:
+      "Use currentPosition() from @/location/current-position, or checkAttendance() from @/location/attendance.",
   },
-  { name: "@modules/native-location", message: "Use findPlace() from @/location/find-place." },
+  {
+    name: "@modules/native-location",
+    message: "Use findPlace() from @/location/find-place, or checkAttendance() from @/location/attendance.",
+  },
 ];
+const DEVICE_ID_IMPORTS = [
+  { name: "expo-secure-store", message: "Use writeHeaders() from @/device/write-headers." },
+  { name: "expo-crypto", message: "Use writeHeaders() from @/device/write-headers." },
+  {
+    name: "expo-application",
+    importNames: ["getAndroidId", "getIosIdForVendorAsync"],
+    message: "Use writeHeaders() from @/device/write-headers.",
+  },
+];
+
+// The app's one way to each UI building block that carries a rule of its own (docs/standards.md).
+const TEXT_INPUT_IMPORT = {
+  name: "react-native",
+  importNames: ["TextInput"],
+  message: "Use <TextField> from @/ui/text-field.",
+};
 
 export default defineConfig([
   globalIgnores([
@@ -120,17 +140,19 @@ export default defineConfig([
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       // The app logs nothing: no location, search text or device IDs can end up in a device log.
-      "no-console": "error",
+      // Options given anew replace the shared config's, so its console.warn/console.error exemption doesn't carry over
+      // (ESLint refuses an empty `allow`).
+      "no-console": ["error", {}],
       "no-restricted-imports": [
         "error",
         {
-          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS],
+          paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS, TEXT_INPUT_IMPORT],
           patterns: [PARENT_IMPORT],
         },
       ],
       "no-restricted-globals": [
         "error",
-        { name: "fetch", message: "Use getJson/postJson from @/api/client." },
+        { name: "fetch", message: "Use getJson/postJson/sendWrite from @/api/client." },
       ],
       "no-restricted-properties": [
         "error",
@@ -156,14 +178,40 @@ export default defineConfig([
     // open (it has to spy on expo-sqlite's own openDatabaseAsync).
     files: ["apps/mobile/src/db/database.ts", "apps/mobile/test/database.test.ts"],
     rules: {
-      "no-restricted-imports": ["error", { paths: LOCATION_IMPORTS, patterns: [PARENT_IMPORT] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS, TEXT_INPUT_IMPORT], patterns: [PARENT_IMPORT] },
+      ],
     },
   },
   {
     // The one place allowed to reach the location packages directly.
     files: ["apps/mobile/src/location/**/*.ts"],
     rules: {
-      "no-restricted-imports": ["error", { paths: [SQLITE_IMPORT], patterns: [PARENT_IMPORT] }],
+      "no-restricted-imports": [
+        "error",
+        { paths: [SQLITE_IMPORT, ...DEVICE_ID_IMPORTS, TEXT_INPUT_IMPORT], patterns: [PARENT_IMPORT] },
+      ],
+    },
+  },
+  {
+    // The one place allowed to read the phone's ID.
+    files: ["apps/mobile/src/device/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, TEXT_INPUT_IMPORT], patterns: [PARENT_IMPORT] },
+      ],
+    },
+  },
+  {
+    // The one place allowed to draw a TextInput.
+    files: ["apps/mobile/src/ui/text-field.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [SQLITE_IMPORT, ...LOCATION_IMPORTS, ...DEVICE_ID_IMPORTS], patterns: [PARENT_IMPORT] },
+      ],
     },
   },
   {

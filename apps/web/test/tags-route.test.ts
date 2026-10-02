@@ -9,7 +9,7 @@ import { seedVocabulary } from "@/db/seed-vocabulary";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
-import { backendPid, resetDb, untilWaitingOnLock } from "./db";
+import { backendPid, resetDb, untilWaitingOnLock, whileHolding } from "./db";
 import {
   countsOf,
   DEVICE_A_HASH,
@@ -213,15 +213,17 @@ describe("POST /api/v1/tags", () => {
   it("refuses a device blocked after it was recorded but before its write took the device lock", async () => {
     const meetingId = await seedMeetingStarted(1);
     await post({ meetingId: await seedMeetingStarted(1, elsewhere(1)), tags: ["quiet"] });
-    const admin = await pool.connect();
-    await admin.query("begin");
-    await admin.query("select pg_advisory_xact_lock(hashtextextended($1, 0))", [DEVICE_A_HASH]);
-    let settled = false;
-    const write = post({ meetingId, tags: ["quiet"] }).finally(() => (settled = true));
-    await untilWaitingOnLock(await backendPid(admin), () => settled);
-    await admin.query("update devices set blocked = true where device_hash = $1", [DEVICE_A_HASH]);
-    await admin.query("commit");
-    admin.release();
+    const { write } = await whileHolding(
+      "select pg_advisory_xact_lock(hashtextextended($1, 0))",
+      [DEVICE_A_HASH],
+      async (holder) => {
+        let settled = false;
+        const write = post({ meetingId, tags: ["quiet"] }).finally(() => (settled = true));
+        await untilWaitingOnLock(holder.pid, () => settled);
+        await holder.query("update devices set blocked = true where device_hash = $1", [DEVICE_A_HASH]);
+        return { write };
+      },
+    );
     await expectError(await write, 403, "device_blocked");
     expect(await rowsOn(meetingId)).toEqual([]);
   });
@@ -238,19 +240,21 @@ describe("POST /api/v1/tags", () => {
   it("serializes two devices' submissions to one meeting, so both count", async () => {
     const meetingId = await seedMeetingStarted(1);
     // Hold the meeting row so both writes queue behind it, then let them go at the same moment.
-    const holder = await pool.connect();
-    await holder.query("begin");
-    await holder.query("select 1 from meetings where id = $1 for update", [meetingId]);
-    let settled = 0;
-    const writes = Promise.all(
-      [
-        post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }),
-        post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }, deviceHeaders(DEVICE_B, "android")),
-      ].map((write) => write.finally(() => (settled += 1))),
+    const { writes } = await whileHolding(
+      "select 1 from meetings where id = $1 for update",
+      [meetingId],
+      async (holder) => {
+        let settled = 0;
+        const writes = Promise.all(
+          [
+            post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }),
+            post({ meetingId, tags: ["quiet", "coffee", "laid-back"] }, deviceHeaders(DEVICE_B, "android")),
+          ].map((write) => write.finally(() => (settled += 1))),
+        );
+        await untilWaitingOnLock(holder.pid, () => settled === 2, 2);
+        return { writes };
+      },
     );
-    await untilWaitingOnLock(await backendPid(holder), () => settled === 2, 2);
-    await holder.query("commit");
-    holder.release();
     const results = await writes;
     expect(results.map((res) => res.status)).toEqual([201, 201]);
     expect(await countsOf(meetingId)).toEqual([

@@ -4,6 +4,7 @@ import { pruneCache } from "@/cache/prune";
 import { readCache, writeCache } from "@/cache/store";
 import { appDatabase } from "@/db/database";
 import { favoriteIds, setFavorite } from "@/saved/favorites";
+import { recordNear, wasNear } from "@/tagging/attendance-record";
 
 import { startApi, type TestApi } from "./api-server";
 import { failStatements, resetAppData } from "./app-data";
@@ -335,6 +336,17 @@ describe("pruneCache", () => {
     expect(await readCache("online:2")).not.toBeNull();
     expect(await readCache("vocabulary")).not.toBeNull();
     expect(await readCache("search:36.16,-86.78,25")).not.toBeNull();
+  });
+
+  it("drops an attendance result once its occurrence's tagging window has closed (36 hours after the start)", async () => {
+    const CLOSED = new Date("2026-10-03T12:00:00Z");
+    const OPEN = new Date("2026-10-03T12:01:00Z");
+    await recordNear(ID, CLOSED);
+    await recordNear(ID, OPEN);
+    setNow("2026-10-05T00:00:00Z");
+    await pruneCache();
+    expect(await wasNear(ID, CLOSED)).toBe(false);
+    expect(await wasNear(ID, OPEN)).toBe(true);
   });
 
   it("never stops the app launching when old copies can't be pruned", async () => {

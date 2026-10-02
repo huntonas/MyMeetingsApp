@@ -1,5 +1,5 @@
 import { VocabularyResponse } from "@mymeetingapp/shared";
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, waitFor } from "@testing-library/react-native";
 import { Text } from "react-native";
 
 import { fetchVocabulary } from "@/api/reads";
@@ -10,6 +10,7 @@ import { savedAtLabel } from "@/cache/saved-at";
 import { readCache, writeCache } from "@/cache/store";
 import { useCachedRead } from "@/cache/use-cached-read";
 import { appDatabase } from "@/db/database";
+import { forgetRecentPlaces } from "@/location/recent-places";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 
 import { startApi, type TestApi } from "./api-server";
@@ -241,6 +242,41 @@ describe("cachedRead: a phone clock moved back", () => {
     await cachedRead(searchRead("search:2,2,25"));
     expect(await readCache("search:2,2,25")).not.toBeNull();
     expect(await readCache("search:1,1,25")).toBeNull();
+  });
+});
+
+describe("cachedRead: a search still in flight during Clear recent places", () => {
+  it("never saves a search that was asked for before Clear recent places", async () => {
+    // This file's searchRead(key) is a "search"-kind read over the vocabulary path; answerLater plays a slow server.
+    const answer = api.answerLater("/api/v1/vocabulary");
+    const reading = cachedRead(searchRead("search:35.76,-83.97,25"));
+    await waitFor(() => {
+      expect(api.requests.some((r) => r.path === "/api/v1/vocabulary")).toBe(true);
+    });
+    await forgetRecentPlaces();
+    answer(VOCABULARY);
+    expect(await reading).toEqual({ data: VOCABULARY, savedAt: null });
+    expect(await readCache("search:35.76,-83.97,25")).toBeNull();
+  });
+
+  it("still saves a search once the clock moves back past a forgotten-search stamp left in the future", async () => {
+    // Stands in for a forgotten-search stamp written before the phone's clock was moved back: later than Date.now()
+    // from here on, so it must never be treated as "forgot after this search started" (D3).
+    const db = await appDatabase();
+    await db.runAsync("insert or replace into settings (key, value) values (?, ?)", [
+      "searches_forgotten_at",
+      String(Date.now() + 600_000),
+    ]);
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await cachedRead(searchRead("search:35.76,-83.97,25"));
+    expect(await readCache("search:35.76,-83.97,25")).not.toBeNull();
+  });
+
+  it("still saves a fresh search started after an ordinary Clear recent places", async () => {
+    await forgetRecentPlaces();
+    api.reply("/api/v1/vocabulary", VOCABULARY);
+    await cachedRead(searchRead("search:35.76,-83.97,25"));
+    expect(await readCache("search:35.76,-83.97,25")).not.toBeNull();
   });
 });
 

@@ -4,6 +4,11 @@ import { type AppDatabase, appDatabase, inTransaction } from "@/db/database";
 
 const Row = z.object({ body: z.string(), saved_at: z.number() });
 
+// "Clear recent places" stamps when it forgot the last search, so a search asked for before then (still in flight)
+// can't save its typed label afterwards.
+const FORGOTTEN_AT = "searches_forgotten_at";
+const Stamp = z.object({ value: z.string() });
+
 type Saved = { body: unknown; savedAt: Date } | null;
 
 function parseRow(row: unknown): Saved {
@@ -44,6 +49,14 @@ export async function writeCache(key: string, body: unknown, savedAt: Date = new
 // under a different key and then delete it while pruning.
 export async function writeSearchResult(key: string, body: unknown, savedAt: Date): Promise<void> {
   await inTransaction(async (db) => {
+    // A search asked for before "Clear recent places" ran (still in flight) must not save its typed label
+    // afterwards. A stamp later than now was itself written before the phone's clock moved back; it isn't a real
+    // "forgot since", so it's ignored the same way the `newer` check below ignores a future-stamped row.
+    const stamp = await db.getFirstAsync("select value from settings where key = ?", [FORGOTTEN_AT]);
+    if (stamp !== null) {
+      const forgottenAt = Number(Stamp.parse(stamp).value);
+      if (forgottenAt <= Date.now() && savedAt.getTime() < forgottenAt) return;
+    }
     // A row stamped later than now was saved before the phone's clock moved back; it isn't newer, and counting it
     // would stop every later search being saved.
     const newer = await db.getFirstAsync(
@@ -61,7 +74,12 @@ export async function writeSearchResult(key: string, body: unknown, savedAt: Dat
 }
 
 // Forgets the one kept search (its label, rounded point and answer), inside the caller's transaction: clearing recent
-// places leaves nothing the person typed on the phone.
+// places leaves nothing the person typed on the phone. Also stamps when, so a search already in flight is never
+// saved afterwards (writeSearchResult's check above).
 export async function forgetLastSearch(db: AppDatabase): Promise<void> {
   await db.runAsync("delete from cache_entries where key like 'search:%'", []);
+  await db.runAsync("insert or replace into settings (key, value) values (?, ?)", [
+    FORGOTTEN_AT,
+    String(Date.now()),
+  ]);
 }

@@ -41,6 +41,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: false,
     // HTTPS and the Keychain through the OS only: exempt, so `ITSAppUsesNonExemptEncryption` is false.
     config: { usesNonExemptEncryption: false },
+    infoPlist: {
+      // Spec §8, §11: the attendance check's one-time request for full accuracy, when only approximate location is
+      // shared, until the app leaves the foreground. Its key is ATTENDANCE_PURPOSE_KEY in src/location/attendance.ts.
+      NSLocationTemporaryUsageDescriptionDictionary: {
+        AttendanceCheck: `${APP_NAME} checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.`,
+      },
+    },
   },
   android: {
     package: "com.goodersoftware.mymeetingapp",
@@ -49,6 +56,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     blockedPermissions: ["android.permission.ACCESS_BACKGROUND_LOCATION"],
     adaptiveIcon: { foregroundImage: MARK, monochromeImage: MARK, backgroundColor: ACCENT },
   },
+  // expo-secure-store and expo-crypto have no entry. Secure-store's plugin would add a Face ID purpose string (the app
+  // never asks for Face ID) and Android backup rules (Android never uses it: the phone's ID there is ANDROID_ID), and
+  // expo-crypto has no plugin.
   plugins: [
     "expo-router",
     "expo-sqlite",
@@ -59,7 +69,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // motion APIs, though the app never asks for them.
       "expo-location",
       {
-        locationWhenInUsePermission: `${APP_NAME} uses your location to sort nearby meetings. It rounds it to about 1 km before searching, and your exact location never leaves your phone.`,
+        locationWhenInUsePermission: `${APP_NAME} uses your location to sort nearby meetings, rounded to about 1 km before searching, and to check you're near a meeting you tag. Your exact location never leaves your phone.`,
         locationAlwaysAndWhenInUsePermission: false,
         locationAlwaysPermission: false,
         motionUsagePermission: `${APP_NAME} never uses motion or fitness data. It asks only for your location, and only when you tap to use it.`,

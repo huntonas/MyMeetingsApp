@@ -5,21 +5,13 @@ import { View } from "react-native";
 
 import { FILTER_TYPES, TYPE_LABELS } from "@/meetings/type-labels";
 import { WEEKDAYS } from "@/meetings/schedule";
-import { useVocabularyTags } from "@/meetings/vocabulary";
+import { CATEGORY_TITLES, useVocabularyTags } from "@/meetings/vocabulary";
 import { filtering, NO_FILTERS, TIME_ORDER, TIMES_OF_DAY, toggled, useFilters } from "@/search/filters";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { Pill } from "@/ui/pill";
 import { Screen } from "@/ui/screen";
-
-const CATEGORY_TITLES = {
-  format: "Format",
-  sharing: "Sharing",
-  crowd: "Crowd",
-  feel: "Feel",
-  practical: "Practical",
-} as const;
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (

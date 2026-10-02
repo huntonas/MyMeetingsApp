@@ -79,6 +79,8 @@ const search = (body: string) => entry("POST", `https://${SERVER}/api/v1/meeting
 // exercised a search" doesn't drown out the finding under test.
 const VALID_SEARCH = search('{"lat":36.16,"lng":-86.78,"radiusKm":25}');
 const problems = (capture: Har) => auditHar(capture, OPTIONS).findings.map((finding) => finding.problem);
+// A real UUID shape, reused as both a meeting id and a tags/:id path segment.
+const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 
 describe("auditHar", () => {
   it("passes the app's five read requests, and lists other hosts for review", () => {
@@ -99,6 +101,7 @@ describe("auditHar", () => {
       findings: [],
       lookAt: [],
       userAgents: [],
+      writeRequests: 0,
     });
   });
 
@@ -107,12 +110,12 @@ describe("auditHar", () => {
       problems(
         har(entry("POST", `https://${SERVER}/api/v1/meetings/search?lat=36.16&lng=-86.78`, { body: "{}" })),
       ),
-    ).toContain("isn't one of the app's read requests");
+    ).toContain("isn't one of the app's requests");
   });
 
   it("flags coordinates added to the query string of an otherwise-valid read", () => {
     expect(problems(har(entry("GET", `https://${SERVER}/api/v1/vocabulary?lat=36.16&lng=-86.78`)))).toContain(
-      "isn't one of the app's read requests",
+      "isn't one of the app's requests",
     );
   });
 
@@ -196,10 +199,10 @@ describe("auditHar", () => {
     expect(found).toEqual(["contains a private value"]);
   });
 
-  it("flags any other request to our server (5a makes no writes)", () => {
+  it("flags a request to a path the app never uses (not a read, the search, or one of the writes)", () => {
     expect(
-      problems(har(entry("POST", `https://${SERVER}/api/v1/tags`, { body: "{}" }), VALID_SEARCH)),
-    ).toEqual(["isn't one of the app's read requests"]);
+      problems(har(entry("POST", `https://${SERVER}/api/v1/attest/challenge`, { body: "{}" }), VALID_SEARCH)),
+    ).toEqual(["isn't one of the app's requests"]);
   });
 
   it("matches the server host without regard to case", () => {
@@ -207,7 +210,14 @@ describe("auditHar", () => {
       ...OPTIONS,
       server: "MyMeetingApp.Vercel.App",
     });
-    expect(report).toEqual({ serverRequests: 2, otherHosts: [], findings: [], lookAt: [], userAgents: [] });
+    expect(report).toEqual({
+      serverRequests: 2,
+      otherHosts: [],
+      findings: [],
+      lookAt: [],
+      userAgents: [],
+      writeRequests: 0,
+    });
   });
 
   it("doesn't count a lookalike host as the server, even as a prefix", () => {
@@ -231,6 +241,7 @@ describe("auditHar", () => {
         findings: [{ request: "(capture)", problem: "the capture never exercised a search" }],
         lookAt: [],
         userAgents: [],
+        writeRequests: 0,
       });
     });
 
@@ -301,7 +312,14 @@ describe("auditHar", () => {
       const notAUuid = "-".repeat(36);
       expect(
         problems(har(entry("GET", `https://${SERVER}/api/v1/meetings/${notAUuid}`), VALID_SEARCH)),
-      ).toContain("isn't one of the app's read requests");
+      ).toContain("isn't one of the app's requests");
+    });
+
+    it("requires the meeting-detail id to be lowercase: the server's UUIDs (Postgres gen_random_uuid()) never are", () => {
+      const upper = ID.toUpperCase();
+      expect(
+        problems(har(entry("GET", `https://${SERVER}/api/v1/meetings/${upper}`), VALID_SEARCH)),
+      ).toContain("isn't one of the app's requests");
     });
 
     it("B6: flags an exact point sent to any host, not just ours", () => {
@@ -453,12 +471,14 @@ describe("auditHar", () => {
       ["cache-control", "no-cache"],
       ["pragma", "no-cache"],
     ])("passes a clean %s header value on the search POST", (name, value) => {
+      const body = '{"lat":36.16,"lng":-86.78,"radiusKm":25}';
       expect(
         problems(
           har(
             entry("POST", `https://${SERVER}/api/v1/meetings/search`, {
               headers: [[name, value]],
-              body: '{"lat":36.16,"lng":-86.78,"radiusKm":25}',
+              body,
+              bodySize: body.length,
             }),
           ),
         ),
@@ -935,6 +955,143 @@ describe("auditHar", () => {
         expect(report.findings).toEqual([]);
         expect(report.userAgents).toEqual([ua]);
       });
+    });
+  });
+
+  describe("writes", () => {
+    const WRITE_HEADERS: [string, string][] = [
+      ["X-Device-Id", "6F9619FF-8B86-D011-B42D-00C04FC964FF"],
+      ["X-Platform", "ios"],
+      ["X-App-Version", "0.1.0"],
+    ];
+    const TAG_BODY = `{"meetingId":"${ID}","tags":["quiet"],"nearMeeting":true}`;
+    // problems(), above, always appends VALID_SEARCH; this is the same idea for a single write entry.
+    const problemsWith = (write: ReturnType<typeof entry>) => problems(har(VALID_SEARCH, write));
+
+    it("passes each of the app's writes with the device headers and exactly its contract's body", () => {
+      const report = auditHar(
+        har(
+          VALID_SEARCH,
+          entry("POST", `https://${SERVER}/api/v1/tags`, { headers: WRITE_HEADERS, body: TAG_BODY }),
+          entry("PUT", `https://${SERVER}/api/v1/tags/${ID}`, {
+            headers: WRITE_HEADERS,
+            body: '{"tags":["quiet"]}',
+          }),
+          entry("DELETE", `https://${SERVER}/api/v1/tags/${ID}`, { headers: WRITE_HEADERS }),
+          entry("POST", `https://${SERVER}/api/v1/tags/delete-mine`, { headers: WRITE_HEADERS }),
+          // C8: mitmdump's savehar.py always writes postData for a POST, even a bodiless one — an empty
+          // text, an empty params array, and bodySize 0 (it may also add Content-Length: 0 on a write).
+          entry("POST", `https://${SERVER}/api/v1/tags/delete-mine`, {
+            headers: [...WRITE_HEADERS, ["content-length", "0"]],
+            body: "",
+            params: [],
+            bodySize: 0,
+          }),
+          entry("POST", `https://${SERVER}/api/v1/suggestions`, {
+            headers: WRITE_HEADERS,
+            body: '{"text":"Candlelight"}',
+          }),
+        ),
+        OPTIONS,
+      );
+      expect(report.findings).toEqual([]);
+      expect(report.writeRequests).toBe(6);
+    });
+
+    it.each([
+      ["an extra field", `{"meetingId":"${ID}","tags":["quiet"],"nearMeeting":true,"lat":36.16}`],
+      ["a coordinate for nearMeeting", `{"meetingId":"${ID}","tags":["quiet"],"nearMeeting":36.16}`],
+      ["a duplicate key", `{"meetingId":"${ID}","tags":["quiet"],"tags":["quiet"]}`],
+      ["different spacing", `{ "meetingId":"${ID}","tags":["quiet"]}`],
+    ])("fails a tag body with %s", (_what, body) => {
+      expect(
+        problemsWith(entry("POST", `https://${SERVER}/api/v1/tags`, { headers: WRITE_HEADERS, body })),
+      ).toContain("write body isn't exactly what the app sends");
+    });
+
+    it.each([
+      ["X-Device-Id", "x-device-id"],
+      ["X-Platform", "x-platform"],
+      ["X-App-Version", "x-app-version"],
+    ])("fails a write missing %s", (headerName, lower) => {
+      const headers = WRITE_HEADERS.filter(([name]) => name !== headerName);
+      expect(
+        problemsWith(entry("POST", `https://${SERVER}/api/v1/tags`, { headers, body: TAG_BODY })),
+      ).toContain(`write without the ${lower} header`);
+    });
+
+    it("still fails a device header on a read", () => {
+      expect(
+        problemsWith(entry("GET", `https://${SERVER}/api/v1/vocabulary`, { headers: WRITE_HEADERS })),
+      ).toContain("sends the device header X-Device-Id");
+    });
+
+    it("fails X-Attestation until Phase 6 turns it on", () => {
+      expect(
+        problemsWith(
+          entry("POST", `https://${SERVER}/api/v1/tags`, {
+            headers: [...WRITE_HEADERS, ["X-Attestation", "abc"]],
+            body: TAG_BODY,
+          }),
+        ),
+      ).toContain("sends X-Attestation, which isn't switched on yet");
+    });
+
+    it("fails a malformed device ID", () => {
+      expect(
+        problemsWith(
+          entry("POST", `https://${SERVER}/api/v1/tags/delete-mine`, {
+            headers: [["X-Device-Id", "36.162749"], ...WRITE_HEADERS.slice(1)],
+          }),
+        ),
+      ).toContain("sends an unexpected value for the X-Device-Id header");
+    });
+
+    it("fails a body on a write that has none", () => {
+      expect(
+        problemsWith(
+          entry("DELETE", `https://${SERVER}/api/v1/tags/${ID}`, {
+            headers: WRITE_HEADERS,
+            body: '{"x":1}',
+          }),
+        ),
+      ).toContain("sends a body on a write that has none");
+    });
+
+    it("fails a capture holding two device IDs", () => {
+      const other: [string, string][] = [["X-Device-Id", "dd96dec43fb81c97"], ...WRITE_HEADERS.slice(1)];
+      const report = auditHar(
+        har(
+          VALID_SEARCH,
+          entry("POST", `https://${SERVER}/api/v1/tags/delete-mine`, { headers: WRITE_HEADERS }),
+          entry("POST", `https://${SERVER}/api/v1/tags/delete-mine`, { headers: other }),
+        ),
+        OPTIONS,
+      );
+      expect(report.findings).toContainEqual({
+        request: "(capture)",
+        problem: "sends more than one device ID",
+      });
+    });
+
+    it("fails a write path or method the app never uses", () => {
+      expect(
+        problemsWith(
+          entry("PUT", `https://${SERVER}/api/v1/tags`, { headers: WRITE_HEADERS, body: TAG_BODY }),
+        ),
+      ).toContain("isn't one of the app's requests");
+    });
+
+    it("fails a write to an uppercase meeting id: the server's UUIDs never are uppercase", () => {
+      const upper = ID.toUpperCase();
+      expect(
+        problemsWith(
+          entry("PUT", `https://${SERVER}/api/v1/tags/${upper}`, {
+            headers: WRITE_HEADERS,
+            body: '{"tags":["quiet"]}',
+          }),
+        ),
+      ).toContain("isn't one of the app's requests");
     });
   });
 });

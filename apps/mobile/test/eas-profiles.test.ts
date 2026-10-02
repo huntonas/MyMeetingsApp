@@ -7,7 +7,11 @@ const EasJson = z.object({
   submit: z.record(z.string(), z.object({ ios: z.object({ ascAppId: z.string() }) })),
   build: z.record(
     z.string(),
-    z.looseObject({ env: z.record(z.string(), z.string()).optional(), pnpm: z.string().optional() }),
+    z.looseObject({
+      env: z.record(z.string(), z.string()).optional(),
+      environment: z.string().optional(),
+      pnpm: z.string().optional(),
+    }),
   ),
 });
 const RootPackage = z.object({ packageManager: z.string() });
@@ -21,6 +25,23 @@ describe("EAS build profiles", () => {
     const { build } = easJson();
     expect(build.testflight?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp-staging.vercel.app");
     expect(build.production?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp.vercel.app");
+  });
+
+  // Documentation, not protection: a dev build's JavaScript comes from Metro, which inlines the URL from the local
+  // apps/mobile/.env, so this env reaches no bundle. serverUrl() is what keeps dev builds off production
+  // (server-url.test.ts). development-simulator extends this profile.
+  it("names staging for dev builds", () => {
+    expect(easJson().build.development?.env?.EXPO_PUBLIC_SERVER_URL).toBe(
+      "https://mymeetingapp-staging.vercel.app",
+    );
+  });
+
+  // EAS environment variables (the Google Maps key among them) reach a build only from the environment its profile names.
+  it("reads each profile's variables (the Google Maps key among them) from its own EAS environment", () => {
+    const { build } = easJson();
+    expect(build.development?.environment).toBe("development");
+    expect(build.testflight?.environment).toBe("preview");
+    expect(build.production?.environment).toBe("production");
   });
 
   it("submits TestFlight builds to the App Store Connect app EAS created on the first submit", () => {

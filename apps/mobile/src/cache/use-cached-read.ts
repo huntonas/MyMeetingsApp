@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 
-import { ApiError, Unreachable } from "@/api/client";
+import { ApiError } from "@/api/client";
+import { failureMessage } from "@/api/failure-message";
 import { cachedRead, type CachedRead, type CachedResult } from "@/cache/cached-read";
 
 // A failed read is `gone` when the server said the meeting no longer exists, rather than that something went wrong.
@@ -14,16 +15,6 @@ export type ReadState<T> =
 const NO_COPY =
   "We couldn't reach mymeetingapp, and this isn't saved on your phone yet. Check your connection and try again.";
 
-// Anything else (a bug, a native module throwing) is ours, not the server's or the connection's; say so plainly
-// instead of leaving the screen on "Loading" forever.
-export const GENERIC_FAILURE = "Something went wrong on this phone. Try again.";
-
-function failureMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  if (error instanceof Unreachable) return NO_COPY;
-  return GENERIC_FAILURE;
-}
-
 // Reads `read` whenever its key changes, and again on refresh(); a refresh keeps showing what's already there.
 export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
   const [state, setState] = useState<ReadState<z.output<S>>>({ status: "loading" });
@@ -32,6 +23,9 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
   latest.current = read;
   const key = read?.key ?? null;
   const shownKey = useRef<string | null>(null);
+  // Moves on with each show(): a read that started before a write's answer was shown is older than what's on screen,
+  // so it's dropped when it lands.
+  const shown = useRef(0);
 
   useEffect(() => {
     const current = latest.current;
@@ -44,14 +38,15 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
     let live = true;
     if (shownKey.current !== current.key) setState({ status: "loading" });
     shownKey.current = current.key;
+    const startedAt = shown.current;
     cachedRead(current).then(
       (result) => {
-        if (live) setState({ status: "ready", ...result });
+        if (live && startedAt === shown.current) setState({ status: "ready", ...result });
       },
       (error: unknown) => {
-        if (!live) return;
+        if (!live || startedAt !== shown.current) return;
         const gone = error instanceof ApiError && error.code === "meeting_not_found";
-        setState({ status: "failed", message: failureMessage(error), gone });
+        setState({ status: "failed", message: failureMessage(error, NO_COPY), gone });
       },
     );
     return () => {
@@ -62,5 +57,13 @@ export function useCachedRead<S extends z.ZodType>(read: CachedRead<S> | null) {
   const refresh = useCallback(() => {
     setAttempt((count) => count + 1);
   }, []);
-  return { state, refresh };
+  // Shows `update(data)` in place of what's on screen, keeping how old it is (savedAt, reason): a write's answer
+  // changes only what it answered, such as a meeting's tag counts.
+  const show = useCallback((update: (data: z.output<S>) => z.output<S>) => {
+    shown.current += 1;
+    setState((current) =>
+      current.status === "ready" ? { ...current, data: update(current.data) } : current,
+    );
+  }, []);
+  return { state, refresh, show };
 }

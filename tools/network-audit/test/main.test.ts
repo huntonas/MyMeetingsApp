@@ -42,6 +42,13 @@ describe("run", () => {
     expect(log).toHaveBeenCalledWith("PASS: nothing private reached the server");
   });
 
+  it("prints how many writes were checked", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const file = await harFile([SEARCH_ENTRY]);
+    await run(["--har", file, ...BASE_ARGS]);
+    expect(log).toHaveBeenCalledWith("Writes checked: 0");
+  });
+
   it("prints every user-agent the server saw, for a person to confirm", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const withAgent = {

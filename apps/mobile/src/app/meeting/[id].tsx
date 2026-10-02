@@ -1,7 +1,7 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
-import { type ReactNode, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { type ReactNode, useCallback, useEffect } from "react";
+import { ActivityIndicator, useWindowDimensions, View } from "react-native";
 import { z } from "zod";
 
 import { useCachedRead } from "@/cache/use-cached-read";
@@ -12,14 +12,21 @@ import { directionsUrl } from "@/meetings/directions";
 import { meetingMoved } from "@/meetings/merged";
 import { listedTime, WEEKDAYS, yourTime, zoneName } from "@/meetings/schedule";
 import { TYPE_LABELS } from "@/meetings/type-labels";
+import { saveNewCounts } from "@/tagging/new-counts";
+import { useAttendanceCheck } from "@/tagging/use-attendance-check";
 import { AppText } from "@/ui/app-text";
 import { HandOffButton } from "@/ui/hand-off-button";
+import { type Notice, useNotice } from "@/ui/notice";
 import { SaveButton } from "@/ui/save-button";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { TagChips, useLabelledTags } from "@/ui/tag-chips";
+import { RemoveMyTags, YourTags } from "@/ui/your-tags";
 
 const Params = z.object({ id: z.uuid() });
+
+// iOS's largest text size before the accessibility sizes (Android's largest steps, 1.5 and up, are past it too).
+const LARGEST_STANDARD_TEXT = 1.35;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -63,7 +70,15 @@ function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
   );
 }
 
-function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
+function MeetingInfo({
+  meeting,
+  onAnswered,
+  notice,
+}: {
+  meeting: MeetingSummary;
+  onAnswered: (response: TagWriteResponse) => void;
+  notice: Notice;
+}) {
   const until = meeting.endTime === null ? "" : ` to ${listedTime(meeting.endTime)}`;
   const listed = `${WEEKDAYS[meeting.day] ?? ""}s, ${listedTime(meeting.time)}${until}`;
   const phoneTime =
@@ -72,10 +87,19 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
   const when =
     phoneTime === null || meeting.timezone === null ? listed : `${listed} (${zoneName(meeting.timezone)})`;
   const directions = directionsUrl(meeting, appPlatform());
+  useAttendanceCheck(meeting);
+  // Beside Save, a title at the accessibility text sizes is left a narrow column and breaks mid-word.
+  const largeText = useWindowDimensions().fontScale > LARGEST_STANDARD_TEXT;
   return (
     <>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-        <AppText variant="title" accessibilityRole="header" style={{ flex: 1 }}>
+      <View
+        style={
+          largeText
+            ? { flexDirection: "column", alignItems: "flex-start", gap: 8 }
+            : { flexDirection: "row", alignItems: "flex-start", gap: 12 }
+        }
+      >
+        <AppText variant="title" accessibilityRole="header" style={largeText ? undefined : { flex: 1 }}>
           {meeting.name}
         </AppText>
         <SaveButton meetingId={meeting.id} />
@@ -120,6 +144,7 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
         </Section>
       )}
       <WhatPeopleSay meeting={meeting} />
+      <YourTags meeting={meeting} onAnswered={onAnswered} notice={notice} />
       {(meeting.notes !== null || meeting.groupName !== null) && (
         <Section title="Notes">
           {meeting.groupName !== null && <AppText>{meeting.groupName}</AppText>}
@@ -141,36 +166,66 @@ function MeetingInfo({ meeting }: { meeting: MeetingSummary }) {
   );
 }
 
-function MeetingDetail({ id }: { id: string }) {
-  const { state, refresh } = useCachedRead(detailRead(id));
+function MeetingDetail({ id, notice }: { id: string; notice: Notice }) {
+  const { state, refresh, show } = useCachedRead(detailRead(id));
   // Keeps the website's promise that tag changes reach the app within the reuse window, for a page left open.
   useRefreshOnFocus(refresh);
   const survivor = state.status === "ready" ? state.data.meeting.id : id;
   useEffect(() => {
     if (survivor === id) return;
     // Moving the saved copy is best effort, like the cache itself: the page follows the new id either way.
-    void meetingMoved(id, survivor)
+    void meetingMoved(id, survivor, "move")
       .catch(() => undefined)
       .then(() => {
         router.setParams({ id: survivor });
       });
   }, [id, survivor]);
+  // A tag write's answer: its counts show at once, and go into the saved copy without making it look newer.
+  const answered = useCallback(
+    (response: TagWriteResponse) => {
+      if (response.meetingId === id) {
+        show((data) => ({ meeting: { ...data.meeting, tags: response.tags } }));
+        void saveNewCounts(response).catch(() => undefined);
+        return;
+      }
+      // The meeting merged after the page read it: what the phone keeps follows first, the old meeting's copy
+      // dropped (the survivor's own copy, if any, takes the new counts), then the page follows the survivor.
+      void meetingMoved(id, response.meetingId, "drop")
+        .then(() => saveNewCounts(response))
+        .catch(() => undefined)
+        .then(() => {
+          router.setParams({ id: response.meetingId });
+        });
+    },
+    [id, show],
+  );
   if (state.status === "loading") return <ActivityIndicator accessibilityLabel="Loading the meeting" />;
-  if (state.status === "failed") return <AppText accessibilityRole="alert">{state.message}</AppText>;
+  if (state.status === "failed") {
+    return (
+      <>
+        <AppText accessibilityRole="alert">{state.message}</AppText>
+        {state.gone && <RemoveMyTags meetingId={id} notice={notice} />}
+      </>
+    );
+  }
   return (
     <>
       {state.savedAt !== null && <SavedCopyNote savedAt={state.savedAt} reason={state.reason} />}
-      <MeetingInfo meeting={state.data.meeting} />
+      <MeetingInfo meeting={state.data.meeting} onAnswered={answered} notice={notice} />
     </>
   );
 }
 
 export default function MeetingScreen() {
   const params = Params.safeParse(useLocalSearchParams());
+  // Held above the keyed page, so what a tag write did still shows once the page has followed a merge.
+  const notice = useNotice();
   return (
     <Screen>
       {params.success ? (
-        <MeetingDetail id={params.data.id} />
+        // Keyed by the id, so following a merge starts the new meeting's page afresh: otherwise its first render would
+        // still hold the old meeting's read, and take it for a merge the other way.
+        <MeetingDetail key={params.data.id} id={params.data.id} notice={notice} />
       ) : (
         <AppText>That meeting link isn't valid.</AppText>
       )}

@@ -37,6 +37,8 @@ module.exports = {
     "^expo-sqlite$": "<rootDir>/test/native/expo-sqlite.ts",
     "^expo-application$": "<rootDir>/test/native/expo-application.ts",
     "^expo-location$": "<rootDir>/test/native/expo-location.ts",
+    "^expo-secure-store$": "<rootDir>/test/native/expo-secure-store.ts",
+    "^expo-crypto$": "<rootDir>/test/native/expo-crypto.ts",
     "^@modules/native-location$": "<rootDir>/test/native/native-location.ts",
     "^react-native-maps$": "<rootDir>/test/native/react-native-maps.tsx",
     "^@react-native-community/datetimepicker$": "<rootDir>/test/native/datetimepicker.tsx",

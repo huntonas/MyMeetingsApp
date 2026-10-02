@@ -1,8 +1,8 @@
 Pod::Spec.new do |s|
   s.name           = 'NativeLocation'
   s.version        = '1.0.0'
-  s.summary        = 'The platform geocoder for place search'
-  s.description    = 'Turns place text into a point with CLGeocoder, on the phone.'
+  s.summary        = 'The platform geocoder for place search, and temporary full accuracy'
+  s.description    = 'Turns place text into a point with CLGeocoder, and asks for temporary full accuracy, on the phone.'
   s.author         = ''
   s.homepage       = 'https://docs.expo.dev/modules/'
   s.platforms      = {

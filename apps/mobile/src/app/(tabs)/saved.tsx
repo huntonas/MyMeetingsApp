@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { savedCopy } from "@/cache/cached-read";
-import { GENERIC_FAILURE, useCachedRead } from "@/cache/use-cached-read";
+import { GENERIC_FAILURE } from "@/api/failure-message";
+import { useCachedRead } from "@/cache/use-cached-read";
 import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { detailRead } from "@/meetings/detail-read";
 import { meetingMoved } from "@/meetings/merged";
@@ -51,7 +52,7 @@ function SavedRow({ id, onChanged }: { id: string; onChanged: () => void }) {
   useEffect(() => {
     if (survivor === id) return;
     // Best effort, as on the meeting page: the list is read again either way.
-    void meetingMoved(id, survivor)
+    void meetingMoved(id, survivor, "move")
       .catch(() => undefined)
       .then(onChanged);
   }, [id, survivor, onChanged]);

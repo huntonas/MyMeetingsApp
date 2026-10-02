@@ -35,6 +35,9 @@ const Config = z.object({
   ios: z.object({
     bundleIdentifier: z.string(),
     config: z.object({ usesNonExemptEncryption: z.boolean() }),
+    infoPlist: z.object({
+      NSLocationTemporaryUsageDescriptionDictionary: z.object({ AttendanceCheck: z.string() }),
+    }),
   }),
   android: z.object({
     package: z.string(),
@@ -189,7 +192,9 @@ describe("the app config", () => {
     expect(config.android.blockedPermissions).toContain("android.permission.ACCESS_BACKGROUND_LOCATION");
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
     expect(options.locationWhenInUsePermission).toMatch(new RegExp(`^${BRAND.appName} `));
-    expect(options.locationWhenInUsePermission).toContain("rounds it to about 1 km");
+    expect(options.locationWhenInUsePermission).toContain("rounded to about 1 km");
+    // Spec §8: the attendance check uses the same permission, so its purpose string names it too.
+    expect(options.locationWhenInUsePermission).toContain("check you're near a meeting you tag");
   });
 
   // Apple rejects an upload whose code could reach motion data without a purpose string (ITMS-90683, TestFlight build
@@ -199,6 +204,13 @@ describe("the app config", () => {
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
     expect(options.motionUsagePermission).toMatch(new RegExp(`^${BRAND.appName} `));
     expect(options.motionUsagePermission).toContain("never");
+  });
+
+  it("explains the attendance check's one-time request for full accuracy (spec §8, §11)", () => {
+    const config = Config.parse(appConfig(CONTEXT));
+    expect(config.ios.infoPlist.NSLocationTemporaryUsageDescriptionDictionary.AttendanceCheck).toBe(
+      "mymeetingapp checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.",
+    );
   });
 
   it("takes the Android Google Maps key from the build's environment, and ships none of its own", () => {

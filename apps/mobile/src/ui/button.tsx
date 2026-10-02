@@ -1,4 +1,5 @@
-import { Pressable } from "react-native";
+import type { Ref } from "react";
+import { Pressable, type View } from "react-native";
 
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
@@ -10,15 +11,18 @@ interface ButtonProps {
   kind?: "primary" | "secondary" | "text";
   // What happens on a press, when the label alone doesn't say (e.g. leaving the app): read after the label.
   hint?: string;
+  // For moving screen-reader focus here (moveFocus).
+  ref?: Ref<View>;
 }
 
 // Every tappable control is at least 44 × 44 points and names itself to VoiceOver and TalkBack.
-export function Button({ label, onPress, kind = "primary", hint }: ButtonProps) {
+export function Button({ label, onPress, kind = "primary", hint, ref }: ButtonProps) {
   const colors = useColors();
   const primary = kind === "primary";
   const text = kind === "text";
   return (
     <Pressable
+      ref={ref}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
@@ -37,7 +41,7 @@ export function Button({ label, onPress, kind = "primary", hint }: ButtonProps) 
         opacity: pressed ? 0.8 : 1,
       })}
     >
-      <AppText variant="label" style={{ color: primary ? colors.accentText : colors.accent }}>
+      <AppText variant="button" style={{ color: primary ? colors.accentText : colors.accent }}>
         {label}
       </AppText>
     </Pressable>

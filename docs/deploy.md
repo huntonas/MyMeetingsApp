@@ -64,6 +64,9 @@ Staging (`https://mymeetingapp-staging.vercel.app`) is public, so plain `curl` w
 - `/api/cron/sync-feeds` and `/api/cron/maintenance` return 401 without staging's `CRON_SECRET`; only the maintenance workflow holds it, and it never calls sync.
 - The deployment's own URL (not the stable `mymeetingapp-staging.vercel.app` domain) still redirects to the Vercel login: only the stable domain carries the Deployment Protection Exception, so a per-deployment preview stays protected.
 - In the Neon console, `staging`'s parent is `seed`, and `preview`'s last restore time is unchanged by a staging build.
+- `gh workflow run staging-maintenance.yml` succeeds and its log shows the maintenance counts.
+- A write with a throwaway device (`X-Device-Id: curl-check-<random>`, `X-Platform: ios`, `X-App-Version: 0.1.0`): `POST /api/v1/tags` naming a meeting that doesn't exist answers `meeting_not_found`, `POST /api/v1/tags/delete-mine` answers `{"deletedTags":0}`, and delete-mine without the headers answers `invalid_request`.
+- Checked 2026-10-01 after the redeploy from `main` (92f732f): every check above passed; the first maintenance run reported all counts 0.
 
 ## Phase 2: meeting sync
 

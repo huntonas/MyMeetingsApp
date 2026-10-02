@@ -1,4 +1,10 @@
-import { MeetingSearchRequest } from "@mymeetingapp/shared";
+import {
+  DEVICE_HEADERS,
+  MeetingSearchRequest,
+  SuggestionRequest,
+  TagEditRequest,
+  TagSubmissionRequest,
+} from "@mymeetingapp/shared";
 import { z } from "zod";
 
 import { views } from "./decode";
@@ -34,22 +40,44 @@ export interface AuditReport {
   // than one is also a finding: the app sends exactly one, so a second means something else is talking to
   // the server (or the capture mixes two devices/runs together).
   userAgents: string[];
+  // How many of serverRequests matched one of Phase 5b's writes (WRITES, below).
+  writeRequests: number;
 }
 
 type HarEntry = Har["log"]["entries"][number];
 type HarRequest = HarEntry["request"];
 
+// A real UUID shape, not just 36 characters of hex digits and hyphens in any arrangement — lowercase only,
+// since the server's ids are Postgres `uuid` columns (`gen_random_uuid()`), which only ever render lowercase.
+// The app only ever echoes an id it got from the server, so it never sends anything else, in a read or a write.
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 // Phase 5a's app only reads. 5b adds its write paths here, with device headers allowed on them alone.
 const READS = [
   /^\/api\/v1\/config$/,
   /^\/api\/v1\/vocabulary$/,
   /^\/api\/v1\/meetings\/online\?day=[0-6]$/,
-  // A real UUID shape, not just 36 characters of hex digits and hyphens in any arrangement.
-  /^\/api\/v1\/meetings\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  new RegExp(`^/api/v1/meetings/${UUID}$`),
 ];
 const SEARCH_PATH = "/api/v1/meetings/search";
 // Exactly the rounded point and radius, nothing more.
 const SearchBody = z.strictObject(MeetingSearchRequest.shape);
+
+// Phase 5b's writes, each with exactly the body the app sends (JSON.stringify of its contract's parse), or
+// none. A write's shape is otherwise checked exactly like search's: body === null means the request must have
+// no body at all; any other body must strict-parse and re-stringify byte-for-byte to what's on the wire.
+const WRITES: { method: string; path: RegExp; body: z.ZodType | null }[] = [
+  { method: "POST", path: /^\/api\/v1\/tags$/, body: z.strictObject(TagSubmissionRequest.shape) },
+  { method: "PUT", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: z.strictObject(TagEditRequest.shape) },
+  { method: "DELETE", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: null },
+  { method: "POST", path: /^\/api\/v1\/tags\/delete-mine$/, body: null },
+  { method: "POST", path: /^\/api\/v1\/suggestions$/, body: z.strictObject(SuggestionRequest.shape) },
+];
+// Spec §7: every write carries these three; the fourth, X-Attestation, is still off (headers.ts).
+const REQUIRED_DEVICE_HEADERS = [
+  DEVICE_HEADERS.deviceId,
+  DEVICE_HEADERS.platform,
+  DEVICE_HEADERS.appVersion,
+].map((name) => name.toLowerCase());
 
 // The first three decimals of an exact coordinate, truncated and rounded, without the sign: finer than
 // anything the 2-decimal rounding can produce, so a match here can only be the real, unrounded point. `exact`
@@ -113,12 +141,13 @@ function searchBody(request: HarRequest): unknown {
   }
 }
 
-// The app sends JSON.stringify(MeetingSearchRequest.parse(request)) (apps/mobile/src/api/reads.ts): parsing
+// The app sends JSON.stringify(schema.parse(request)) (apps/mobile/src/api/reads.ts and writes.ts): parsing
 // to valid values isn't enough on its own — a duplicate JSON key JSON.parse silently collapses, or a number
 // with far more precision than a double can hold, can still parse to a valid rounded value while the raw
-// bytes on the wire were never what the app would have sent. Byte-for-byte comparison catches both.
-function isExactlyTheAppsSearchBody(request: HarRequest): boolean {
-  const parsed = SearchBody.safeParse(searchBody(request));
+// bytes on the wire were never what the app would have sent. Byte-for-byte comparison catches both. Used for
+// the search body (always SearchBody) and every write that has one (WRITES, above).
+function isExactlyTheAppsBody(schema: z.ZodType, request: HarRequest): boolean {
+  const parsed = schema.safeParse(searchBody(request));
   return parsed.success && JSON.stringify(parsed.data) === bodyText(request);
 }
 
@@ -131,6 +160,15 @@ function hasUnrecordedBody(request: HarRequest): boolean {
 
 function hasAnyBody(request: HarRequest): boolean {
   return request.postData !== undefined || (request.bodySize ?? 0) > 0;
+}
+
+// Whether a write whose contract has no body actually carries one. mitmdump's savehar.py writes a postData
+// object with an empty text and params for every POST, even a bodiless one, so postData !== undefined (what
+// hasAnyBody checks) isn't enough here — it would fail every real delete-mine capture.
+function hasBodyForWrite(request: HarRequest): boolean {
+  return (
+    bodyText(request) !== "" || (request.postData?.params?.length ?? 0) > 0 || (request.bodySize ?? 0) > 0
+  );
 }
 
 interface UrlHistory {
@@ -152,8 +190,12 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
   const otherHosts = new Set<string>();
   const lookAt: string[] = [];
   const userAgents = new Set<string>();
+  // Never printed — only its cardinality matters (more than one device in a capture meant to prove one
+  // phone's traffic is clean is itself suspicious).
+  const deviceIds = new Set<string>();
   const urlHistory = new Map<string, UrlHistory>();
   let serverRequests = 0;
+  let writeRequests = 0;
   let sawSearch = false;
   const normalizedServer = normalizeHost(options.server);
 
@@ -218,26 +260,46 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
     for (const value of options.searchText) {
       if (text.includes(value.toLowerCase())) flag(`contains the search-box text "${value}"`);
     }
+    const write = WRITES.find(
+      (candidate) => candidate.method === request.method && candidate.path.test(matchPath),
+    );
     for (const header of request.headers) {
-      if (header.name.toLowerCase() === "user-agent") userAgents.add(header.value);
+      const lower = header.name.toLowerCase();
+      if (lower === "user-agent") userAgents.add(header.value);
+      if (lower === DEVICE_HEADERS.deviceId.toLowerCase()) deviceIds.add(header.value);
       const problem = headerFinding(header.name, header.value, {
         method: request.method,
         server: normalizedServer,
         bodySize: request.bodySize,
         knownEtags,
         knownLastModified,
+        write: write !== undefined,
       });
       if (problem) flag(problem);
     }
     if ((request.cookies ?? []).some((cookie) => cookie.value !== "")) flag("sends a Cookie header");
-    if (request.method !== "POST" && hasAnyBody(request)) flag(`sends a body on a ${request.method} request`);
+    if (request.method !== "POST" && !write && hasAnyBody(request)) {
+      flag(`sends a body on a ${request.method} request`);
+    }
 
     if (request.method === "POST" && matchPath === SEARCH_PATH) {
       sawSearch = true;
-      if (!isExactlyTheAppsSearchBody(request))
+      if (!isExactlyTheAppsBody(SearchBody, request))
         flag("search body isn't exactly a rounded lat, lng and radiusKm");
+    } else if (write) {
+      writeRequests += 1;
+      for (const required of REQUIRED_DEVICE_HEADERS) {
+        if (!request.headers.some((header) => header.name.toLowerCase() === required)) {
+          flag(`write without the ${required} header`);
+        }
+      }
+      if (write.body === null) {
+        if (hasBodyForWrite(request)) flag("sends a body on a write that has none");
+      } else if (!isExactlyTheAppsBody(write.body, request)) {
+        flag("write body isn't exactly what the app sends");
+      }
     } else if (!(request.method === "GET" && READS.some((read) => read.test(matchPath)))) {
-      flag("isn't one of the app's read requests");
+      flag("isn't one of the app's requests");
     }
   }
 
@@ -249,6 +311,11 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
   if (userAgents.size > 1) {
     findings.push({ request: "(capture)", problem: "sends more than one distinct user-agent value" });
   }
+  // The app's writes carry exactly one phone's device ID; more than one means the capture mixes devices, or a
+  // device header was forged — never say which values, since that's the thing being kept private.
+  if (deviceIds.size > 1) {
+    findings.push({ request: "(capture)", problem: "sends more than one device ID" });
+  }
 
   return {
     serverRequests,
@@ -256,5 +323,6 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
     findings,
     lookAt,
     userAgents: [...userAgents],
+    writeRequests,
   };
 }

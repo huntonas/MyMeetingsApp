@@ -14,5 +14,20 @@ public class NativeLocationModule: Module {
             let coordinate = placemarks.first?.location?.coordinate else { return nil }
       return ["latitude": coordinate.latitude, "longitude": coordinate.longitude]
     }
+
+    // Spec §8: an iPhone sharing only approximate location asks, for the attendance check alone, for full accuracy
+    // until the app leaves the foreground. The purpose key names the string in app.config.ts's
+    // NSLocationTemporaryUsageDescriptionDictionary. Answers whether full accuracy is on afterwards. The manager is
+    // created on the main queue, which CLLocationManager needs, and kept until iOS answers.
+    AsyncFunction("requestTemporaryFullAccuracy") { (purposeKey: String, promise: Promise) in
+      let manager = CLLocationManager()
+      if manager.accuracyAuthorization == .fullAccuracy {
+        promise.resolve(true)
+        return
+      }
+      manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: purposeKey) { _ in
+        promise.resolve(manager.accuracyAuthorization == .fullAccuracy)
+      }
+    }.runOnQueue(.main)
   }
 }

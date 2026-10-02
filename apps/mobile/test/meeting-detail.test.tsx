@@ -1,14 +1,17 @@
-import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import { AppState, type AppStateStatus, Linking, Platform } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
 import { appDatabase } from "@/db/database";
 import { directionsUrl } from "@/meetings/directions";
+import { recordNear, wasNear } from "@/tagging/attendance-record";
+import { myTagsOn, recordSubmission } from "@/tagging/my-tags";
 
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, VOCABULARY } from "./fixtures";
+import { LARGEST_TEXT, setFontScale } from "./font-scale";
 import { permissionChecks, permissionRequests } from "./native/expo-location";
 import { renderApp } from "./render-app";
 
@@ -99,6 +102,9 @@ describe("the meeting page", () => {
         ],
       }),
     });
+    // A Tuesday: outside the meeting's time, a page doesn't so much as look at the location permission (during it,
+    // the attendance check does: attendance-check.test.tsx).
+    setNow("2026-10-06T17:00:00Z");
     await renderApp(`/meeting/${ID}`);
     expect(await screen.findByText(WHEN)).toBeOnTheScreen();
     expect(screen.getByRole("header", { name: "Nooners" })).toBeOnTheScreen();
@@ -274,8 +280,14 @@ describe("the meeting page", () => {
     expect(openURL).not.toHaveBeenCalled();
   });
 
-  it("follows a merged meeting to its new id, moving its saved copy", async () => {
+  it("follows a merged meeting to its new id, moving its saved copy, the phone's tag record and its attendance results", async () => {
     api.reply(PATH, { meeting: meeting({ id: SURVIVOR, name: "Nooners (merged)" }) });
+    await recordSubmission({ id: ID, name: "Nooners" }, ["quiet"], new Date("2026-10-05T17:00:00Z"));
+    await recordNear(ID, new Date("2026-10-05T17:00:00Z"));
+    // The survivor already had a result of its own, still inside its tagging window: both are kept, once each.
+    await recordNear(SURVIVOR, new Date("2026-10-04T17:00:00Z"));
+    // Launch prunes results whose tagging window has closed, so the clock is set rather than left at today's.
+    setNow("2026-10-05T19:00:00Z");
     const app = await renderApp(`/meeting/${ID}`);
     await waitFor(() => {
       expect(app.getPathname()).toBe(`/meeting/${SURVIVOR}`);
@@ -283,6 +295,11 @@ describe("the meeting page", () => {
     expect(await screen.findByText("Nooners (merged)")).toBeOnTheScreen();
     expect(await readCache(`meeting:${ID}`)).toBeNull();
     expect(await readCache(`meeting:${SURVIVOR}`)).not.toBeNull();
+    expect(await myTagsOn(SURVIVOR)).toMatchObject({ tags: ["quiet"] });
+    expect(await myTagsOn(ID)).toBeNull();
+    expect(await wasNear(SURVIVOR, new Date("2026-10-05T17:00:00Z"))).toBe(true);
+    expect(await wasNear(SURVIVOR, new Date("2026-10-04T17:00:00Z"))).toBe(true);
+    expect(await wasNear(ID, new Date("2026-10-05T17:00:00Z"))).toBe(false);
     // The moved copy is fresh, so the new id isn't asked for again, and the old one only once.
     expect(meetingRequests().map((r) => r.path)).toEqual([PATH]);
   });
@@ -368,5 +385,42 @@ describe("the meeting page", () => {
     await renderApp("/meeting/not-a-meeting");
     expect(await screen.findByText("That meeting link isn't valid.")).toBeOnTheScreen();
     expect(meetingRequests()).toEqual([]);
+  });
+});
+
+describe("the meeting page at large text sizes", () => {
+  beforeEach(() => {
+    api.reply(PATH, { meeting: meeting({ name: "Spiritual Progress" }) });
+  });
+
+  // 1.35 is iOS's largest standard size, the last one before the accessibility sizes.
+  it.each([1, 1.35])("keeps Save beside the title at the standard sizes (%p)", async (fontScale) => {
+    setFontScale(fontScale);
+    await renderApp(`/meeting/${ID}`);
+    const title = await screen.findByRole("header", { name: "Spiritual Progress" });
+    const around = title.parent;
+    if (!around) throw new Error("the title has nothing around it");
+    expect(around).toHaveStyle({ flexDirection: "row" });
+    expect(within(around).getByRole("button", { name: "Save" })).toBeOnTheScreen();
+  });
+
+  // Beside it, the heart took a column on the right and the title broke mid-word: "Spi / ritu / al".
+  it("puts Save under the title at the accessibility sizes, so the title has the whole width", async () => {
+    setFontScale(LARGEST_TEXT);
+    await renderApp(`/meeting/${ID}`);
+    const title = await screen.findByRole("header", { name: "Spiritual Progress" });
+    const around = title.parent;
+    if (!around) throw new Error("the title has nothing around it");
+    expect(around).toHaveStyle({ flexDirection: "column" });
+    expect(within(around).getByRole("button", { name: "Save" })).toBeOnTheScreen();
+  });
+
+  // At 3.12 times, one long word is wider than the phone; twice the size still fits one.
+  it("lets the title grow to twice its size and no further", async () => {
+    await renderApp(`/meeting/${ID}`);
+    expect(await screen.findByRole("header", { name: "Spiritual Progress" })).toHaveProp(
+      "maxFontSizeMultiplier",
+      2,
+    );
   });
 });

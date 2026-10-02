@@ -132,6 +132,46 @@ Needs an Apple ID and 2FA, so the owner runs these, not Claude.
 4. In App Store Connect → TestFlight, wait for processing (10–15 minutes). There should be no "Missing Compliance" (the app already answers export compliance in `app.config.ts`). Create the internal testing group, add testers, install the build through the TestFlight app, and search "Maryville, TN".
 5. Confirm the requests reached staging, not production: Vercel → Logs, filtered to the staging environment, should show `POST /api/v1/meetings/search` from around that time, and production should show none from that phone then.
 
+## Phase 5b device results (2026-10-01, staging)
+
+Release builds against `https://mymeetingapp-staging.vercel.app`. iOS only: the owner deferred the Android pass (the table under "Android builds" stays "not yet run").
+
+### Tagging smoke checklist (iOS simulator, two simulators as two phones)
+
+| Item                                                                                                                                 | Result |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| Outside the window: "You can add tags…" line, no "Tag this meeting"                                                                  | pass   |
+| In the window: choose 2, Send; counts show "1" at once, "Your tags" and "Added <date>" appear                                        | pass   |
+| A second phone tags the same meeting and tag: count shows 2                                                                          | pass   |
+| Edit my tags: counts follow; Remove my tags asks first, then the record and counts go                                                | pass   |
+| Tag again within 7 days after uninstall and reinstall: the Keychain ID survives, the app offers to save as an edit, and saving works | pass   |
+| Attendance at the venue during its time: no dialog, "You're near the meeting…"                                                       | pass   |
+| Precise Location off: the one-time full-accuracy prompt with the `AttendanceCheck` string; "Don't Allow" gives the approximate line  | pass   |
+| No permission: opening never prompts; tapping asks once with the updated text                                                        | pass   |
+| Online meeting: no attendance offer                                                                                                  | pass   |
+| Suggest a tag: thank-you shown                                                                                                       | pass   |
+| Me tab: "Meetings I've tagged" lists and opens them; "Delete all my tags" asks, then says how many                                   | pass   |
+| After Delete all, the check is offered again                                                                                         | pass   |
+| Release Info.plist: `AttendanceCheck` and the updated when-in-use string; no Always key, no background modes                         | pass   |
+| `verified_count`, `tag_submissions` / `tag_audit` counts (staging SQL), `/metrics/suggestions`                                       | owner  |
+| Airplane Mode, VoiceOver, below-minimum version on the iPhone (TestFlight build 9)                                                   | owner  |
+
+### Accessibility (largest Dynamic Type)
+
+- The tag picker and the tag section wrap cleanly.
+- The first run found the header's Help label clipped, the meeting title broken mid-word beside Save, and the suggestion field hidden by the keyboard. Fixed in 4728ef7 and 18c2db2:
+  - header text is capped at 1.5x;
+  - titles and button labels are capped at 2x;
+  - Save moves under the title above 1.35x;
+  - `<Screen>` keeps a focused field above the keyboard on iOS.
+- Still open: a single word of 12 or more letters in a meeting name can break mid-word. On Android, the keyboard behaviour is unchecked (deferred with the Android pass).
+
+### Audit log
+
+| Date       | Device                                                                             | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-01 | iOS simulator (iPhone 17, iOS 26.5), Release, staging, canary 36.162749,-86.781602 | **PASS**: 12 requests to staging, "Writes checked: 5" (tag, edit, remove, suggestion, delete-mine), one user agent `mymeetingapp/1 CFNetwork/3860.600.12 Darwin/25.6.0`. Search bodies carried only rounded points (35.75,-83.98 and 36.16,-86.78). The tag body was exactly `meetingId`, `tags` and `nearMeeting:false` (the canary is 2 km from the meeting). Delete-mine went with no body and passed the header rules (preflight D13). Other hosts were Apple services, and `localhost:8081` from another project's app on the same Mac (user agent `Weeknight/1`), not ours. The sobriety date wasn't set in this run: the 5a audit covers it, and 5b doesn't touch it. The HAR was deleted. |
+
 ## Android builds
 
 ### The Google Maps key (Owner)

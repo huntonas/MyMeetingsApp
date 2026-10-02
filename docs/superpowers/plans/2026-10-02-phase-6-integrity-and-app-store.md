@@ -18,7 +18,7 @@ Android (Play Integrity, the Maps key, the Play listing) moves to a new Phase 6b
 
 - **One header, two proofs.** `X-Attestation` is either `appattest.v1.<keyId>.<timestamp>.<assertion>` or `devicecheck.v1.<token>`. `packages/shared/src/attestation.ts` builds and reads it, and also builds the exact text an assertion signs (`assertionClientData`): the method, the path, the phone's clock and the raw body. The server, the app and the audit tool all use it.
 - **Registration.** `POST /api/v1/attest/challenge` hands out a single-use challenge (kept 5 minutes in `attest_challenges`, linked to nothing). `POST /api/v1/attest/register` spends it, verifies Apple's attestation object (CBOR, Apple's App Attestation root, the nonce, `teamId.bundleId`, counter 0, the environment), and stores the key ID, public key and counter on the phone's `devices` row.
-- **Every write.** `readWriteRequest(req, schema)` now reads the raw body, and `verifyAttestation` checks the assertion over that exact text: the signature, the app ID, a counter above the stored one, and a phone clock within a day. The new counter is written in its own statement before the write's transaction, so the `devices` row never shares a transaction ID with tag rows. A phone without App Attest sends a DeviceCheck token, which the server checks with Apple using an ES256 provider token.
+- **Every write.** `readWriteRequest(req, schema)` now reads the raw body, and `verifyAttestation` checks the assertion over that exact text: the signature, the app ID, a counter above the stored one, and a phone clock within a day. The counter is checked again under the device lock and kept on today's short-lived `device_days` row. A write never writes the `devices` row at all; a nightly fold brings it up to date (Task 5A). A phone without App Attest sends a DeviceCheck token, which the server checks with Apple using an ES256 provider token.
 - **The phone.** A small local Expo module, `modules/app-integrity`, wraps `DCAppAttestService` and `DCDevice`. `src/device/app-integrity.ts` keeps the key ID in the Keychain (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`). `sendWrite` sends one write at a time, attaches the proof, and replaces a key the server no longer knows, once. Whatever stops the phone from attesting (a simulator, Apple unreachable), the write goes without a proof and the server decides.
 - **Rollout.** Staging and production run the new code with `REQUIRE_ATTESTATION=off` first. A TestFlight build proves registration on a real iPhone, then staging is switched on, then production is switched on before the App Review build is submitted.
 
@@ -48,7 +48,7 @@ Android (Play Integrity, the Maps key, the Play listing) moves to a new Phase 6b
 ## Findings (with evidence)
 
 1. **The seam.** `verifyAttestation` in `apps/web/src/server/devices/attestation.ts` is synchronous, takes no body, and refuses everything while `REQUIRE_ATTESTATION` is on. `readWriteRequest` runs it before the route reads the body, so an assertion over the body can't be checked there yet (Task 6).
-2. **The `devices` row and transaction IDs.** `writeAsDevice` records the device in its own transaction so its `xmin` never matches a tag row's (standards, "Mobile write requests"). A counter update inside the write's transaction would undo that, so it runs as its own statement first (Task 6, with a test).
+2. **The `devices` row and transaction IDs.** `writeAsDevice` records the device in its own transaction, committed just before the write. So the row's `xmin` sits one id from the write's tag rows (on a later write that day, it's the `xmax` its lock stamps). A physical copy of the database therefore links a device to the meeting of its latest write (review, 2026-10-02; `.superpowers/sdd/2026-10-02-phase-6-integrity-and-app-store/xmin-design-note.md`). Owner decision (2026-10-02, Option A): the write path stops writing `devices`, and a nightly fold carries the day and the App Attest counter in from a two-day `device_days` row (Task 5A). Task 6 keeps its counter there.
 3. **`@expo/app-integrity` exists but isn't usable here.** It is Expo's App Attest and Play Integrity module, published with an `sdk-57` tag (57.0.2). But:
    - its docs mark it alpha ("will frequently experience breaking changes");
    - it is **not** in `expo` 57.0.26's `bundledNativeModules.json` (checked in `node_modules` and on the `sdk-57` branch);
@@ -184,6 +184,10 @@ Each has a recommendation, and the plan follows it so work isn't blocked.
 6. **A feed behind a bot check** (Task 12). It must read as a bot check on /metrics, never as the intergroup's restriction, and must never be asked again any other way: one request, our User-Agent, no retry. Pinned in Task 12 ("asks a bot-checked feed once, as itself, and never again in that run", and discovery's "records a site behind a … bot check and stops probing it").
 7. **"Search farther" offline, or empty again** (Task 13). Offline, the one search kept stands in, said so, with no second offer. Empty at 60 miles, the online meetings follow as before. Pinned in Task 13 ("offline, shows the last search in its place…", "falls back to the online meetings when 60 miles finds nothing either").
 
+8. **Someone holding a physical copy of the database** (a Neon branch or restore, a disk image). Transaction ids must not link a device to the meeting of its latest write: no `devices` row may sit within one id of a tag row, whether through `xmin` or through the `xmax` a lock stamps.
+   - Pinned in Task 5A ("leaves the device's record untouched: neither its xmin nor its xmax moves", "puts no device record within one transaction id of a fresh tag row (spec §2)").
+   - Pinned in Task 6 ("keeps the counter on today's device_days row and never writes the device's record").
+
 ---
 
 ## Owner tasks, in order of lead time
@@ -220,13 +224,16 @@ apps/web/
   src/server/maintenance.ts                 + challengesPurged
   src/server/tags/delete-mine.ts            clears the key on a kept (blocked) row
   src/server/devices/rate-limit.ts          + attestation: 10
-  src/server/devices/write-request.ts       identifyDevice; readWriteRequest(req, schema) and readDeletionRequest read the body
+  src/server/devices/write-request.ts       identifyDevice; readWriteRequest(req, schema) and readDeletionRequest read the body; writeAsDevice never writes devices (5A)
+  src/server/devices/device-days.ts         new (5A): recordDeviceDay, foldDeviceDays; assertFreshCounter (6)
+  src/server/devices/block-device.ts        blocks a device with only device_days rows (5A)
+  drizzle/0018_device-days.sql              generated (5A)
   src/server/devices/attestation.ts         verifyAttestation over the request
   src/server/attest/apple-root.ts           new: Apple App Attestation Root CA (pinned)
   src/server/attest/app-attest.ts           new: verifyAttestationObject, verifyAssertion (pure)
   src/server/attest/config.ts               new: appAttestConfig
   src/server/attest/challenges.ts           new: issueChallenge, spendChallenge
-  src/server/attest/keys.ts                 new: saveAttestKey, registeredKey, advanceCounter, hasAttestKey
+  src/server/attest/keys.ts                 new: saveAttestKey, registeredKey, highestCounter, hasAttestKey
   src/server/attest/register.ts             new: registerAppAttestKey
   src/server/attest/device-check.ts         new: validDeviceCheckToken
   src/lib/api/request.ts                    + parseJsonText
@@ -262,30 +269,31 @@ apps/mobile/
 
 Test files by task:
 
-| Task | Test files                                                                                                                                        |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | none (owner work and the roadmap)                                                                                                                 |
-| 2    | `packages/shared/test/attestation.test.ts`                                                                                                        |
-| 3    | web `privacy-policy.test.tsx`, `maintenance.test.ts`, `delete-mine-route.test.ts`, `write-request.test.ts`, `attest-routes.test.ts` (constraints) |
-| 4    | web `app-attest.test.ts`                                                                                                                          |
-| 5    | web `attest-routes.test.ts`                                                                                                                       |
-| 6    | web `attested-writes.test.ts`, `write-request.test.ts`                                                                                            |
-| 7    | web `device-check.test.ts`                                                                                                                        |
-| 8    | mobile `attestation.test.ts`, `writes.test.ts`, `app-shell.test.tsx` (entitlement)                                                                |
-| 9    | audit `audit.test.ts`, `headers.test.ts`                                                                                                          |
-| 10   | mobile `privacy-manifest.test.ts`                                                                                                                 |
-| 11   | mobile `eas-profiles.test.ts`, `store-listing.test.ts`, `app-shell.test.tsx`                                                                      |
-| 12   | feed-kit `feed-problem.test.ts`; web `fetch-feed.test.ts`, `run-sync.test.ts`; discovery `detect.test.ts`, `report.test.ts`                       |
-| 13   | mobile `nearby.test.tsx`, `map.test.tsx`                                                                                                          |
-| 14   | none (staging, TestFlight and the iPhone audit)                                                                                                   |
-| 15   | none (production and App Review)                                                                                                                  |
-| 16   | web `landing-page.test.tsx`, `seo.test.ts`, `site.e2e.ts`                                                                                         |
-| 17   | mobile `edit-tags.test.tsx`, `meeting-detail.test.tsx` (optional)                                                                                 |
+| Task | Test files                                                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | none (owner work and the roadmap)                                                                                                                            |
+| 2    | `packages/shared/test/attestation.test.ts`                                                                                                                   |
+| 3    | web `privacy-policy.test.tsx`, `maintenance.test.ts`, `delete-mine-route.test.ts`, `write-request.test.ts`, `attest-routes.test.ts` (constraints)            |
+| 4    | web `app-attest.test.ts`                                                                                                                                     |
+| 5    | web `attest-routes.test.ts`                                                                                                                                  |
+| 5A   | web `device-days.test.ts`; `write-request`, `tags-route`, `tag-edit-routes`, `delete-mine-route`, `maintenance`, `privacy-policy` tests; `admin-fixtures.ts` |
+| 6    | web `attested-writes.test.ts`, `write-request.test.ts`                                                                                                       |
+| 7    | web `device-check.test.ts`                                                                                                                                   |
+| 8    | mobile `attestation.test.ts`, `writes.test.ts`, `app-shell.test.tsx` (entitlement)                                                                           |
+| 9    | audit `audit.test.ts`, `headers.test.ts`                                                                                                                     |
+| 10   | mobile `privacy-manifest.test.ts`                                                                                                                            |
+| 11   | mobile `eas-profiles.test.ts`, `store-listing.test.ts`, `app-shell.test.tsx`                                                                                 |
+| 12   | feed-kit `feed-problem.test.ts`; web `fetch-feed.test.ts`, `run-sync.test.ts`; discovery `detect.test.ts`, `report.test.ts`                                  |
+| 13   | mobile `nearby.test.tsx`, `map.test.tsx`                                                                                                                     |
+| 14   | none (staging, TestFlight and the iPhone audit)                                                                                                              |
+| 15   | none (production and App Review)                                                                                                                             |
+| 16   | web `landing-page.test.tsx`, `seo.test.ts`, `site.e2e.ts`                                                                                                    |
+| 17   | mobile `edit-tags.test.tsx`, `meeting-detail.test.tsx` (optional)                                                                                            |
 
 ## Order of operations
 
 1. **Task 1 first:** the owner starts O1–O4 on day one. Claude adds Phase 6b to the roadmap and creates the branch.
-2. **Tasks 2–13 on `phase-6-integrity`,** in order. Tasks 7 (DeviceCheck), 9 (audit), 10 (privacy), 11 (listing) and 12 (feed errors) depend only on Task 2 and may move; Task 12 touches no app code. Task 13 (Search farther) needs Task 8's `replyOnce`, and lands before the TestFlight build so testers get it.
+2. **Tasks 2–13 on `phase-6-integrity`,** in order, with Task 5A between 5 and 6: Task 6's counter lives on 5A's `device_days` row. Tasks 7 (DeviceCheck), 9 (audit), 10 (privacy), 11 (listing) and 12 (feed errors) depend only on Task 2 and may move; Task 12 touches no app code. Task 13 (Search farther) needs Task 8's `replyOnce`, and lands before the TestFlight build so testers get it.
 3. **Task 14:** the PR is merged, staging and production run the code with checks off, a TestFlight build attests on a real iPhone, the iPhone audit passes, and staging switches checks on.
 4. **Task 15:** production switches checks on, the production build is made and checked, and 1.0 is submitted to App Review with manual release.
 5. **Task 16:** after approval (and Owner decision needed 1), release, then the website links to the App Store.
@@ -1342,8 +1350,9 @@ describe("saveAttestKey", () => {
     });
     await saveAttestKey(device, KEY_ID, "MFkw");
     expect(await keyColumns()).toEqual([[DEVICE_A_HASH, KEY_ID, "MFkw", 0]]);
+    // Last-seen is the nightly fold's to move (Task 5A), never a request's.
     const [row] = await db.select().from(devices);
-    expect(row?.lastSeenDate).toBe(new Date().toISOString().slice(0, 10));
+    expect(row?.lastSeenDate).toBe("2026-01-02");
   });
 
   it("refuses a key another phone already holds", async () => {
@@ -1443,13 +1452,14 @@ import { and, eq, ne } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { devices } from "@/db/schema";
-import { utcToday } from "@/db/sql";
 import { ApiError } from "@/lib/api/respond";
 import type { WriteDevice } from "@/server/devices/write-request";
 
 // Spec §6: a registered key replaces any earlier one on the phone's row (a reinstall or restore makes a new key) and
-// starts at counter 0. One statement of its own, never inside a write's transaction, so the devices row never shares
-// a transaction id with tag rows (spec §2).
+// starts at counter 0. It never sets last-seen: the nightly fold does (Task 5A). Registration isn't a tag write and
+// runs as one statement of its own, but the app registers just before its first write, so this row can sit a
+// transaction id or two from that write's tag rows. The next nightly fold rewrites it (the phone wrote, so it has a
+// device_days row), so that neighbour lasts at most a night, inside the 7-day audit window (spec §2).
 export async function saveAttestKey(device: WriteDevice, keyId: string, publicKey: string): Promise<void> {
   // Apple: a key must belong to one device, so a replayed registration can't move it to another.
   const [elsewhere] = await db
@@ -1461,7 +1471,7 @@ export async function saveAttestKey(device: WriteDevice, keyId: string, publicKe
   await db
     .insert(devices)
     .values({ ...device, ...key })
-    .onConflictDoUpdate({ target: devices.deviceHash, set: { ...key, lastSeenDate: utcToday } });
+    .onConflictDoUpdate({ target: devices.deviceHash, set: key });
 }
 ```
 
@@ -1557,17 +1567,464 @@ git commit -m "feat(api): App Attest challenge and key registration endpoints"
 
 ---
 
+### Task 5A: The write path stops writing `devices` (the nightly fold)
+
+**Why.** A reviewer found that a device's row and its newest tag row end up one Postgres transaction id apart (xmin T±1). The details are in `.superpowers/sdd/2026-10-02-phase-6-integrity-and-app-store/xmin-design-note.md`.
+
+- `writeAsDevice` commits a `devices` upsert just before the write. On a later write the same day, the upsert changes nothing but still locks the row, which stamps its `xmax`.
+- `tag_submissions` keeps its `xmin` until the device writes that meeting again.
+- So anyone holding a physical copy of the database can read, for each device hash, which meeting its latest write touched. That breaks spec §2: "Nothing in our database links a device to the meetings it tagged, apart from a 7-day abuse-review log." Task 6 as first written would have refreshed that link on every write.
+
+**The fix (owner decision, 2026-10-02: Option A, the nightly fold, in Phase 6).**
+
+- **The write path never writes `devices`.** Under the device lock, a write reads only `blocked`; a plain read gets no transaction id and stamps nothing.
+- **The day is noted in a short-lived `device_days` row.** One row per device per UTC day, written inside the write's own transaction and kept 2 days, as `rate_limits` is. Task 6 adds the App Attest counter's high-water mark to the same row.
+- **Nightly, one statement folds those rows into `devices`.** It sets last-seen, raises the counter, and adds new devices. One statement is one transaction, so every row it touches gets the same xmin and no tag row is near it.
+
+**Why a new table and not a `rate_limits` bucket.** `rate_limits` rows exist only where a daily limit is spent: new tags and suggestions. That isn't enough here:
+
+- edits (`PUT`) spend no limit but must still count as "seen";
+- the counter is one per device, not per bucket;
+- the fold needs the platform to create a new device's row, and `rate_limits` has no platform column.
+
+A `seen` bucket with nullable extra columns would have mixed two meanings into one table. `device_days` has the same shape of retention (two UTC days), the same link (device only, no meeting) and the same deletion by delete-mine.
+
+**What it leaves, by design (the note's analysis):**
+
+- **`device_days` shares its xmin with the write's tag rows.** It is a device-keyed row deleted within 2 days, inside the 7-day window in which `tag_audit` already holds the same link openly, exactly like `rate_limits`.
+- **A new device appears in `devices` only after the night's fold,** and `last_seen_date` lags up to a day. `/metrics`' active-device counts lag with it.
+- **Blocking a device that wrote since the last fold** first makes its row from `device_days`, then blocks it (below).
+- **A blocked device's excluded rows are grouped by design.** The exclusion writes them all in one transaction, so they share one xmin; with few blocked devices, that names them. No xmin fix can remove this. Spec §2 says so (Step 5).
+- **The fold itself is one transaction id.** A tag write committed just before or after it sits one id away from every device folded that night. That links a meeting to the whole set of devices active in the last two days, not to one. It runs at 08:07 UTC, the quietest hour.
+- **Out of scope here: a pending suggestion one id from a tag write.** It names its device openly for up to 30 days, so a neighbouring tag write links the two. The roadmap's Phase 6 "Later" line carries it (Step 6).
+
+**Files:**
+
+- Create: `apps/web/src/server/devices/device-days.ts`, `apps/web/test/device-days.test.ts`, `apps/web/drizzle/0018_device-days.sql` (generated)
+- Modify:
+  - `apps/web/src/db/schema/tagging.ts`, `apps/web/src/server/retention.ts`, `apps/web/src/server/maintenance.ts`
+  - `apps/web/src/server/devices/write-request.ts`, `apps/web/src/server/devices/block-device.ts`, `apps/web/src/server/tags/delete-mine.ts`
+  - `apps/web/src/content/privacy-inventory.ts`
+  - `apps/web/test/db.ts`, `apps/web/test/write-request.test.ts`, `apps/web/test/tags-route.test.ts`, `apps/web/test/tag-edit-routes.test.ts`, `apps/web/test/delete-mine-route.test.ts`, `apps/web/test/maintenance.test.ts`, `apps/web/test/admin-fixtures.ts`
+  - `SPEC.md` §2, §13; `docs/standards.md`; `docs/superpowers/plans/2026-09-26-roadmap.md`
+
+**Interfaces:**
+
+- Consumes: the `devices` key columns (Task 3); `saveAttestKey` (Task 5); `lockDevice`, `WriteDevice` (5b).
+- Produces:
+  - **Schema:** `deviceDays` table from `@/db/schema`, with columns `device_hash` text, `day` date, `platform`, `attest_key_id` text null and `attest_counter` bigint null. The primary key is `device_days_pkey (device_hash, day)`, and the key id and counter are null together (`device_days_attest_check`).
+  - **`recordDeviceDay(device: WriteDevice, tx: Executor): Promise<void>`** from `@/server/devices/device-days`. It notes today for the device, inside the write's transaction. Task 6 extends it to keep the counter.
+  - **`foldDeviceDays(): Promise<number>`** from `@/server/devices/device-days`. It returns how many devices it folded.
+  - **Retention:** `RETENTION.deviceDayDays = 2`.
+  - **Maintenance summary:** `MaintenanceSummary.devicesFolded`, `MaintenanceSummary.deviceDaysPurged`.
+  - **`writeAsDevice`** keeps its signature but no longer writes `devices`.
+  - **`blockDevice`** also blocks a device that has only `device_days` rows.
+  - **Registration** (Task 5's `saveAttestKey`, amended for this task) writes the key onto the `devices` row and never sets `last_seen_date`.
+- **Is registration linkable to a meeting?** It isn't a tag write, and it runs in its own statement. But the app registers just before its first write, so the registered row can sit one or two transaction ids from that write's tag rows. The next nightly fold rewrites every row with a `device_days` row, and the phone that registered has one, because it wrote. So that neighbour lasts at most a night, inside the 7-day audit window. A registration whose write then failed leaves no tag row to point at. The tests below pin the after-the-fold half.
+
+- [ ] **Step 1: Failing tests.** Create `apps/web/test/device-days.test.ts`:
+
+```ts
+import { eq, sql } from "drizzle-orm";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+
+import { POST as tagRoute } from "@/app/api/v1/tags/route";
+import { db, pool } from "@/db/client";
+import { deviceDays, devices, tagSubmissions } from "@/db/schema";
+import { seedVocabulary } from "@/db/seed-vocabulary";
+import { saveAttestKey } from "@/server/attest/keys";
+import { blockDevice } from "@/server/devices/block-device";
+import { foldDeviceDays } from "@/server/devices/device-days";
+import { runMaintenance } from "@/server/maintenance";
+
+import { resetDb } from "./db";
+import {
+  DEVICE_A_HASH,
+  DEVICE_B,
+  DEVICE_B_HASH,
+  deviceHeaders,
+  elsewhere,
+  seedMeetingStarted,
+} from "./tag-fixtures";
+
+beforeEach(async () => {
+  await resetDb();
+  await seedVocabulary();
+});
+afterAll(() => pool.end());
+
+const KEY_ID = "zgSY9YSD+7TaDXssY6WlOPVS1K3Lmk+pFhlcSWE+ZV0=";
+const DAY_MS = 86_400_000;
+const utcDay = (offset = 0) => new Date(Date.now() + offset * DAY_MS).toISOString().slice(0, 10);
+
+function tag(meetingId: string, headers = deviceHeaders()) {
+  return tagRoute(
+    new Request("http://test/api/v1/tags", {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ meetingId, tags: ["quiet"] }),
+    }),
+  );
+}
+
+// Every devices row's xmin and xmax (the latter set by a lock or update), as text.
+const stamps = async () =>
+  (
+    await db.execute<{ xmin: string; xmax: string }>(
+      sql`select xmin::text, xmax::text from devices order by device_hash`,
+    )
+  ).rows;
+
+describe("a write and the device's record", () => {
+  it("leaves the device's record untouched: neither its xmin nor its xmax moves", async () => {
+    await db.insert(devices).values({ deviceHash: DEVICE_A_HASH, platform: "ios", lastSeenDate: utcDay(-1) });
+    const before = await stamps();
+    expect((await tag(await seedMeetingStarted(1))).status).toBe(201);
+    expect((await tag(await seedMeetingStarted(1, elsewhere(1)))).status).toBe(201);
+    expect(await stamps()).toEqual(before);
+  });
+
+  it("puts no device record within one transaction id of a fresh tag row (spec §2)", async () => {
+    await db.insert(devices).values([
+      { deviceHash: DEVICE_A_HASH, platform: "ios" },
+      { deviceHash: DEVICE_B_HASH, platform: "android" },
+    ]);
+    const meetingId = await seedMeetingStarted(1);
+    await tag(meetingId);
+    await tag(meetingId, deviceHeaders(DEVICE_B, "android"));
+    await tag(await seedMeetingStarted(1, elsewhere(1)));
+    const { rows } = await db.execute<{ linked: number }>(sql`
+      select count(*)::int as linked from devices d join tag_submissions s
+        on abs(s.xmin::text::bigint - d.xmin::text::bigint) <= 1
+        or (d.xmax::text::bigint <> 0 and abs(s.xmin::text::bigint - d.xmax::text::bigint) <= 1)
+    `);
+    expect(rows).toEqual([{ linked: 0 }]);
+  });
+
+  it("notes the day in device_days only, and makes no record for a new phone until the night", async () => {
+    expect((await tag(await seedMeetingStarted(1))).status).toBe(201);
+    expect(await db.select().from(devices)).toEqual([]);
+    expect(await db.select().from(deviceDays)).toEqual([
+      { deviceHash: DEVICE_A_HASH, day: utcDay(), platform: "ios", attestKeyId: null, attestCounter: null },
+    ]);
+  });
+
+  it("still refuses a blocked device at once", async () => {
+    await db.insert(devices).values({ deviceHash: DEVICE_A_HASH, platform: "ios", blocked: true });
+    const res = await tag(await seedMeetingStarted(1));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: { code: "device_blocked" } });
+    expect(await db.select().from(tagSubmissions)).toEqual([]);
+  });
+
+  it("blocks a phone that wrote since the last night's fold, and refuses its next write", async () => {
+    await tag(await seedMeetingStarted(1));
+    expect(await blockDevice(DEVICE_A_HASH)).toEqual({ excludedTags: 1 });
+    const [row] = await db.select().from(devices).where(eq(devices.deviceHash, DEVICE_A_HASH));
+    expect(row).toMatchObject({
+      platform: "ios",
+      blocked: true,
+      firstSeenDate: utcDay(),
+      lastSeenDate: utcDay(),
+    });
+    expect((await tag(await seedMeetingStarted(1, elsewhere(1)))).status).toBe(403);
+  });
+});
+
+describe("the nightly fold", () => {
+  it("adds new phones, moves last-seen on and keeps the highest counter for the current key, in one transaction", async () => {
+    await db.insert(devices).values({
+      deviceHash: DEVICE_A_HASH,
+      platform: "ios",
+      firstSeenDate: "2026-01-01",
+      lastSeenDate: "2026-01-02",
+      attestKeyId: KEY_ID,
+      attestPublicKey: "MFkw",
+      attestCounter: 3,
+    });
+    await db.insert(deviceDays).values([
+      { deviceHash: DEVICE_A_HASH, day: utcDay(-1), platform: "ios", attestKeyId: KEY_ID, attestCounter: 5 },
+      { deviceHash: DEVICE_A_HASH, day: utcDay(), platform: "ios", attestKeyId: KEY_ID, attestCounter: 9 },
+      { deviceHash: DEVICE_B_HASH, day: utcDay(), platform: "android" },
+    ]);
+    expect(await foldDeviceDays()).toBe(2);
+    const folded = await db.select().from(devices).orderBy(devices.deviceHash);
+    expect(
+      folded.map((row) => [
+        row.deviceHash,
+        row.platform,
+        row.firstSeenDate,
+        row.lastSeenDate,
+        row.attestCounter,
+      ]),
+    ).toEqual([
+      [DEVICE_B_HASH, "android", utcDay(), utcDay(), null],
+      [DEVICE_A_HASH, "ios", "2026-01-01", utcDay(), 9],
+    ]);
+    const { rows } = await db.execute<{ ids: number }>(
+      sql`select count(distinct xmin::text)::int as ids from devices`,
+    );
+    expect(rows).toEqual([{ ids: 1 }]);
+  });
+
+  it("ignores a counter from a key the phone has since replaced", async () => {
+    await saveAttestKey({ platform: "ios", deviceHash: DEVICE_A_HASH }, KEY_ID, "MFkw");
+    await db.insert(deviceDays).values({
+      deviceHash: DEVICE_A_HASH,
+      day: utcDay(),
+      platform: "ios",
+      attestKeyId: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      attestCounter: 40,
+    });
+    await foldDeviceDays();
+    const [row] = await db.select().from(devices);
+    expect(row?.attestCounter).toBe(0);
+  });
+
+  it("moves a just-registered phone's record away from its first write's tag row", async () => {
+    await saveAttestKey({ platform: "ios", deviceHash: DEVICE_A_HASH }, KEY_ID, "MFkw");
+    await tag(await seedMeetingStarted(1));
+    await foldDeviceDays();
+    const { rows } = await db.execute<{ linked: number }>(sql`
+      select count(*)::int as linked from devices d join tag_submissions s
+        on abs(s.xmin::text::bigint - d.xmin::text::bigint) <= 1
+    `);
+    expect(rows).toEqual([{ linked: 0 }]);
+  });
+
+  it("runs first in the nightly maintenance, which then deletes days older than yesterday", async () => {
+    await db.insert(deviceDays).values([
+      { deviceHash: DEVICE_A_HASH, day: utcDay(-2), platform: "ios" },
+      { deviceHash: DEVICE_A_HASH, day: utcDay(-1), platform: "ios" },
+    ]);
+    expect(await runMaintenance()).toMatchObject({ devicesFolded: 1, deviceDaysPurged: 1 });
+    expect((await db.select().from(deviceDays)).map((row) => row.day)).toEqual([utcDay(-1)]);
+    expect((await db.select().from(devices)).map((row) => row.lastSeenDate)).toEqual([utcDay(-1)]);
+  });
+});
+```
+
+In `test/delete-mine-route.test.ts`, add to the first test's expectations `expect((await db.select().from(deviceDays)).map((row) => row.deviceHash)).toEqual([DEVICE_B_HASH]);` (spec §7: delete-mine deletes everything kept for the device), importing `deviceDays`.
+
+Run `pnpm --filter web exec vitest run device-days`. Expected: FAIL; `deviceDays` and `foldDeviceDays` don't exist.
+
+- [ ] **Step 2: The table.** In `src/db/schema/tagging.ts`, after `devices`:
+
+```ts
+// Spec §2 and §6: the day a device wrote, and (Task 6) the highest App Attest counter it signed that day. Written inside
+// the write's own transaction, so a device's record in `devices` is never written by a tag write; the nightly fold
+// (foldDeviceDays) carries these into `devices`. Kept two UTC days, like rate_limits, and inside the 7-day audit window.
+export const deviceDays = pgTable(
+  "device_days",
+  {
+    deviceHash: text("device_hash").notNull(),
+    day: date("day").notNull(),
+    platform: text("platform", { enum: PLATFORMS }).notNull(),
+    attestKeyId: text("attest_key_id"),
+    attestCounter: bigint("attest_counter", { mode: "number" }),
+  },
+  (table) => [
+    primaryKey({ name: "device_days_pkey", columns: [table.deviceHash, table.day] }),
+    check("device_days_platform_check", sql`${table.platform} in (${sqlStringList(PLATFORMS)})`),
+    check("device_days_attest_check", sql`(${table.attestKeyId} is null) = (${table.attestCounter} is null)`),
+  ],
+);
+```
+
+Add `deviceDayDays: 2,` to `RETENTION`, and `"device_days"` to `APP_TABLES` in `test/db.ts`. Then `pnpm --filter web db:generate --name device-days`. Expected: `0018_device-days.sql` creates the table, its key and both checks.
+
+- [ ] **Step 3: The write path, the fold, blocking and deletion.** Create `apps/web/src/server/devices/device-days.ts`:
+
+```ts
+import { sql } from "drizzle-orm";
+
+import { db, type Executor } from "@/db/client";
+import { deviceDays, devices } from "@/db/schema";
+import { utcToday } from "@/db/sql";
+import type { WriteDevice } from "@/server/devices/write-request";
+
+// Spec §2: a write never writes the device's record in `devices`, which would sit one transaction id from the write's
+// tag rows and link the device to that meeting for as long as both stand. It notes the day here instead, inside its own
+// transaction: a device-keyed row gone within two days, inside the window in which tag_audit holds the same link
+// openly. A day already noted is left alone: no new row version, no lock.
+export async function recordDeviceDay(device: WriteDevice, tx: Executor): Promise<void> {
+  await tx
+    .insert(deviceDays)
+    .values({ deviceHash: device.deviceHash, day: utcToday, platform: device.platform })
+    .onConflictDoNothing();
+}
+
+// Nightly, first in the maintenance run: every device with a day noted gets its record. A new device is added (first
+// and last seen from its days), a known one has its last-seen day moved on, and its App Attest counter raised to the
+// highest its current key signed. One statement, so one transaction: every record it touches shares that one xmin, and
+// none is rewritten by a tag write. Returns how many devices it folded.
+export async function foldDeviceDays(): Promise<number> {
+  const folded = await db.execute<{ device_hash: string }>(sql`
+    insert into ${devices} (device_hash, platform, first_seen_date, last_seen_date)
+    select device_hash, min(platform), min(day), max(day) from ${deviceDays} group by device_hash
+    on conflict (device_hash) do update set
+      last_seen_date = greatest(${devices.lastSeenDate}, excluded.last_seen_date),
+      attest_counter = case when ${devices.attestKeyId} is null then null else greatest(
+        ${devices.attestCounter},
+        (select max(d.attest_counter) from ${deviceDays} d
+          where d.device_hash = ${devices.deviceHash} and d.attest_key_id = ${devices.attestKeyId})
+      ) end
+    returning device_hash
+  `);
+  return folded.rows.length;
+}
+```
+
+In `src/server/devices/write-request.ts`, replace `writeAsDevice` and its comment with:
+
+```ts
+// Runs a device's write in one transaction under the device lock: refuses a blocked device, notes today in
+// device_days, then writes. It never writes the device's record in `devices` (spec §2: that row would sit one
+// transaction id from the write's tag rows); reading `blocked` takes no transaction id and stamps nothing. The nightly
+// fold (foldDeviceDays) brings last-seen up to date. The block is read under the lock, so a device blocked in between
+// is still refused.
+export async function writeAsDevice<T>(device: WriteDevice, write: (tx: Executor) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await lockDevice(device.deviceHash, tx);
+    const [row] = await tx
+      .select({ blocked: devices.blocked })
+      .from(devices)
+      .where(eq(devices.deviceHash, device.deviceHash));
+    if (row?.blocked === true) throw new ApiError("device_blocked");
+    await recordDeviceDay(device, tx);
+    return write(tx);
+  });
+}
+```
+
+import `recordDeviceDay` from `@/server/devices/device-days` (that module imports only the `WriteDevice` type back, so the cycle is type-only), and drop the now-unused `lt` and `utcToday` imports.
+
+In `src/server/devices/block-device.ts`, replace the first statement (the `update … returning` and its "No device has that hash" check) with a call to:
+
+```ts
+// The block, committed on its own. A device that has written since the last nightly fold has no record yet, so it's
+// made from its days, already blocked. False when the hash has neither.
+async function markBlocked(deviceHash: string): Promise<boolean> {
+  const updated = await db
+    .update(devices)
+    .set({ blocked: true })
+    .where(eq(devices.deviceHash, deviceHash))
+    .returning({ deviceHash: devices.deviceHash });
+  if (updated.length > 0) return true;
+  const made = await db.execute<{ device_hash: string }>(sql`
+    insert into ${devices} (device_hash, platform, first_seen_date, last_seen_date, blocked)
+    select device_hash, min(platform), min(day), max(day), true from ${deviceDays}
+      where device_hash = ${deviceHash} group by device_hash
+    on conflict (device_hash) do update set blocked = true
+    returning device_hash
+  `);
+  return made.rows.length > 0;
+}
+```
+
+used as `if (!(await markBlocked(deviceHash))) throw new Error("No device has that hash");`, importing `sql` and `deviceDays`. Everything after it stays: the exclusion's transaction and the final rewrite that moves the row's xmin off the exclusion's. Update `blockDevice`'s comment to "The block commits on its own first (making the device's record from its days if the nightly fold hasn't yet)".
+
+In `src/server/tags/delete-mine.ts`, inside the transaction after the `rateLimits` delete, add `await tx.delete(deviceDays).where(eq(deviceDays.deviceHash, device.deviceHash));`, and add "device_days" to the function's comment.
+
+In `src/server/maintenance.ts`:
+
+- add `devicesFolded: z.number().int()` and `deviceDaysPurged: z.number().int()` to `MaintenanceSummary`;
+- make `const devicesFolded = await foldDeviceDays();` the first line of `runMaintenance`, before the purge transaction, so a purged day has always been folded first. If the fold throws, the run stops and nothing is purged.
+- inside the purge transaction, add:
+
+```ts
+// Two days, as rate_limits: today's and yesterday's UTC rows stay, so the next fold still sees yesterday's.
+const days = await tx
+  .delete(deviceDays)
+  .where(lt(deviceDays.day, sql`${utcToday} - ${RETENTION.deviceDayDays - 1}::int`))
+  .returning({ deviceHash: deviceDays.deviceHash });
+```
+
+and return `devicesFolded` and `deviceDaysPurged: days.length` with the other counts. Update the comment: "Folds the days devices wrote into their records first (foldDeviceDays), then enforces each retention limit, then rebuilds every count."
+
+- [ ] **Step 4: Existing tests that read a record right after a write.** No device has a record until the night's fold, so these get the night first. Add `await foldDeviceDays();` (imported from `@/server/devices/device-days`) after their writes:
+  - `test/tags-route.test.ts`: in "refuses a device blocked after it was recorded but before its write took the device lock", after the first `post`. Delete "leaves no transaction id linking the device's record to its tag or audit rows (spec §2)"; `device-days.test.ts` now holds that, more strictly.
+  - `test/tag-edit-routes.test.ts`: before each `await db.update(devices).set({ blocked: true });` (two places).
+  - `test/delete-mine-route.test.ts`:
+    - in the first test, before calling `deleteMine()` (its `devices` expectation stays `[DEVICE_B_HASH]`);
+    - in "keeps only a blocked device's hash and block", before the `db.update(devices)`;
+    - in the xmin test, before blocking.
+  - `test/admin-fixtures.ts`: at the end of `seedSwing`, so every admin test and e2e test starts with the phones' records made.
+  - `test/write-request.test.ts`:
+    - "hashes the device id and records the device by date only" now expects `devices` to be `[]` and `device_days` to hold one row for `DEVICE_A_HASH` today. After `foldDeviceDays()`, it expects the old row: today's dates and null key columns.
+    - Replace "moves last_seen_date forward and keeps first_seen_date" with the same check run through `foldDeviceDays()`.
+    - Replace "leaves the device's record untouched on a later write the same UTC day" with "leaves an existing record's xmin and xmax untouched": insert the row, read `stamps`, write twice, and expect them unchanged.
+    - "never stores the raw device id" also checks `device_days`: `select row_to_json(d)::text from device_days d`.
+  - `test/maintenance.test.ts`: the cron body gains `devicesFolded: 0, deviceDaysPurged: 0`.
+
+  Then run `pnpm --filter web test`. Expected: PASS. Any other test that blocks or reads a device's record right after its own writes gets the same `await foldDeviceDays();` before that line.
+
+- [ ] **Step 5: Spec, policy, standards.**
+  - **`SPEC.md` §2**, after "The server knows meetings, not people." bullet, add:
+
+    "- **No transaction ties a device to a tag.** A tag write never writes the device's record: it reads only whether the device is blocked, and notes the day in a two-day `device_days` row, which a nightly job folds into `devices` (so last-seen lags up to a day). A blocked device's excluded rows are written together when it's blocked, so they're grouped by design; that names only the blocked device."
+
+  - **`SPEC.md` §13:**
+    - Change the `devices` row's contents to "device hash, platform, first/last seen date (folded in nightly), blocked flag, attestation key".
+    - Add after it:
+
+    ```markdown
+    | `device_days` | device hash, UTC day, platform, App Attest key id and highest counter that day | device only | 2 days; folded into devices nightly |
+    ```
+
+  - **`src/content/privacy-inventory.ts`:**
+    - Set the `devices` entry's `specCells.contents` to match.
+    - In its `what`, change "the first and last day the app sent us tags, a suggestion or its app check (dates only)" to "the first and last day the app sent us tags, a suggestion or its app check (dates only, brought up to date each night, so the last day can lag by one)".
+    - Add, after the `devices` entry:
+
+```ts
+  {
+    specRow: "device_days",
+    specCells: {
+      contents: "device hash, UTC day, platform, App Attest key id and highest counter that day",
+      linkedTo: "device only",
+      retention: "2 days; folded into devices nightly",
+    },
+    table: {
+      name: "device_days",
+      columns: ["device_hash", "day", "platform", "attest_key_id", "attest_counter"],
+    },
+    title: "Days your phone wrote to us",
+    what: "For each day (UTC) your phone adds or changes tags or suggests a tag: your phone's hash, whether it's an iPhone or an Android phone and, on iPhone, which App Attest key signed and the highest count it reached that day. Each night these update your phone's record above.",
+    linkedTo: "Your phone only. It doesn't mention any meeting.",
+    kept: `${String(RETENTION.deviceDayDays)} days: today's and yesterday's are kept, and older ones are deleted in the next nightly cleanup. “Delete all my tags” deletes them at once.`,
+  },
+```
+
+    Then run `pnpm --filter web exec vitest run privacy-policy`. Expected: PASS.
+
+- **`docs/standards.md`, "Mobile write requests (device headers)":** replace "which records the device in its own transaction (so the devices row never shares an xmin with the write's rows) and runs the write in a new one under the device lock, refusing a blocked device" with:
+
+  "which never writes the devices row: in one transaction under the device lock it only reads `blocked` (refusing a blocked device), notes today in `device_days` (`recordDeviceDay`) and runs the write. `foldDeviceDays()`, first in the nightly maintenance, carries those days into `devices` (new devices, last-seen, the App Attest counter) in one statement. Code that needs a device's record right after its writes (blocking) makes it from `device_days`."
+
+- [ ] **Step 6: The roadmap, and commit.** In `docs/superpowers/plans/2026-09-26-roadmap.md`'s Phase 6 "Later (not scheduled)" bullet, add: "a pending suggestion one transaction id from a tag write links its device to that meeting for up to 30 days (rewrite pending linked suggestions nightly, or accept it; xmin design note, 2026-10-02)".
+
+  Then `pnpm check`, and:
+
+```bash
+git add apps/web SPEC.md docs/standards.md docs/superpowers/plans/2026-09-26-roadmap.md
+git commit -m "fix(api): the write path stops writing devices; a nightly fold carries device days into it (spec §2)"
+```
+
+---
+
 ### Task 6: Every write's assertion — `X-Attestation` checked over the exact request
 
 Spec §6: "Each write: iOS sends an App Attest assertion over the SHA-256 of the request body plus timestamp; the server checks the signature and that the counter increased."
 
-Today `verifyAttestation` runs before the route reads the body (finding 1). So `readWriteRequest` takes the body's schema and reads the raw text itself, and the check runs over that text, the method, the path and the clock. The new counter is stored in its own statement, before the write's transaction (finding 2).
+Today `verifyAttestation` runs before the route reads the body (finding 1). So `readWriteRequest` takes the body's schema and reads the raw text itself, and the check runs over that text, the method, the path and the clock. The counter is checked again under the device lock and kept on today's `device_days` row, inside the write's transaction; the `devices` row is never written (Task 5A, finding 2).
 
 **Files:**
 
 - Create: `apps/web/test/attested-writes.test.ts`
 - Modify:
-  - `apps/web/src/server/devices/attestation.ts`, `apps/web/src/server/devices/write-request.ts`, `apps/web/src/server/attest/keys.ts`, `apps/web/src/lib/api/request.ts`
+  - `apps/web/src/server/devices/attestation.ts`, `apps/web/src/server/devices/write-request.ts`, `apps/web/src/server/devices/device-days.ts`, `apps/web/src/server/attest/keys.ts`, `apps/web/src/lib/api/request.ts`
+  - `apps/web/src/server/tags/edit.ts` (`deleteTags`), `apps/web/src/server/tags/delete-mine.ts`
   - `apps/web/src/app/api/v1/tags/route.ts`, `apps/web/src/app/api/v1/tags/[meetingId]/route.ts`, `apps/web/src/app/api/v1/tags/delete-mine/route.ts`, `apps/web/src/app/api/v1/suggestions/route.ts`
   - `apps/web/src/content/privacy-inventory.ts`
   - `apps/web/test/attest-fixtures.ts`, `apps/web/test/write-request.test.ts`
@@ -1575,12 +2032,16 @@ Today `verifyAttestation` runs before the route reads the body (finding 1). So `
 
 **Interfaces:**
 
-- Consumes: `verifyAssertion` (Task 4); `appAttestConfig`, `saveAttestKey` (Task 5); `parseAttestation`, `assertionClientData`, `appAttestHeader` (Task 2).
+- Consumes: `verifyAssertion` (Task 4); `appAttestConfig`, `saveAttestKey` (Task 5); `deviceDays`, `recordDeviceDay`, and a `writeAsDevice` that never writes `devices` (Task 5A); `parseAttestation`, `assertionClientData`, `appAttestHeader` (Task 2).
 - Produces:
   - `readWriteRequest<S extends z.ZodType>(req: Request, schema: S): Promise<{ device: WriteDevice; body: z.output<S> }>`;
   - `readDeletionRequest(req: Request): Promise<WriteDevice>` (now async; it reads the empty body for the check);
-  - `verifyAttestation(request: { platform: Platform; deviceHash: string; attestation: string | undefined; method: string; path: string; body: string }): Promise<void>`;
-  - `registeredKey(deviceHash: string, keyId: string): Promise<{ publicKey: string; counter: number } | null>` and `advanceCounter(deviceHash: string, keyId: string, counter: number): Promise<boolean>` from `@/server/attest/keys`;
+  - `verifyAttestation(request: { platform: Platform; deviceHash: string; attestation: string | undefined; method: string; path: string; body: string }): Promise<DeviceProof | undefined>`. `DeviceProof = { keyId: string; counter: number }` comes from `@/server/devices/write-request`; the result is undefined while checks are off;
+  - `WriteDevice` gains `proof?: DeviceProof`;
+  - from `@/server/attest/keys`:
+    - `registeredKey(deviceHash: string, keyId: string): Promise<string | null>` (the public key);
+    - `highestCounter(deviceHash: string, keyId: string, executor: Executor): Promise<number>` (the folded counter on `devices`, or a higher one on a `device_days` row);
+  - `assertFreshCounter(device: WriteDevice, tx: Executor): Promise<void>` from `@/server/devices/device-days`. `recordDeviceDay` now also keeps the proof's key and counter;
   - `parseJsonText<S extends z.ZodType>(text: string, schema: S): z.output<S>` from `@/lib/api/request`;
   - test helpers `stubAppAttest(): void` and `attestedHeaders(key: TestAttestKey, counter: number, request: { method: string; path: string; body: string; timestamp?: number }): Record<string, string>`.
 
@@ -1662,8 +2123,13 @@ const signed = (
   change: { method?: string; path?: string; body?: string; timestamp?: number } = {},
 ) => attestedHeaders(key, counter, { method: "POST", path: TAGS, body, ...change });
 
-const storedCounter = async () =>
-  (await db.select({ counter: devices.attestCounter }).from(devices))[0]?.counter;
+// The highest counter a write kept: on today's device_days row (Task 5A), never on the device's record.
+const storedCounter = async () => {
+  const { rows } = await db.execute<{ highest: string | null }>(
+    sql`select max(attest_counter)::text as highest from device_days`,
+  );
+  return Number(rows[0]?.highest ?? 0);
+};
 const savedTags = async () => (await db.select().from(tagSubmissions)).length;
 
 describe("a write while app checks are required", () => {
@@ -1725,12 +2191,14 @@ describe("a write while app checks are required", () => {
     expect(await storedCounter()).toBe(1);
   });
 
-  it("stores the counter in a statement of its own, never in the tag row's transaction", async () => {
-    await tag(signed(1));
-    const { rows } = await db.execute<{ device: string; tag: string }>(
-      sql`select (select xmin::text from devices) as device, (select xmin::text from tag_submissions) as tag`,
-    );
-    expect(rows[0]?.device).not.toBe(rows[0]?.tag);
+  it("keeps the counter on today's device_days row and never writes the device's record (Task 5A)", async () => {
+    const stamps = async () =>
+      (await db.execute<{ xmin: string; xmax: string }>(sql`select xmin::text, xmax::text from devices`))
+        .rows;
+    const before = await stamps();
+    expect((await tag(signed(1))).status).toBe(201);
+    expect(await stamps()).toEqual(before);
+    expect(await storedCounter()).toBe(1);
   });
 
   it("checks deletions too, over their empty body", async () => {
@@ -1771,37 +2239,28 @@ and rename "refuses every write while attestation is required and no verifier ex
 
 Run `pnpm --filter web exec vitest run attested-writes write-request`. Expected: FAIL; `readWriteRequest` takes no schema yet and nothing verifies an assertion.
 
-- [ ] **Step 3: Keys, body text and the check.** Add to `src/server/attest/keys.ts` (importing `lt` from drizzle-orm):
+- [ ] **Step 3: Keys, body text and the check.** Add to `src/server/attest/keys.ts` (importing `sql` from drizzle-orm, `type Executor` from `@/db/client` and `deviceDays` from `@/db/schema`):
 
 ```ts
-// The phone's registered key, when keyId is it.
-export async function registeredKey(
-  deviceHash: string,
-  keyId: string,
-): Promise<{ publicKey: string; counter: number } | null> {
+// The phone's registered public key, when keyId is it.
+export async function registeredKey(deviceHash: string, keyId: string): Promise<string | null> {
   const [row] = await db
-    .select({ publicKey: devices.attestPublicKey, counter: devices.attestCounter })
+    .select({ publicKey: devices.attestPublicKey })
     .from(devices)
     .where(and(eq(devices.deviceHash, deviceHash), eq(devices.attestKeyId, keyId)));
-  if (row === undefined || row.publicKey === null || row.counter === null) return null;
-  return { publicKey: row.publicKey, counter: row.counter };
+  return row?.publicKey ?? null;
 }
 
-// Stores the new counter only while it's still above the stored one, so of two writes signed with one counter only
-// one gets past. Its own statement, before the write's transaction (spec §2: never a transaction id shared with tags).
-export async function advanceCounter(deviceHash: string, keyId: string, counter: number): Promise<boolean> {
-  const advanced = await db
-    .update(devices)
-    .set({ attestCounter: counter })
-    .where(
-      and(
-        eq(devices.deviceHash, deviceHash),
-        eq(devices.attestKeyId, keyId),
-        lt(devices.attestCounter, counter),
-      ),
-    )
-    .returning({ deviceHash: devices.deviceHash });
-  return advanced.length > 0;
+// The highest counter this key is known to have signed: the folded one on the device's record, or a higher one on a
+// device_days row (Task 5A: a write keeps its counter there, never on devices). 0 for a key with neither.
+export async function highestCounter(deviceHash: string, keyId: string, executor: Executor): Promise<number> {
+  const { rows } = await executor.execute<{ highest: string | null }>(sql`
+    select greatest(
+      (select max(attest_counter) from ${deviceDays} where device_hash = ${deviceHash} and attest_key_id = ${keyId}),
+      (select attest_counter from ${devices} where device_hash = ${deviceHash} and attest_key_id = ${keyId})
+    )::text as highest
+  `);
+  return Number(rows[0]?.highest ?? 0);
 }
 ```
 
@@ -1840,7 +2299,9 @@ import { readEnv } from "@/env";
 import { ApiError } from "@/lib/api/respond";
 import { verifyAssertion } from "@/server/attest/app-attest";
 import { appAttestConfig } from "@/server/attest/config";
-import { advanceCounter, registeredKey } from "@/server/attest/keys";
+import { db } from "@/db/client";
+import { highestCounter, registeredKey } from "@/server/attest/keys";
+import type { DeviceProof } from "@/server/devices/write-request";
 
 // The counter, not the clock, stops replays; the clock only stops an assertion being held for days, and a tighter
 // window would refuse phones whose time is wrong (decision 3).
@@ -1865,13 +2326,16 @@ function attestationRequired(): boolean {
   return true;
 }
 
+// Checks the assertion and returns the key and counter it carries. The counter is checked here against what's known,
+// and again under the device lock in the write's own transaction (assertFreshCounter), where it is kept on today's
+// device_days row: of two writes signed with one counter, only the first through the lock gets past.
 async function verifyAppAttest(
   request: AttestedRequest,
   proof: Extract<AttestationProof, { kind: "appAttest" }>,
-): Promise<void> {
+): Promise<DeviceProof> {
   const config = appAttestConfig();
-  const key = await registeredKey(request.deviceHash, proof.keyId);
-  if (config === null || key === null || Math.abs(Date.now() - proof.timestamp) > CLOCK_WINDOW_MS) {
+  const publicKey = await registeredKey(request.deviceHash, proof.keyId);
+  if (config === null || publicKey === null || Math.abs(Date.now() - proof.timestamp) > CLOCK_WINDOW_MS) {
     throw new ApiError("attestation_failed");
   }
   const counter = verifyAssertion({
@@ -1882,21 +2346,20 @@ async function verifyAppAttest(
       timestamp: proof.timestamp,
       body: request.body,
     }),
-    publicKey: key.publicKey,
+    publicKey,
     appId: config.appId,
-    storedCounter: key.counter,
+    storedCounter: await highestCounter(request.deviceHash, proof.keyId, db),
   });
-  if (!(await advanceCounter(request.deviceHash, proof.keyId, counter)))
-    throw new ApiError("attestation_failed");
+  return { keyId: proof.keyId, counter };
 }
 
 // Spec §6: an iPhone's write carries an App Attest assertion over this exact request. Play Integrity arrives in Phase
-// 6b, so until then a required check refuses Android. Off, the header is ignored entirely.
-export async function verifyAttestation(request: AttestedRequest): Promise<void> {
-  if (!attestationRequired()) return;
+// 6b, so until then a required check refuses Android. Off, the header is ignored entirely and there's no proof.
+export async function verifyAttestation(request: AttestedRequest): Promise<DeviceProof | undefined> {
+  if (!attestationRequired()) return undefined;
   const proof = request.attestation === undefined ? null : parseAttestation(request.attestation);
   if (request.platform !== "ios" || proof?.kind !== "appAttest") throw new ApiError("attestation_failed");
-  await verifyAppAttest(request, proof);
+  return verifyAppAttest(request, proof);
 }
 ```
 
@@ -1911,14 +2374,14 @@ function hashed(headers: WriteHeaders): WriteDevice {
 // checked over the request's exact method, path and body text.
 async function verifiedDevice(req: Request, headers: WriteHeaders, body: string): Promise<WriteDevice> {
   const device = hashed(headers);
-  await verifyAttestation({
+  const proof = await verifyAttestation({
     ...device,
     attestation: headers.attestation,
     method: req.method,
     path: new URL(req.url).pathname,
     body,
   });
-  return device;
+  return proof === undefined ? device : { ...device, proof };
 }
 
 // Spec §7: every write carries X-Device-Id, X-Platform, X-App-Version and (when required) X-Attestation, and an app
@@ -1944,6 +2407,55 @@ export async function readDeletionRequest(req: Request): Promise<WriteDevice> {
   return verifiedDevice(req, readDeviceHeaders(req), await req.text());
 }
 ```
+
+In `src/server/devices/write-request.ts`, also give `WriteDevice` its proof:
+
+```ts
+// The App Attest key and counter a write's assertion carried, once verified (Task 6); absent while checks are off.
+export interface DeviceProof {
+  keyId: string;
+  counter: number;
+}
+
+export interface WriteDevice {
+  platform: Platform;
+  deviceHash: string;
+  proof?: DeviceProof;
+}
+```
+
+In `src/server/devices/device-days.ts` (Task 5A), check the counter again under the device lock and keep it on today's row. Import `ApiError` from `@/lib/api/respond` and `highestCounter` from `@/server/attest/keys`, then replace `recordDeviceDay` with:
+
+```ts
+// Spec §6: an assertion's counter must exceed every one its key signed before. Called under the device lock, inside the
+// write's transaction, so of two writes signed with one counter only the first through the lock gets past. Without a
+// proof (checks off, or a DeviceCheck token) there's nothing to check.
+export async function assertFreshCounter(device: WriteDevice, tx: Executor): Promise<void> {
+  if (device.proof === undefined) return;
+  const highest = await highestCounter(device.deviceHash, device.proof.keyId, tx);
+  if (device.proof.counter <= highest) throw new ApiError("attestation_failed");
+}
+
+// As before (Task 5A), plus the proof: today's row keeps the key and the highest counter it signed, which the nightly
+// fold carries into the device's record. Never the devices row itself (spec §2). A write the server then refuses rolls
+// this back with it, so a replay of a write that failed isn't caught; it fails again on its own, inside the 24-hour
+// clock window.
+export async function recordDeviceDay(device: WriteDevice, tx: Executor): Promise<void> {
+  await assertFreshCounter(device, tx);
+  const row = { deviceHash: device.deviceHash, day: utcToday, platform: device.platform };
+  if (device.proof === undefined) {
+    await tx.insert(deviceDays).values(row).onConflictDoNothing();
+    return;
+  }
+  const key = { attestKeyId: device.proof.keyId, attestCounter: device.proof.counter };
+  await tx
+    .insert(deviceDays)
+    .values({ ...row, ...key })
+    .onConflictDoUpdate({ target: [deviceDays.deviceHash, deviceDays.day], set: key });
+}
+```
+
+Deletions take the device lock themselves (`lockDevice`) and note no day. They check the counter but don't keep it, since replaying a deletion deletes nothing more. In `src/server/tags/edit.ts`'s `deleteTags` and in `src/server/tags/delete-mine.ts`, add `await assertFreshCounter(device, tx);` right after `await lockDevice(device.deviceHash, tx);`.
 
 - [ ] **Step 4: The routes.** Each write route now gets its body from `readWriteRequest`:
 
@@ -1997,14 +2509,14 @@ In `src/content/privacy-inventory.ts`, the Apple entry's `role`: replace "and, o
 - [ ] **Step 5: Run every write's tests.**
 
 ```bash
-pnpm --filter web exec vitest run attested-writes write-request request tags-route tag-edit-routes delete-mine-route suggestions-route maintenance privacy-policy
+pnpm --filter web exec vitest run attested-writes write-request request tags-route tag-edit-routes delete-mine-route suggestions-route maintenance privacy-policy device-days
 ```
 
 Expected: PASS, with the existing route suites unchanged (they run with checks off).
 
 - [ ] **Step 6: Standards and commit.** In `docs/standards.md`:
   - "Request input": add "A write's body is read by `readWriteRequest(req, schema)`, which needs the raw text for the attestation (`parseJsonText`); routes never read a write's body themselves."
-  - "Mobile write requests (device headers)": replace "`readWriteRequest(req)` then `writeAsDevice(device, …)`" with "`const { device, body } = await readWriteRequest(req, schema)` then `writeAsDevice(device, …)`", and "`readDeletionRequest(req)`" with "`await readDeletionRequest(req)`". Add: "Both check `X-Attestation` over the exact method, path and body (`verifyAttestation`); the counter is stored in its own statement first, never inside the write's transaction."
+  - "Mobile write requests (device headers)": replace "`readWriteRequest(req)` then `writeAsDevice(device, …)`" with "`const { device, body } = await readWriteRequest(req, schema)` then `writeAsDevice(device, …)`", and "`readDeletionRequest(req)`" with "`await readDeletionRequest(req)`". Add: "Both check `X-Attestation` over the exact method, path and body (`verifyAttestation`). The counter is checked again under the device lock (`assertFreshCounter`). A write keeps it on today's `device_days` row (Task 5A), never on `devices`."
 
   Then `pnpm check`, and:
 
@@ -2253,6 +2765,8 @@ if (proof.kind === "appAttest") return verifyAppAttest(request, proof);
 if ((await hasAttestKey(request.deviceHash)) || !(await validDeviceCheckToken(proof.token))) {
   throw new ApiError("attestation_failed");
 }
+// A DeviceCheck token carries no counter, so the write keeps nothing but its day (Task 5A).
+return undefined;
 ```
 
 and update its comment: "An iPhone's write carries an App Attest assertion over this exact request, or, on an iPhone without App Attest, a DeviceCheck token."
@@ -4743,6 +5257,7 @@ git commit -m "fix(mobile): a confirmed retry of a removal says so, and VoiceOve
 ## Done when
 
 - `pnpm check`, `pnpm knip:production` and `pnpm --filter web test:e2e` pass, and CI is green (Task 14 Step 1).
+- No write writes a device's record: days and counters reach `devices` only through the nightly fold, and no device record sits a transaction id from a tag row (Task 5A).
 - Staging and production verify App Attest assertions and registrations. Production also checks DeviceCheck tokens. `REQUIRE_ATTESTATION=on` in both (Tasks 14–15).
 - On a real iPhone (TestFlight, staging), registration, every write, "Delete all my tags" and re-registration work with checks on. The iPhone audit passes with `X-Attestation` on every write (Task 14).
 - The privacy manifest matches spec §11 and every library's required-reason APIs. App Privacy, age rating (13+), content rights and availability are entered from `docs/app-store.md` (Tasks 10, 15).
@@ -4766,36 +5281,37 @@ Run against SPEC.md and the brief on 2026-10-02.
 
 **1. Spec and brief coverage.**
 
-| Requirement                                                                                                                                           | Task                                                                                     |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `attest_challenges` + nightly purge                                                                                                                   | 3                                                                                        |
-| `POST /attest/challenge`, `/attest/register`                                                                                                          | 5                                                                                        |
-| Attestation verification: CBOR, Apple root chain, nonce, appId = teamId.bundleId, counter, AAGUID                                                     | 4 (verifier), 5 (route)                                                                  |
-| Assertions on writes via `X-Attestation`                                                                                                              | 6                                                                                        |
-| DeviceCheck fallback, ES256 `.p8` JWT, secret never printed or committed                                                                              | 7, 1 Step 5, 15 Step 2                                                                   |
-| `REQUIRE_ATTESTATION` flip; staging vs production                                                                                                     | 14 Step 8, 15 Step 3, deploy table in 14 Step 9                                          |
-| Rate limits and error envelopes                                                                                                                       | 5 (`attestation` bucket, `rate_limited`), 6/7 (`attestation_failed` 401, `server_error`) |
-| App Attest client: key once per install in the Keychain, attestation on first write, assertion on each write                                          | 8                                                                                        |
-| Expo module research; local module                                                                                                                    | Finding 3, decision 1, Task 8                                                            |
-| Simulator and unsupported cases                                                                                                                       | 8 (tests: simulator, DeviceCheck, Android, Apple unavailable)                            |
-| Network audit: `X-Attestation` required and shape-checked                                                                                             | 9                                                                                        |
-| Privacy manifest incl. required-reason APIs of deps                                                                                                   | 10                                                                                       |
-| App Privacy label from §13, with a test and a mapping                                                                                                 | 10 (test + `docs/app-store.md` table)                                                    |
-| Age rating; export compliance                                                                                                                         | 10                                                                                       |
-| Listing: name, subtitle ("Recovery meetings near you"), description, keywords, screenshots, support/privacy URLs, category                            | 11 (copy, test), 15 Step 4 (screenshots)                                                 |
-| Feed errors: bot check vs restriction vs not JSON on /metrics and in discovery; one shared classifier; never past a bot check; recorded fixtures only | 12                                                                                       |
-| "Search farther": 97 km (60 miles) once, same rounded point, that search only; empty again falls back to online; offline; map zooms to fit            | 13                                                                                       |
-| Owner decision 1: conversion follow-ups (agreements, seller, EAS credentials, ASC key `ZG2Z6A5JY3`, rename); not blocking release                     | 1 Step 2, 1 Step 4, 14 Step 5, 16 Step 1, Owner decision needed 1                        |
-| Owner decision 2: Phase 6b section                                                                                                                    | 1 Step 8                                                                                 |
-| Owner decision 3: App Review submission, production profile build, release checklist, review notes                                                    | 10 (notes, checklist), 15, 16                                                            |
-| `ascAppId` and team test-pinned                                                                                                                       | 11                                                                                       |
-| Spec §4 politeness: bot checks                                                                                                                        | 12 (plus `SPEC.md` §4 and the standards)                                                 |
-| Spec §7 delete-mine deletes attestation data                                                                                                          | 3                                                                                        |
-| Spec §8 search radius                                                                                                                                 | 13 (plus `SPEC.md` §8)                                                                   |
-| Spec §9 Smart App Banner once live                                                                                                                    | 16                                                                                       |
-| Spec §13 every table in the inventory                                                                                                                 | 3                                                                                        |
-| Spec §16 legal review, "AA" in metadata (keywords)                                                                                                    | 1 Step 3, Owner decision needed 4                                                        |
-| Optional 5b minors                                                                                                                                    | 17                                                                                       |
+| Requirement                                                                                                                                                                                                                  | Task                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `attest_challenges` + nightly purge                                                                                                                                                                                          | 3                                                                                        |
+| `POST /attest/challenge`, `/attest/register`                                                                                                                                                                                 | 5                                                                                        |
+| Attestation verification: CBOR, Apple root chain, nonce, appId = teamId.bundleId, counter, AAGUID                                                                                                                            | 4 (verifier), 5 (route)                                                                  |
+| Assertions on writes via `X-Attestation`                                                                                                                                                                                     | 6                                                                                        |
+| Spec §2: no devices row a transaction id from a tag row (xmin review, Option A): the write path reads only `blocked`, `device_days` (2 days), the nightly fold, blocking an unfolded device, the §2 sentence on blocked rows | 5A (and Task 6's counter on `device_days`)                                               |
+| DeviceCheck fallback, ES256 `.p8` JWT, secret never printed or committed                                                                                                                                                     | 7, 1 Step 5, 15 Step 2                                                                   |
+| `REQUIRE_ATTESTATION` flip; staging vs production                                                                                                                                                                            | 14 Step 8, 15 Step 3, deploy table in 14 Step 9                                          |
+| Rate limits and error envelopes                                                                                                                                                                                              | 5 (`attestation` bucket, `rate_limited`), 6/7 (`attestation_failed` 401, `server_error`) |
+| App Attest client: key once per install in the Keychain, attestation on first write, assertion on each write                                                                                                                 | 8                                                                                        |
+| Expo module research; local module                                                                                                                                                                                           | Finding 3, decision 1, Task 8                                                            |
+| Simulator and unsupported cases                                                                                                                                                                                              | 8 (tests: simulator, DeviceCheck, Android, Apple unavailable)                            |
+| Network audit: `X-Attestation` required and shape-checked                                                                                                                                                                    | 9                                                                                        |
+| Privacy manifest incl. required-reason APIs of deps                                                                                                                                                                          | 10                                                                                       |
+| App Privacy label from §13, with a test and a mapping                                                                                                                                                                        | 10 (test + `docs/app-store.md` table)                                                    |
+| Age rating; export compliance                                                                                                                                                                                                | 10                                                                                       |
+| Listing: name, subtitle ("Recovery meetings near you"), description, keywords, screenshots, support/privacy URLs, category                                                                                                   | 11 (copy, test), 15 Step 4 (screenshots)                                                 |
+| Feed errors: bot check vs restriction vs not JSON on /metrics and in discovery; one shared classifier; never past a bot check; recorded fixtures only                                                                        | 12                                                                                       |
+| "Search farther": 97 km (60 miles) once, same rounded point, that search only; empty again falls back to online; offline; map zooms to fit                                                                                   | 13                                                                                       |
+| Owner decision 1: conversion follow-ups (agreements, seller, EAS credentials, ASC key `ZG2Z6A5JY3`, rename); not blocking release                                                                                            | 1 Step 2, 1 Step 4, 14 Step 5, 16 Step 1, Owner decision needed 1                        |
+| Owner decision 2: Phase 6b section                                                                                                                                                                                           | 1 Step 8                                                                                 |
+| Owner decision 3: App Review submission, production profile build, release checklist, review notes                                                                                                                           | 10 (notes, checklist), 15, 16                                                            |
+| `ascAppId` and team test-pinned                                                                                                                                                                                              | 11                                                                                       |
+| Spec §4 politeness: bot checks                                                                                                                                                                                               | 12 (plus `SPEC.md` §4 and the standards)                                                 |
+| Spec §7 delete-mine deletes attestation data                                                                                                                                                                                 | 3                                                                                        |
+| Spec §8 search radius                                                                                                                                                                                                        | 13 (plus `SPEC.md` §8)                                                                   |
+| Spec §9 Smart App Banner once live                                                                                                                                                                                           | 16                                                                                       |
+| Spec §13 every table in the inventory                                                                                                                                                                                        | 3                                                                                        |
+| Spec §16 legal review, "AA" in metadata (keywords)                                                                                                                                                                           | 1 Step 3, Owner decision needed 4                                                        |
+| Optional 5b minors                                                                                                                                                                                                           | 17                                                                                       |
 
 Gaps found and fixed while writing:
 
@@ -4816,7 +5332,8 @@ Deliberately not covered: spec §6's DeviceCheck bits (decision 8, roadmap).
 
 - `verifyAttestationObject` / `verifyAssertion` / `sha256` (4 → 5, 6);
 - `appAttestConfig` (5 → 6, 7);
-- `saveAttestKey` / `registeredKey` / `advanceCounter` / `hasAttestKey` (5, 6, 7);
+- `saveAttestKey` / `registeredKey` / `highestCounter` / `hasAttestKey` (5, 6, 7);
+- `deviceDays`, `recordDeviceDay`, `foldDeviceDays` (5A) and `assertFreshCounter`, `DeviceProof`, `WriteDevice.proof` (6);
 - `spendChallenge` (named so the React hooks lint rule never mistakes it for a hook);
 - `readWriteRequest(req, schema)` returning `{ device, body }`, and `readDeletionRequest` now async (6);
 - `parseAttestation` / `appAttestHeader` / `deviceCheckHeader` / `assertionClientData` (2 → 6, 7, 8, 9);
@@ -4826,17 +5343,18 @@ Deliberately not covered: spec §6's DeviceCheck bits (decision 8, roadmap).
 - `WIDER_SEARCH_RADIUS_KM` and `onFarther` (13);
 - `BRAND.appStoreId` (16).
 
-**4. Review Focus.** Each of the seven lines has a pinning test in the task named beside it:
+**4. Review Focus.** Each of the eight lines has a pinning test in the task named beside it:
 
-| Line | Tests                                                                                                                                                                                                        |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1    | Task 8 "sends one write at a time"; Task 6 "refuses an assertion whose counter isn't above the last one", "lets a retried write through", "lets only one of two writes signed with the same counter through" |
-| 2    | Task 8 "registers a new key when the saved one no longer works"; Task 5 "a new registration replaces the phone's old key"                                                                                    |
-| 3    | Task 3 delete-mine on a blocked phone; Task 8 "registers again after Delete all my tags"                                                                                                                     |
-| 4    | Task 6 "accepts a phone clock 23 hours off and refuses one 25 hours off"                                                                                                                                     |
-| 5    | Task 8 "sends the write without a proof when Apple can't attest right now"; Task 7 "answers server_error and logs only the status"                                                                           |
-| 6    | Task 12 "asks a bot-checked feed once, as itself, and never again in that run"; "records a site behind a … bot check and stops probing it"                                                                   |
-| 7    | Task 13 "offline, shows the last search in its place…"; "falls back to the online meetings when 60 miles finds nothing either"                                                                               |
+| Line | Tests                                                                                                                                                                                                                                                           |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Task 8 "sends one write at a time"; Task 6 "refuses an assertion whose counter isn't above the last one", "lets a retried write through", "lets only one of two writes signed with the same counter through"                                                    |
+| 2    | Task 8 "registers a new key when the saved one no longer works"; Task 5 "a new registration replaces the phone's old key"                                                                                                                                       |
+| 3    | Task 3 delete-mine on a blocked phone; Task 8 "registers again after Delete all my tags"                                                                                                                                                                        |
+| 4    | Task 6 "accepts a phone clock 23 hours off and refuses one 25 hours off"                                                                                                                                                                                        |
+| 5    | Task 8 "sends the write without a proof when Apple can't attest right now"; Task 7 "answers server_error and logs only the status"                                                                                                                              |
+| 6    | Task 12 "asks a bot-checked feed once, as itself, and never again in that run"; "records a site behind a … bot check and stops probing it"                                                                                                                      |
+| 7    | Task 13 "offline, shows the last search in its place…"; "falls back to the online meetings when 60 miles finds nothing either"                                                                                                                                  |
+| 8    | Task 5A "leaves the device's record untouched: neither its xmin nor its xmax moves", "puts no device record within one transaction id of a fresh tag row (spec §2)"; Task 6 "keeps the counter on today's device_days row and never writes the device's record" |
 
 ## References
 

@@ -1,3 +1,4 @@
+import { feedProblem, feedProblemMessage } from "@mymeetingapp/feed-kit";
 import { parse } from "node-html-parser";
 
 import type { Crawler, CrawlResult } from "./crawler";
@@ -11,6 +12,7 @@ export type Detection =
       notes: string;
     }
   | { feedType: "restricted"; feedUrl: string | null; notes: string }
+  | { feedType: "bot_blocked"; feedUrl: null; notes: string }
   | { feedType: "none_found"; notes: string };
 
 const TSML_RESTRICTED_NOTE = "TSML feed restricted; contact the intergroup";
@@ -40,6 +42,16 @@ function jsonCode(result: CrawlResult): string | null {
   } catch {
     return null;
   }
+}
+
+// Spec §4: a bot check in front of the site is recorded and the site left alone. Probing on would only knock on the
+// same wall, and nothing here ever tries to get past one.
+function botCheck(result: CrawlResult): Detection | null {
+  if (result.kind !== "response") return null;
+  const problem = feedProblem({ status: result.status, contentType: result.contentType, body: result.body });
+  return problem?.kind === "bot_check"
+    ? { feedType: "bot_blocked", feedUrl: null, notes: feedProblemMessage(problem) }
+    : null;
 }
 
 // Checks a raw href, data-src value or feed URL for a sharing key. detectFeed checks before any URL
@@ -85,6 +97,8 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
   // Step 1: TSML REST feed.
   const restUrl = new URL("wp-json/tsml/meetings", base).toString();
   const restResult = await probe(restUrl);
+  const blockedAtRest = botCheck(restResult);
+  if (blockedAtRest !== null) return blockedAtRest;
   const restArray = jsonArray(restResult);
   if (restArray !== null) return { feedType: "tsml", feedUrl: restUrl, body: restArray, notes: "" };
   if (
@@ -98,6 +112,8 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
   // Step 2: legacy TSML AJAX feed.
   const ajaxUrl = new URL("wp-admin/admin-ajax.php?action=meetings", base).toString();
   const ajaxResult = await probe(ajaxUrl);
+  const blockedAtAjax = botCheck(ajaxResult);
+  if (blockedAtAjax !== null) return blockedAtAjax;
   const ajaxArray = jsonArray(ajaxResult);
   if (ajaxArray !== null) return { feedType: "tsml", feedUrl: ajaxUrl, body: ajaxArray, notes: "" };
   if (ajaxResult.kind === "response" && ajaxResult.status === 401) {
@@ -106,6 +122,8 @@ export async function detectFeed(website: string, crawler: Crawler): Promise<Det
 
   // Steps 3-6 all read the homepage, so fetch it once.
   const homeResult = await probe(base);
+  const blockedAtHome = botCheck(homeResult);
+  if (blockedAtHome !== null) return blockedAtHome;
   if (homeResult.kind === "response") {
     const root = parse(homeResult.body);
     const homeUrl = homeResult.url;

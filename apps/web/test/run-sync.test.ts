@@ -79,9 +79,13 @@ describe("runSync", () => {
   });
 
   it("records a restricted feed and doesn't retry it on the next run", async () => {
-    const restricted = await feedServing("restricted", () => ({ status: 403 }));
+    const restricted = await feedServing("restricted", () => ({
+      status: 403,
+      body: '{"code":"feed_restricted","message":"This meeting list is restricted.","data":{"status":403}}',
+      headers: { "Content-Type": "application/json" },
+    }));
     await runSync(60_000);
-    expect((await feed(restricted.id))?.lastError).toBe("restricted (HTTP 403)");
+    expect((await feed(restricted.id))?.lastError).toBe("restricted by the site (HTTP 403)");
     expect(await runSync(60_000)).toMatchObject({ synced: 0, failed: 0 });
     expect(restricted.server.requests).toHaveLength(1);
   });

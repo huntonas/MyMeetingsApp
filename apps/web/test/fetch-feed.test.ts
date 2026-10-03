@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { createHostThrottle } from "@mymeetingapp/feed-kit";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { fetchFeed } from "@/server/feeds/fetch-feed";
 
 import { startServer } from "@mymeetingapp/test-server";
+
+const fixture = (name: string) =>
+  readFileSync(path.resolve(import.meta.dirname, "../../../packages/feed-kit/test/fixtures", name), "utf8");
 
 const noCache = { etag: null, lastModified: null };
 const servers: { close(): Promise<void> }[] = [];
@@ -54,24 +60,60 @@ describe("fetchFeed", () => {
     });
   });
 
-  it.each([
-    [403, "restricted (HTTP 403)"],
-    [401, "restricted (HTTP 401)"],
-    [500, "HTTP 500"],
-  ])("reports HTTP %i as %j", async (status, message) => {
-    const server = await serve(() => ({ status, body: "{}" }));
+  it.each<[string, { status: number; body: string; headers?: Record<string, string> }, string]>([
+    [
+      "TSML's restriction",
+      {
+        status: 403,
+        body: fixture("tsml-restricted.json"),
+        headers: { "Content-Type": "application/json; charset=UTF-8" },
+      },
+      "restricted by the site (HTTP 403)",
+    ],
+    [
+      "a Cloudflare challenge",
+      {
+        status: 403,
+        body: fixture("cloudflare-challenge.html"),
+        headers: { "Content-Type": "text/html; charset=UTF-8" },
+      },
+      "blocked by a bot check (Cloudflare)",
+    ],
+    [
+      "an Incapsula challenge served as a 200",
+      { status: 200, body: fixture("incapsula-challenge.html"), headers: { "Content-Type": "text/html" } },
+      "blocked by a bot check (Incapsula)",
+    ],
+    [
+      "an ordinary page",
+      {
+        status: 200,
+        body: fixture("plain-page.html"),
+        headers: { "Content-Type": "text/html; charset=UTF-8" },
+      },
+      "not valid JSON (text/html)",
+    ],
+    ["a server error", { status: 500, body: "{}" }, "HTTP 500"],
+  ])("reports %s as its own error", async (_what, reply, message) => {
+    const server = await serve(() => reply);
     expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
       kind: "error",
       message,
     });
   });
 
-  it("reports a body that isn't JSON", async () => {
-    const server = await serve(() => ({ status: 200, body: "<html>" }));
-    expect(await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle())).toEqual({
-      kind: "error",
-      message: "not valid JSON",
-    });
+  // Spec §4: never past a bot check. One request, with our own User-Agent, and no second try.
+  it("asks a bot-checked feed once, as itself, and never again in that run", async () => {
+    const server = await serve(() => ({
+      status: 403,
+      body: fixture("cloudflare-challenge.html"),
+      headers: { "Content-Type": "text/html" },
+    }));
+    await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle());
+    expect(server.requests).toHaveLength(1);
+    expect(server.requests[0]?.headers["user-agent"]).toBe(
+      "mymeetingapp/1.0 (+https://mymeetingapp.com; admin@goodersoftwarellc.com)",
+    );
   });
 
   it("maps a declared Content-Length over 50 MB to a 'too large' error", async () => {

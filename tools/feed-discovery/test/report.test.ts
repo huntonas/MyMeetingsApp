@@ -309,6 +309,10 @@ Checked 2026-09-27. 3 entities, 1 verified feed, 612 meetings.
 | ----- | ------------------- | ---- | -------- | ------ | ------ | ---------------------- |
 | TN    | https://example.org | tsml | 612      | TN     | 2      | Some County Intergroup |
 
+## Blocked by a bot check: ask the site to allow mymeetingapp's User-Agent
+
+None.
+
 ## Restricted feeds (contact the intergroup)
 
 - Other Intergroup (TN) — https://other.example.org
@@ -362,6 +366,35 @@ None.`);
     });
     expect(markdown.split("## Changes since the last run\n\n")[1]).toBe(
       "- Stopped responding: stopped\n- Removed from the directory: removed",
+    );
+  });
+
+  it("lists bot-blocked sites under their own heading, apart from restricted feeds", () => {
+    const markdown = renderCoverage(
+      [
+        registryEntry({
+          id: "houston",
+          name: "Houston Intergroup",
+          state: "TX",
+          website: "https://houston.example.org",
+          feed_type: "bot_blocked",
+        }),
+        registryEntry({
+          id: "western-co",
+          name: "Western Colorado",
+          state: "TX",
+          website: "https://western-co.example.org",
+          feed_type: "restricted",
+        }),
+      ],
+      [],
+      { stoppedResponding: [], removedFromDirectory: [], newEntities: [], countDrops: [] },
+    );
+    expect(markdown).toContain(
+      "## Blocked by a bot check: ask the site to allow mymeetingapp's User-Agent\n\n- Houston Intergroup (TX) — https://houston.example.org",
+    );
+    expect(markdown).toContain(
+      "## Restricted feeds (contact the intergroup)\n\n- Western Colorado (TX) — https://western-co.example.org",
     );
   });
 });

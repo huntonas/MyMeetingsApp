@@ -8,6 +8,7 @@ const FEED_TYPES = [
   "bmlt",
   "none_found",
   "restricted",
+  "bot_blocked",
 ] as const;
 const REGISTRY_ENTITY_TYPES = ["area", "district", "intergroup", "central_office"] as const;
 

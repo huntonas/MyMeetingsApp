@@ -94,6 +94,8 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Restricted feeds:** some intergroups deliberately restrict their feeds (an explicit restricted response, a key requirement, or an auth requirement). Record these as `restricted`, never attempt to bypass them, and list them in the report as "contact the intergroup."
 
+**Bot checks:** a site that answers with a bot-check page (Cloudflare's or Incapsula's challenge) is recorded as `bot_blocked` and listed separately in the report as "ask the site to allow mymeetingapp's User-Agent." Never try to get past one: no browser or curl User-Agent, no TLS imitation, no retries meant to slip through.
+
 **Politeness:** respect robots.txt, at most one request per second per host, a descriptive User-Agent with the contact email admin@goodersoftwarellc.com, and a timeout per request. Never hammer a site with retries.
 
 **Output:**
@@ -106,7 +108,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
   entity_type: intergroup # area | district | intergroup | central_office
   state: TN
   website: "https://example.org"
-  feed_type: tsml # tsml | meeting_guide_json | google_sheet | bmlt | none_found | restricted
+  feed_type: tsml # tsml | meeting_guide_json | google_sheet | bmlt | none_found | restricted | bot_blocked
   feed_url: "https://example.org/wp-admin/admin-ajax.php?action=meetings"
   verified: true
   meeting_count: 612

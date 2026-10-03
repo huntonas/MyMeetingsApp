@@ -1,4 +1,11 @@
-import { FEED_TIMEOUT_MS, politeFetch, readBodyCapped, type HostThrottle } from "@mymeetingapp/feed-kit";
+import {
+  FEED_TIMEOUT_MS,
+  feedProblem,
+  feedProblemMessage,
+  politeFetch,
+  readBodyCapped,
+  type HostThrottle,
+} from "@mymeetingapp/feed-kit";
 
 export type FeedFetchResult =
   | { kind: "ok"; body: unknown; etag: string | null; lastModified: string | null }
@@ -17,21 +24,20 @@ export async function fetchFeed(
   const response = await politeFetch(new URL(url), throttle, { headers, timeoutMs: FEED_TIMEOUT_MS });
   if (!(response instanceof Response)) return response;
   if (response.status === 304) return { kind: "not_modified" };
-  if (response.status === 401 || response.status === 403) {
-    return { kind: "error", message: `restricted (HTTP ${String(response.status)})` };
-  }
-  if (!response.ok) return { kind: "error", message: `HTTP ${String(response.status)}` };
 
+  // The body is read (capped) even on a refusal: only it tells a site's own restriction from a bot check.
   const text = await readBodyCapped(response);
   if (text === null) return { kind: "error", message: "too large" };
-  try {
-    return {
-      kind: "ok",
-      body: JSON.parse(text),
-      etag: response.headers.get("etag"),
-      lastModified: response.headers.get("last-modified"),
-    };
-  } catch {
-    return { kind: "error", message: "not valid JSON" };
-  }
+  const problem = feedProblem({
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+    body: text,
+  });
+  if (problem !== null) return { kind: "error", message: feedProblemMessage(problem) };
+  return {
+    kind: "ok",
+    body: JSON.parse(text),
+    etag: response.headers.get("etag"),
+    lastModified: response.headers.get("last-modified"),
+  };
 }

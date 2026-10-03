@@ -603,7 +603,6 @@ function Nearby() {
         }}
         // A search like any other, so the results (and the map) remount around it, and a new search forgets it.
         onFarther={() => {
-          begin();
           search({ ...origin, radiusKm: WIDER_SEARCH_RADIUS_KM });
         }}
         backTo={backTo}

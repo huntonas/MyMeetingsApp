@@ -1,6 +1,8 @@
 import { createPrivateKey, randomUUID, sign } from "node:crypto";
 
-import type { Executor } from "@/db/client";
+import { eq } from "drizzle-orm";
+
+import { db, type Executor } from "@/db/client";
 import { deviceCheckTokens } from "@/db/schema";
 import { readEnv } from "@/env";
 import { ApiError } from "@/lib/api/respond";
@@ -22,6 +24,8 @@ const BAD_REQUEST_REASONS = [
 ] as const;
 
 const base64url = (value: string | Buffer) => Buffer.from(value).toString("base64url");
+// How a token is kept once spent: its SHA-256, never the token.
+const tokenHash = (token: string) => sha256(Buffer.from(token)).toString("hex");
 
 // Apple's provider token, as for APNs: ES256 over {alg, kid} and {iss: team id, iat}, signed with the DeviceCheck key.
 function providerToken(privateKey: string, keyId: string, teamId: string): string {
@@ -42,9 +46,10 @@ function badRequestReason(text: string): string {
 }
 
 // Spec §6: an iPhone without App Attest proves it's a real Apple device running this team's app with a DeviceCheck
-// token, which only Apple can check (and which spendDeviceCheckToken makes work once). False when Apple says the
-// device token is bad, or no key is configured (a misconfiguration, warned; appAttestConfig warns about the App ID
-// itself). Anything else from Apple is our side's fault or Apple's, never the phone's, so it throws and the request is
+// token, which only Apple can check (and which spendDeviceCheckToken makes work once). False when the token is already
+// spent (found before asking Apple, so a replay costs Apple nothing; the spend in the write's transaction still
+// decides a race), when Apple says the device token is bad, or when no key is configured (a misconfiguration, warned;
+// appAttestConfig warns about the App ID itself). Anything else from Apple is our side's fault or Apple's, never the phone's, so it throws and the request is
 // a server error; a 400 that blames our request is also warned by its fixed name. Neither the token nor Apple's reply
 // is ever logged, and the reply's body is read or cancelled on every path.
 export async function validDeviceCheckToken(token: string): Promise<boolean> {
@@ -58,6 +63,11 @@ export async function validDeviceCheckToken(token: string): Promise<boolean> {
     );
     return false;
   }
+  const [spent] = await db
+    .select({ tokenHash: deviceCheckTokens.tokenHash })
+    .from(deviceCheckTokens)
+    .where(eq(deviceCheckTokens.tokenHash, tokenHash(token)));
+  if (spent !== undefined) return false;
   const host = readEnv("DEVICECHECK_API_URL") ?? APPLE_HOSTS[config.environment];
   const response = await fetch(`${host}/v1/validate_device_token`, {
     method: "POST",
@@ -85,7 +95,7 @@ export async function validDeviceCheckToken(token: string): Promise<boolean> {
 export async function spendDeviceCheckToken(token: string, tx: Executor): Promise<void> {
   const spent = await tx
     .insert(deviceCheckTokens)
-    .values({ tokenHash: sha256(Buffer.from(token)).toString("hex") })
+    .values({ tokenHash: tokenHash(token) })
     .onConflictDoNothing()
     .returning({ tokenHash: deviceCheckTokens.tokenHash });
   if (spent.length === 0) throw new ApiError("attestation_failed");

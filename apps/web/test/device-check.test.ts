@@ -174,6 +174,14 @@ describe("a DeviceCheck token", () => {
     expect(await again.json()).toEqual(refusal);
   });
 
+  it("is refused on replay without asking Apple again", async () => {
+    const apple200 = await apple(200);
+    expect((await tag()).status).toBe(201);
+    const again = await tag({ device: DEVICE_B });
+    expect(await again.json()).toEqual(refusal);
+    expect(apple200.requests).toHaveLength(1);
+  });
+
   it("is kept only as its SHA-256, with the day", async () => {
     await apple(200);
     // The write may straddle UTC midnight, so the day is either side of it.

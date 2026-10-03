@@ -13,6 +13,7 @@ import { issueChallenge } from "@/server/attest/challenges";
 import { saveAttestKey } from "@/server/attest/keys";
 import { registerAppAttestKey } from "@/server/attest/register";
 import type { WriteDevice } from "@/server/devices/write-request";
+import { deleteMine } from "@/server/tags/delete-mine";
 
 import { APPLE_SAMPLE_ATTESTATION } from "./apple-attestation-sample";
 import { forgedAttestation } from "./attest-fixtures";
@@ -245,6 +246,30 @@ describe("registerAppAttestKey", () => {
     expect(await db.select().from(devices)).toEqual([]);
   });
 
+  const keyAndBlock = async () =>
+    (await db.select().from(devices)).map((row) => [
+      row.blocked,
+      row.attestKeyId,
+      row.attestPublicKey,
+      row.attestCounter,
+    ]);
+
+  // The privacy policy: a blocked phone's record keeps no App Attest key, so registering can't put one back.
+  it("refuses a blocked phone with device_blocked, storing no key and spending the challenge", async () => {
+    await db.insert(devices).values({ deviceHash: DEVICE_A_HASH, platform: "ios", blocked: true });
+    await expect(attested(await issuedTo()).register()).rejects.toMatchObject({ code: "device_blocked" });
+    expect(await keyAndBlock()).toEqual([[true, null, null, null]]);
+    expect(await db.select().from(attestChallenges)).toEqual([]);
+  });
+
+  it("leaves a blocked phone keyless after Delete all my tags and a new registration", async () => {
+    const key = { attestKeyId: KEY_ID, attestPublicKey: "MFkw", attestCounter: 7 };
+    await db.insert(devices).values({ deviceHash: DEVICE_A_HASH, platform: "ios", blocked: true, ...key });
+    await deleteMine(phone);
+    await expect(attested(await issuedTo()).register()).rejects.toMatchObject({ code: "device_blocked" });
+    expect(await keyAndBlock()).toEqual([[true, null, null, null]]);
+  });
+
   it("refuses a key another phone already holds, leaving it with that phone", async () => {
     const made = attested(await issuedTo());
     const key = { attestKeyId: made.keyId, attestPublicKey: made.publicKey, attestCounter: 3 };
@@ -282,6 +307,29 @@ describe("saveAttestKey", () => {
     // Last-seen is the nightly fold's to move (Task 5A), never a request's.
     const [row] = await db.select().from(devices);
     expect(row?.lastSeenDate).toBe("2026-01-02");
+  });
+
+  it("refuses a blocked phone with device_blocked and stores nothing", async () => {
+    await db.insert(devices).values({ ...device, blocked: true });
+    await expect(saveAttestKey(device, KEY_ID, "MFkw")).rejects.toMatchObject({ code: "device_blocked" });
+    expect(await keyColumns()).toEqual([[DEVICE_A_HASH, null, null, null]]);
+  });
+
+  it("refuses a phone blocked while its key is being saved", async () => {
+    await db.insert(devices).values(device);
+    // The block's own update sits uncommitted, so the save waits on the row, then finds it blocked.
+    const { saving } = await whileHolding(
+      "update devices set blocked = true where device_hash = $1",
+      [DEVICE_A_HASH],
+      async (holder) => {
+        let settled = false;
+        const saving = saveAttestKey(device, KEY_ID, "MFkw").finally(() => (settled = true));
+        await untilWaitingOnLock(holder.pid, () => settled);
+        return { saving };
+      },
+    );
+    await expect(saving).rejects.toMatchObject({ code: "device_blocked" });
+    expect(await keyColumns()).toEqual([[DEVICE_A_HASH, null, null, null]]);
   });
 
   it("refuses a key another phone already holds", async () => {

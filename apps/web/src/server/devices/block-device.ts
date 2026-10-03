@@ -22,8 +22,12 @@ export async function blockDevice(deviceHash: string): Promise<{ excludedTags: n
     return excluded.changed;
   });
   // The block committed at the transaction id just before the exclusion's, so the devices row is rewritten once
-  // more to move its xmin off that neighbour.
-  await db.update(devices).set({ blocked: true }).where(eq(devices.deviceHash, deviceHash));
+  // more to move its xmin off that neighbour. That rewrite also clears the App Attest key: the privacy policy keeps
+  // no key on a blocked phone's record, and saveAttestKey never stores one there again.
+  await db
+    .update(devices)
+    .set({ blocked: true, attestKeyId: null, attestPublicKey: null, attestCounter: null })
+    .where(eq(devices.deviceHash, deviceHash));
   return { excludedTags };
 }
 

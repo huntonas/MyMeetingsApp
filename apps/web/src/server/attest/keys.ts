@@ -11,14 +11,18 @@ import type { WriteDevice } from "@/server/devices/write-request";
 // gets one with today's first and last seen, from the column defaults. Registration isn't a tag write and runs as one
 // statement of its own, but the app registers just before its first write, so this row can sit a transaction id or
 // two from that write's tag rows. The next nightly fold rewrites it (the phone wrote, so it has a device_days row), so
-// that neighbour lasts at most a night, inside the 7-day audit window (spec §2).
+// that neighbour lasts at most a night, inside the 7-day audit window (spec §2). A blocked phone's record keeps no key
+// (the privacy policy; blockDevice clears it), so a blocked phone's registration is refused with device_blocked, as its
+// writes are. The block is read by the upsert itself, which waits for a block being made and then sees it.
 export async function saveAttestKey(device: WriteDevice, keyId: string, publicKey: string): Promise<void> {
   const key = { attestKeyId: keyId, attestPublicKey: publicKey, attestCounter: 0 };
+  let saved: unknown[];
   try {
-    await db
+    saved = await db
       .insert(devices)
       .values({ ...device, ...key })
-      .onConflictDoUpdate({ target: devices.deviceHash, set: key });
+      .onConflictDoUpdate({ target: devices.deviceHash, set: key, setWhere: eq(devices.blocked, false) })
+      .returning({ deviceHash: devices.deviceHash });
   } catch (error) {
     // Apple: a key must belong to one device, so a replayed registration can't move it to another. The unique index
     // decides, even for two phones saving the same key at once.
@@ -27,6 +31,7 @@ export async function saveAttestKey(device: WriteDevice, keyId: string, publicKe
     if (constraint === "devices_attest_key_idx") throw new ApiError("attestation_failed");
     throw error;
   }
+  if (saved.length === 0) throw new ApiError("device_blocked");
 }
 
 // The phone's registered public key, when keyId is it.

@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { headerFinding } from "../src/headers";
 
 const SERVER = "mymeetingapp.vercel.app";
-const GET = { method: "GET", server: SERVER, write: false };
-const POST = { method: "POST", server: SERVER, write: false };
-// PUT never reads; every PUT the app sends (tag edit) is a write.
-const PUT = { method: "PUT", server: SERVER, write: true };
+const GET = { method: "GET", server: SERVER, write: false, attested: false };
+const POST = { method: "POST", server: SERVER, write: false, attested: false };
+// PUT never reads; every PUT the app sends (tag edit) is an attested write.
+const PUT = { method: "PUT", server: SERVER, write: true, attested: true };
 const IOS_UA = "mymeetingapp/1 CFNetwork/1408.0.4 Darwin/22.5.0";
 
 describe("headerFinding", () => {
@@ -221,7 +221,7 @@ describe("headerFinding", () => {
   });
 
   describe("device headers on writes (spec §7)", () => {
-    const WRITE = { method: "POST", server: SERVER, write: true };
+    const WRITE = { method: "POST", server: SERVER, write: true, attested: true };
 
     it("passes a valid device id, platform and app version", () => {
       expect(headerFinding("X-Device-Id", "6F9619FF-8B86-D011-B42D-00C04FC964FF", WRITE)).toBeUndefined();
@@ -247,9 +247,25 @@ describe("headerFinding", () => {
       );
     });
 
-    it("flags X-Attestation until Phase 6 turns it on", () => {
-      expect(headerFinding("X-Attestation", "abc", WRITE)).toBe(
-        "sends X-Attestation, which isn't switched on yet",
+    const PROOF = `appattest.v1.${"A".repeat(43)}=.1791201600000.omlzaWduYXR1cmU=`;
+
+    it("passes an App Attest proof or a DeviceCheck token on a write that carries one", () => {
+      expect(headerFinding("X-Attestation", PROOF, WRITE)).toBeUndefined();
+      expect(headerFinding("X-Attestation", "devicecheck.v1.AgAAAAbcdef+/==", WRITE)).toBeUndefined();
+    });
+
+    it.each([
+      ["a value that isn't a proof", "abc"],
+      ["a coordinate where the clock goes", `appattest.v1.${"A".repeat(43)}=.36.162749.abc=`],
+    ])("flags X-Attestation with %s", (_why, value) => {
+      expect(headerFinding("X-Attestation", value, WRITE)).toBe(
+        "sends an unexpected value for the X-Attestation header",
+      );
+    });
+
+    it("flags X-Attestation on the app check's own requests, which never carry one", () => {
+      expect(headerFinding("X-Attestation", PROOF, { ...WRITE, attested: false })).toBe(
+        "sends X-Attestation on a request that never carries one",
       );
     });
 

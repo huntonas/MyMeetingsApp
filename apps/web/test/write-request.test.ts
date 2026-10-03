@@ -5,12 +5,13 @@ import { z } from "zod";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
-import { devices } from "@/db/schema";
+import { deviceDays, devices } from "@/db/schema";
 import { jsonResponse, withErrors } from "@/lib/api/respond";
-import { readWriteRequest, writeAsDevice } from "@/server/devices/write-request";
+import { foldDeviceDays } from "@/server/devices/device-days";
+import { identifyDevice, readWriteRequest, writeAsDevice } from "@/server/devices/write-request";
 
 import { resetDb } from "./db";
-import { DEVICE_A, DEVICE_A_HASH, deviceHeaders } from "./tag-fixtures";
+import { DEVICE_A, DEVICE_A_HASH, DEVICE_B, DEVICE_B_HASH, deviceHeaders } from "./tag-fixtures";
 
 beforeEach(resetDb);
 afterEach(() => {
@@ -21,13 +22,13 @@ afterAll(() => pool.end());
 
 // A write route reduced to its header handling.
 const write = withErrors(async (req: Request) => {
-  const device = readWriteRequest(req);
+  const { device } = await readWriteRequest(req, z.object({}));
   await writeAsDevice(device, () => Promise.resolve());
   return jsonResponse(z.object({ deviceHash: z.string() }), device, "none");
 });
 
 function call(headers: Record<string, string>) {
-  return write(new Request("http://test/api/v1/tags", { method: "POST", headers }));
+  return write(new Request("http://test/api/v1/tags", { method: "POST", headers, body: "{}" }));
 }
 
 const utcToday = () => new Date().toISOString().slice(0, 10);
@@ -36,6 +37,11 @@ describe("write request headers", () => {
   it("hashes the device id and records the device by date only", async () => {
     const res = await call(deviceHeaders());
     expect(await res.json()).toEqual({ deviceHash: DEVICE_A_HASH });
+    expect(await db.select().from(devices)).toEqual([]);
+    expect(await db.select().from(deviceDays)).toEqual([
+      { deviceHash: DEVICE_A_HASH, day: utcToday(), platform: "ios", attestKeyId: null, attestCounter: null },
+    ]);
+    await foldDeviceDays();
     expect(await db.select().from(devices)).toEqual([
       {
         deviceHash: DEVICE_A_HASH,
@@ -43,17 +49,25 @@ describe("write request headers", () => {
         firstSeenDate: utcToday(),
         lastSeenDate: utcToday(),
         blocked: false,
+        attestKeyId: null,
+        attestPublicKey: null,
+        attestCounter: null,
       },
     ]);
   });
 
   it("never stores the raw device id", async () => {
     await call(deviceHeaders());
-    const { rows } = await db.execute(sql`select row_to_json(d)::text as row from devices d`);
+    await foldDeviceDays();
+    const { rows } = await db.execute(sql`
+      select row_to_json(d)::text as row from devices d
+      union all select row_to_json(d)::text from device_days d
+    `);
+    expect(rows).toHaveLength(2);
     expect(JSON.stringify(rows).toLowerCase()).not.toContain(DEVICE_A.toLowerCase());
   });
 
-  it("moves last_seen_date forward and keeps first_seen_date", async () => {
+  it("moves last_seen_date forward and keeps first_seen_date, at the nightly fold", async () => {
     await db.insert(devices).values({
       deviceHash: DEVICE_A_HASH,
       platform: "ios",
@@ -61,16 +75,22 @@ describe("write request headers", () => {
       lastSeenDate: "2026-01-02",
     });
     await call(deviceHeaders());
+    await foldDeviceDays();
     const [row] = await db.select().from(devices);
     expect([row?.firstSeenDate, row?.lastSeenDate]).toEqual(["2026-01-01", utcToday()]);
   });
 
-  it("leaves the device's record untouched on a later write the same UTC day", async () => {
+  it("leaves an existing record's xmin and xmax untouched", async () => {
+    await db
+      .insert(devices)
+      .values({ deviceHash: DEVICE_A_HASH, platform: "ios", lastSeenDate: "2026-01-02" });
+    const stamps = async () =>
+      (await db.execute<{ xmin: string; xmax: string }>(sql`select xmin::text, xmax::text from devices`))
+        .rows;
+    const before = await stamps();
     await call(deviceHeaders());
-    const xmin = () => db.execute<{ xmin: string }>(sql`select xmin::text from devices`);
-    const before = (await xmin()).rows;
     await call(deviceHeaders());
-    expect((await xmin()).rows).toEqual(before);
+    expect(await stamps()).toEqual(before);
   });
 
   it.each<[string, Record<string, string>]>([
@@ -110,7 +130,7 @@ describe("write request headers", () => {
     expect((await call(deviceHeaders())).status).toBe(200);
   });
 
-  it("refuses every write while attestation is required and no verifier exists", async () => {
+  it("refuses a write with no valid proof while attestation is required", async () => {
     vi.stubEnv("REQUIRE_ATTESTATION", "on");
     const res = await call({ ...deviceHeaders(), "X-Attestation": "assertion" });
     expect(res.status).toBe(401);
@@ -131,5 +151,20 @@ describe("write request headers", () => {
     const res = await call(deviceHeaders());
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ error: { code: "device_blocked" } });
+  });
+});
+
+describe("identifyDevice", () => {
+  const request = (headers: Record<string, string>) =>
+    new Request("http://test/api/v1/attest/challenge", { method: "POST", headers });
+
+  it("hashes each phone's id with its platform, and checks no version", () => {
+    vi.stubEnv("MIN_VERSION_IOS", "9.0.0");
+    vi.stubEnv("MIN_VERSION_ANDROID", "9.0.0");
+    expect(identifyDevice(request(deviceHeaders()))).toEqual({ platform: "ios", deviceHash: DEVICE_A_HASH });
+    expect(identifyDevice(request(deviceHeaders(DEVICE_B, "android")))).toEqual({
+      platform: "android",
+      deviceHash: DEVICE_B_HASH,
+    });
   });
 });

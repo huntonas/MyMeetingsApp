@@ -1,3 +1,4 @@
+export * from "./attestation";
 export * from "./brand";
 export * from "./config";
 export * from "./devices";

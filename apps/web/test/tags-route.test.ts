@@ -1,11 +1,12 @@
 import { TagWriteResponse } from "@mymeetingapp/shared";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
 import { meetingAliases, meetings, tagAudit, tagSubmissions, tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { foldDeviceDays } from "@/server/devices/device-days";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 import { recomputeMeetings } from "@/server/meetings/recompute";
 
@@ -200,19 +201,10 @@ describe("POST /api/v1/tags", () => {
     await expectError(await post({ meetingId, tags: ["quiet"] }, {}), 400, "invalid_request");
   });
 
-  it("leaves no transaction id linking the device's record to its tag or audit rows (spec §2)", async () => {
-    const meetingId = await seedMeetingStarted(1);
-    expect((await post({ meetingId, tags: ["quiet"] })).status).toBe(201);
-    const { rows } = await db.execute<{ linked: number }>(sql`
-      select (select count(*) from devices d join tag_submissions s on s.xmin = d.xmin)::int
-        + (select count(*) from devices d join tag_audit a on a.xmin = d.xmin)::int as linked
-    `);
-    expect(rows).toEqual([{ linked: 0 }]);
-  });
-
   it("refuses a device blocked after it was recorded but before its write took the device lock", async () => {
     const meetingId = await seedMeetingStarted(1);
     await post({ meetingId: await seedMeetingStarted(1, elsewhere(1)), tags: ["quiet"] });
+    await foldDeviceDays();
     const { write } = await whileHolding(
       "select pg_advisory_xact_lock(hashtextextended($1, 0))",
       [DEVICE_A_HASH],

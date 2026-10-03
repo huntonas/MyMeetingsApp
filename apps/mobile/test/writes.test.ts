@@ -107,7 +107,7 @@ describe("the phone's ID", () => {
 });
 
 describe("writes", () => {
-  it("carry the three device headers, no attestation yet, and no body when there's nothing to send", async () => {
+  it("carry the three device headers, and no proof on a phone that can't make one (the simulator), and no body when there's nothing to send", async () => {
     expect(await deleteMine()).toEqual({ deletedTags: 0 });
     const [request] = api.requests;
     expect(request?.method).toBe("POST");

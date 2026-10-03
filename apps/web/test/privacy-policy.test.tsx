@@ -240,6 +240,40 @@ describe("the privacy policy page", () => {
     expect(text).toContain("“Delete all my tags” on the app's Me tab");
   });
 
+  // The app check's own requests (POST /attest/challenge and /attest/register) carry the ID too.
+  it("counts the app check's two requests among those that send the ID", () => {
+    expect(text).toContain(
+      "suggest a tag or use “Delete all my tags”, and, on iPhone, in the two requests of the app check that can come just before those (one asks our server for a random challenge, the other sends it a new App Attest key), never when you search or read meetings.",
+    );
+  });
+
+  // Task 5A: only tags or a suggestion move the last day on (folded in nightly); registering a key again never does.
+  it("counts a phone's inactivity from the last day on its record, which only tags or a suggestion move on", () => {
+    expect(text).toContain(
+      "the first day the app sent us tags, a suggestion or its app check, and the last day it sent us tags or a suggestion",
+    );
+    expect(text).toContain(
+      "until the app first sends tags or a suggestion, the last day is the day of its app check",
+    );
+    expect(text).toContain("months after the last day on that record.");
+    expect(text).not.toContain("last sent us tags, a suggestion or its app check");
+  });
+
+  // Task 6: every iPhone write is checked, so the app check is no longer described as switched on later.
+  it("says App Attest, or DeviceCheck without it, confirms tags and suggestions come from the real app", () => {
+    expect(text).toContain(
+      "App Attest (or DeviceCheck, on an iPhone without it) confirms that tags and suggestions come from the real app.",
+    );
+    expect(text).not.toContain("once switched on, App Attest");
+  });
+
+  // Task 7: a DeviceCheck token works once, so its hash is kept, linked to nothing.
+  it("says a used DeviceCheck code is kept only as a fingerprint, linked to nothing, so it can't be used twice", () => {
+    expect(text).toContain("a fingerprint of each code we accept (its SHA-256 hash, never the code itself)");
+    expect(text).toContain("so the same code can't be used twice");
+    expect(text).toContain("Nothing. We don't record which phone sent it.");
+  });
+
   // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   it("is dated, with no draft notice", () => {
     expect(text).toContain("Updated 2 October 2026.");

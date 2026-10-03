@@ -169,9 +169,10 @@ function backlogLine(entry: RegistryEntry): string {
   return `${entry.name} (${entry.state}) — ${entry.website ?? "no website listed"}`;
 }
 
-// The markdown for tools/feed-discovery/coverage.md (spec §4): a per-state summary, restricted feeds
-// (the manual "contact the intergroup" list), entities with no feed found (the manual backlog),
-// overlapping feeds, and changes since the last run.
+// The markdown for tools/feed-discovery/coverage.md (spec §4): a per-state summary, sites behind a bot
+// check (ask the site to allow our User-Agent), restricted feeds (the manual "contact the intergroup"
+// list), entities with no feed found (the manual backlog), overlapping feeds, and changes since the
+// last run.
 export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], changes: Changes): string {
   const checkedAt = entries[0]?.checked_at ?? "";
   const feeds = verifiedFeeds(entries);
@@ -191,6 +192,7 @@ export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], ch
     ];
   });
 
+  const botBlocked = entries.filter((entry) => entry.feed_type === "bot_blocked");
   const restricted = entries.filter((entry) => entry.feed_type === "restricted");
   const noFeed = entries.filter((entry) => entry.feed_type === "none_found");
 
@@ -227,6 +229,7 @@ export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], ch
             ]),
           )
     }`,
+    `## Blocked by a bot check: ask the site to allow mymeetingapp's User-Agent\n\n${listOrNone(botBlocked.map(backlogLine))}`,
     `## Restricted feeds (contact the intergroup)\n\n${listOrNone(restricted.map(backlogLine))}`,
     `## No feed found (manual backlog)\n\n${listOrNone(noFeed.map(backlogLine))}`,
     `## Overlapping feeds\n\n${listOrNone(

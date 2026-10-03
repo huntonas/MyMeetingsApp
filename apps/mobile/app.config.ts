@@ -37,6 +37,16 @@ function googleMapsAndroidKey(): string | undefined {
   return typeof key === "string" ? key : undefined;
 }
 
+// Spec §11's App Privacy label as the manifest declares it: collected (sent and kept beyond one request), not linked to
+// identity, not for tracking, for app functionality (where Apple puts fraud prevention). privacy-manifest.test.ts holds
+// it to SPEC.md, and docs/app-store.md gives the same answers for App Store Connect.
+const collected = (type: string) => ({
+  NSPrivacyCollectedDataType: type,
+  NSPrivacyCollectedDataTypeLinked: false,
+  NSPrivacyCollectedDataTypeTracking: false,
+  NSPrivacyCollectedDataTypePurposes: ["NSPrivacyCollectedDataTypePurposeAppFunctionality"],
+});
+
 export default ({ config }: ConfigContext): ExpoConfig =>
   withLauncherLabel({
     ...config,
@@ -47,7 +57,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     name: APP_SLUG,
     slug: APP_SLUG,
     scheme: APP_SLUG,
-    version: "0.1.0",
+    version: "1.0.0",
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     icon: "./assets/icon.png",
@@ -55,6 +65,9 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     updates: { enabled: false },
     ios: {
       bundleIdentifier: "com.goodersoftware.mymeetingapp",
+      // Gooder Software LLC's team (converted from the owner's individual membership): the App ID prefix App Attest
+      // checks, and APPLE_TEAM_ID on the server.
+      appleTeamId: "PVCZBLDJ73",
       supportsTablet: false,
       // HTTPS and the Keychain through the OS only: exempt, so `ITSAppUsesNonExemptEncryption` is false.
       config: { usesNonExemptEncryption: false },
@@ -66,6 +79,43 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         NSLocationTemporaryUsageDescriptionDictionary: {
           AttendanceCheck: `${DISPLAY_NAME} checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.`,
         },
+      },
+      // Spec §6: App Attest. "development" is what Xcode's capability writes; TestFlight and App Store builds ignore it and
+      // always attest in production. EAS turns the capability on for the App ID from this entitlement.
+      entitlements: { "com.apple.developer.devicecheck.appattest-environment": "development" },
+      privacyManifests: {
+        NSPrivacyTracking: false,
+        NSPrivacyTrackingDomains: [],
+        NSPrivacyCollectedDataTypes: [
+          // The rounded search point, and the stored near-meeting yes or no (within 200–500 m of a meeting) (spec §11;
+          // owner decision, 2026-10-02).
+          collected("NSPrivacyCollectedDataTypeCoarseLocation"),
+          // The keyed hash of the phone's ID, and its App Attest key.
+          collected("NSPrivacyCollectedDataTypeDeviceID"),
+          // Tags and suggested words.
+          collected("NSPrivacyCollectedDataTypeOtherUserContent"),
+        ],
+        // The required-reason APIs the app's iOS libraries use (React Native, expo-application, expo-constants,
+        // expo-file-system, expo-system-ui, react-native-maps), each with the reasons their own manifests give.
+        // privacy-manifest.test.ts fails when a library adds one.
+        NSPrivacyAccessedAPITypes: [
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+            NSPrivacyAccessedAPITypeReasons: ["C617.1", "0A2A.1", "3B52.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
+            NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategorySystemBootTime",
+            NSPrivacyAccessedAPITypeReasons: ["35F9.1"],
+          },
+          {
+            NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryDiskSpace",
+            NSPrivacyAccessedAPITypeReasons: ["E174.1", "85F4.1"],
+          },
+        ],
       },
     },
     android: {

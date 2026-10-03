@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { tagAudit } from "@/db/schema";
 import { ApiError } from "@/lib/api/respond";
+import { assertFreshProof } from "@/server/devices/device-days";
 import { lockDevice, writeAsDevice, type WriteDevice } from "@/server/devices/write-request";
 import { meetingTagCounts, recountTags } from "@/server/tags/counts";
 import { deleteOwnSubmissions, findOwnSubmissions, saveOwnSubmission } from "@/server/tags/own-submissions";
@@ -47,6 +48,7 @@ export async function editTags(
 export async function deleteTags(device: WriteDevice, requestedId: string): Promise<TagWriteResponse> {
   return db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);
+    await assertFreshProof(device, tx);
     const meeting = await findTaggableMeeting(requestedId, tx);
     const own = await findOwnSubmissions(device.deviceHash, meeting.id, tx);
     if (own.length === 0) throw new ApiError("not_tagged");

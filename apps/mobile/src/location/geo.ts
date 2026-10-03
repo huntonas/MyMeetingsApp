@@ -10,6 +10,9 @@ export interface MapRegion extends LatLng {
 
 // Searches from the search box or "Use my location" (decision 7): 25 km, about 16 miles.
 export const SEARCH_RADIUS_KM = 25;
+// "Search farther", offered once when a place or near-me search finds no in-person meetings: the same point, at 97 km,
+// which radiusMiles shows as 60 miles (owner decision, 2026-10-02: a round number US readers know). For that one search only.
+export const WIDER_SEARCH_RADIUS_KM = 97;
 
 const KM_PER_DEGREE = 111.32;
 const EARTH_RADIUS_KM = 6371.0088;

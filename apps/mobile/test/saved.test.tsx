@@ -99,7 +99,7 @@ describe("the Save heart on a meeting's page", () => {
     await renderApp(`/meeting/${ID}`);
     expect(await screen.findByLabelText("Welcoming 14 people")).toBeOnTheScreen();
     const save = await failStatements("runAsync", "insert or ignore into favorites");
-    await fireEvent.press(screen.getByRole("button", { name: "Save" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Save" }));
     await waitFor(() => {
       expect(save).toHaveBeenCalledWith(expect.stringMatching(/^insert or ignore into favorites/), [
         ID,

@@ -8,6 +8,7 @@ import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
 import { devices, meetings, rateLimits, tagAudit, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { foldDeviceDays } from "@/server/devices/device-days";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
@@ -124,6 +125,7 @@ describe("PUT /api/v1/tags/:meetingId", () => {
     await db.update(meetings).set({ tagsDisabled: true });
     await expectError(await put(meetingId, ["lively"]), 403, "tags_disabled");
     await db.update(meetings).set({ tagsDisabled: false });
+    await foldDeviceDays();
     await db.update(devices).set({ blocked: true });
     await expectError(await put(meetingId, ["lively"]), 403, "device_blocked");
   });
@@ -164,6 +166,7 @@ describe("DELETE /api/v1/tags/:meetingId", () => {
     await post(meetingId, ["quiet"]);
     vi.stubEnv("FEATURE_TAGGING", "off");
     await db.update(meetings).set({ tagsDisabled: true, archivedAt: new Date() });
+    await foldDeviceDays();
     await db.update(devices).set({ blocked: true });
     expect((await del(meetingId)).status).toBe(200);
     expect(await db.select().from(tagSubmissions)).toEqual([]);

@@ -9,7 +9,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type Text, View } from "react-native";
 
-import { ApiError } from "@/api/client";
+import { ApiError, Unreachable } from "@/api/client";
 import { failureMessage } from "@/api/failure-message";
 import { editTags, removeTags, submitTags } from "@/api/writes";
 import { useFeatures, useUpgradeRequired } from "@/config/upgrade";
@@ -114,6 +114,8 @@ function useRemoval(
   onRemoved: (response: TagWriteResponse | null) => void,
 ): Removal {
   const [removing, setRemoving] = useState(false);
+  // A removal that timed out may have reached the server, so a retry's "not_tagged" means it worked.
+  const unconfirmed = useRef(false);
   const remove = () => {
     setRemoving(true);
     notice.tell(null);
@@ -123,9 +125,19 @@ function useRemoval(
         // The server removed the phone's tags on both ids when the meeting merged meanwhile, so both records go.
         // It has removed them either way; a record the phone can't forget is refused as not_tagged next time.
         await forgetMyTags(meetingId, response.meetingId).catch(() => undefined);
+        unconfirmed.current = false;
         onRemoved(response);
         notice.tell("Your tags are removed.");
       } catch (error) {
+        if (error instanceof ApiError && error.code === "not_tagged" && unconfirmed.current) {
+          unconfirmed.current = false;
+          await forgetMyTags(meetingId).catch(() => undefined);
+          onRemoved(null);
+          notice.tell("Your tags are removed.");
+          setRemoving(false);
+          return;
+        }
+        unconfirmed.current = error instanceof Unreachable;
         if (error instanceof ApiError && NOTHING_TO_REMOVE.includes(error.code)) {
           await forgetMyTags(meetingId).catch(() => undefined);
           onRemoved(null);

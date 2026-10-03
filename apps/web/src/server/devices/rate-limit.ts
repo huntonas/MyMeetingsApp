@@ -6,11 +6,13 @@ import { utcToday } from "@/db/sql";
 import { ApiError } from "@/lib/api/respond";
 
 // metrics_login is the site-wide backstop for /metrics sign-ins (spec §10); a Vercel Firewall rule limits each
-// visitor.
+// visitor. attestation counts App Attest challenges: a phone needs one per install, more only after Delete all my tags
+// or a lost key.
 const DAILY_LIMITS: Record<RateLimitBucket, number> = {
   tag_submission: 10,
   suggestion: 5,
   metrics_login: 200,
+  attestation: 10,
 };
 
 // key is a device hash, or "metrics-login" for the site-wide sign-in count.

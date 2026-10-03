@@ -232,6 +232,14 @@ A long-lived backend for the TestFlight build to talk to, separate from Preview 
 - **Variables:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `DEVICE_ID_PEPPER`, `METRICS_USER=owner`, `METRICS_PASSWORD`, `SITE_URL=https://mymeetingapp-staging.vercel.app`, `REQUIRE_ATTESTATION=off`, `SUGGESTION_MODEL=openai/gpt-5-nano` and `CRON_SECRET` (for the maintenance workflow only). None of them can be Sensitive — Vercel only allows that on Production and Preview — and none is imported from Preview. There is no `NEON_*` variable on staging.
 - **Setting it up again:** create the custom environment, attach the stable domain, create the Neon branch and its database variables, then the remaining variables, then the Owner's Deployment Protection Exception — `2026-09-30-staging-and-testflight.md` Task 3 Steps 2–6, in that order.
 
+## Phase 6: app checks and the App Store
+
+### The Apple account
+
+Team `PVCZBLDJ73`, being converted from individual to Gooder Software LLC (owner decision 1, 2026-10-02). App Store Connect app `6817873804`, named "My Meeting App: Meeting Finder" (claimed 2026-10-02), bundle ID `com.goodersoftware.mymeetingapp`. EAS submits with the App Store Connect API key `ZG2Z6A5JY3`.
+
+Conversion checks (Task 1 Step 2): _not yet recorded_.
+
 ## Rules
 
 - Previews never use the production branch's data: they restore from `seed`, which holds no device data (see Preview databases).

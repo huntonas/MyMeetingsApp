@@ -1,4 +1,5 @@
 import {
+  AttestRegisterRequest,
   DEVICE_HEADERS,
   MeetingSearchRequest,
   SuggestionRequest,
@@ -40,7 +41,7 @@ export interface AuditReport {
   // than one is also a finding: the app sends exactly one, so a second means something else is talking to
   // the server (or the capture mixes two devices/runs together).
   userAgents: string[];
-  // How many of serverRequests matched one of Phase 5b's writes (WRITES, below).
+  // How many of serverRequests matched one of WRITES, below (the app's writes and the app check's own requests).
   writeRequests: number;
 }
 
@@ -62,17 +63,43 @@ const SEARCH_PATH = "/api/v1/meetings/search";
 // Exactly the rounded point and radius, nothing more.
 const SearchBody = z.strictObject(MeetingSearchRequest.shape);
 
-// Phase 5b's writes, each with exactly the body the app sends (JSON.stringify of its contract's parse), or
+// The app's writes, each with exactly the body the app sends (JSON.stringify of its contract's parse), or
 // none. A write's shape is otherwise checked exactly like search's: body === null means the request must have
 // no body at all; any other body must strict-parse and re-stringify byte-for-byte to what's on the wire.
-const WRITES: { method: string; path: RegExp; body: z.ZodType | null }[] = [
-  { method: "POST", path: /^\/api\/v1\/tags$/, body: z.strictObject(TagSubmissionRequest.shape) },
-  { method: "PUT", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: z.strictObject(TagEditRequest.shape) },
-  { method: "DELETE", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: null },
-  { method: "POST", path: /^\/api\/v1\/tags\/delete-mine$/, body: null },
-  { method: "POST", path: /^\/api\/v1\/suggestions$/, body: z.strictObject(SuggestionRequest.shape) },
+// `attested` is spec §6: the five writes below must carry X-Attestation; the app check's own two requests,
+// which run before the phone has a key, never do (headers.ts, parseAttestation).
+const WRITES: { method: string; path: RegExp; body: z.ZodType | null; attested: boolean }[] = [
+  {
+    method: "POST",
+    path: /^\/api\/v1\/tags$/,
+    body: z.strictObject(TagSubmissionRequest.shape),
+    attested: true,
+  },
+  {
+    method: "PUT",
+    path: new RegExp(`^/api/v1/tags/${UUID}$`),
+    body: z.strictObject(TagEditRequest.shape),
+    attested: true,
+  },
+  { method: "DELETE", path: new RegExp(`^/api/v1/tags/${UUID}$`), body: null, attested: true },
+  { method: "POST", path: /^\/api\/v1\/tags\/delete-mine$/, body: null, attested: true },
+  {
+    method: "POST",
+    path: /^\/api\/v1\/suggestions$/,
+    body: z.strictObject(SuggestionRequest.shape),
+    attested: true,
+  },
+  // The app check's own requests (Phase 6): device headers, never a proof.
+  { method: "POST", path: /^\/api\/v1\/attest\/challenge$/, body: null, attested: false },
+  {
+    method: "POST",
+    path: /^\/api\/v1\/attest\/register$/,
+    body: z.strictObject(AttestRegisterRequest.shape),
+    attested: false,
+  },
 ];
-// Spec §7: every write carries these three; the fourth, X-Attestation, is still off (headers.ts).
+// Spec §7: every write carries these three; X-Attestation is checked separately below, since it's required
+// only on the five writes, never on the app check's own two requests (WRITES' `attested`).
 const REQUIRED_DEVICE_HEADERS = [
   DEVICE_HEADERS.deviceId,
   DEVICE_HEADERS.platform,
@@ -274,6 +301,7 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
         knownEtags,
         knownLastModified,
         write: write !== undefined,
+        attested: write?.attested ?? false,
       });
       if (problem) flag(problem);
     }
@@ -292,6 +320,12 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
         if (!request.headers.some((header) => header.name.toLowerCase() === required)) {
           flag(`write without the ${required} header`);
         }
+      }
+      if (
+        write.attested &&
+        !request.headers.some((header) => header.name.toLowerCase() === "x-attestation")
+      ) {
+        flag("write without the x-attestation header");
       }
       if (write.body === null) {
         if (hasBodyForWrite(request)) flag("sends a body on a write that has none");

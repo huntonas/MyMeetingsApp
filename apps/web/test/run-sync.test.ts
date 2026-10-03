@@ -79,9 +79,13 @@ describe("runSync", () => {
   });
 
   it("records a restricted feed and doesn't retry it on the next run", async () => {
-    const restricted = await feedServing("restricted", () => ({ status: 403 }));
+    const restricted = await feedServing("restricted", () => ({
+      status: 403,
+      body: '{"code":"feed_restricted","message":"This meeting list is restricted.","data":{"status":403}}',
+      headers: { "Content-Type": "application/json" },
+    }));
     await runSync(60_000);
-    expect((await feed(restricted.id))?.lastError).toBe("restricted (HTTP 403)");
+    expect((await feed(restricted.id))?.lastError).toBe("restricted by the site (HTTP 403)");
     expect(await runSync(60_000)).toMatchObject({ synced: 0, failed: 0 });
     expect(restricted.server.requests).toHaveLength(1);
   });
@@ -300,8 +304,17 @@ describe("runSync", () => {
   });
 
   it("lets only one run happen at a time", async () => {
-    await feedServing("slow", () => ({ status: 200, body: meetingJson(1) }));
-    const results = await Promise.all([runSync(60_000), runSync(60_000)]);
-    expect(results.map((result) => result.status).sort()).toEqual(["done", "locked"]);
+    // The feed answers only once a run has returned, so whichever run takes the lock still holds it when the other
+    // asks, however slowly that one connects. (Two runs that don't overlap may both finish: that's not a race.)
+    let answer: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    await feedServing("slow", async () => {
+      await answered;
+      return { status: 200, body: meetingJson(1) };
+    });
+    const runs = [runSync(60_000), runSync(60_000)];
+    expect((await Promise.race(runs)).status).toBe("locked");
+    answer();
+    expect((await Promise.all(runs)).map((result) => result.status).sort()).toEqual(["done", "locked"]);
   });
 });

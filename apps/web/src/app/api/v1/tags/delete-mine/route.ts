@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 
 // No feature switch: deleting your data always works.
 export const POST = withErrors(async (req: Request) =>
-  jsonResponse(DeleteMineResponse, await deleteMine(readDeletionRequest(req)), "none"),
+  jsonResponse(DeleteMineResponse, await deleteMine(await readDeletionRequest(req)), "none"),
 );

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import nodePath from "node:path";
+
 import { startServer } from "@mymeetingapp/test-server";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -11,6 +14,11 @@ afterEach(async () => {
 });
 const json = { "Content-Type": "application/json" };
 const meetings = JSON.stringify([{ slug: "a", name: "A", day: 1, time: "19:00" }]);
+const fixture = (name: string) =>
+  readFileSync(
+    nodePath.resolve(import.meta.dirname, "../../../packages/feed-kit/test/fixtures", name),
+    "utf8",
+  );
 
 async function site(routes: Routes) {
   const server = await startServer(
@@ -287,5 +295,31 @@ describe("detectFeed", () => {
       notes: "blocked by robots.txt",
     });
     expect(s.requests.map((r) => r.path)).toEqual(["/robots.txt"]);
+  });
+
+  it.each([
+    ["Cloudflare", 403, "cloudflare-challenge.html"],
+    ["Incapsula", 200, "incapsula-challenge.html"],
+  ])("records a site behind a %s bot check and stops probing it", async (by, status, file) => {
+    const s = await site({
+      "/wp-json/tsml/meetings": { status, body: fixture(file), headers: { "Content-Type": "text/html" } },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toEqual({
+      feedType: "bot_blocked",
+      feedUrl: null,
+      notes: `blocked by a bot check (${by})`,
+    });
+    // Spec §4: one honest request, then nothing more to that site, and never a second User-Agent.
+    expect(s.requests.map((r) => r.path)).toEqual(["/robots.txt", "/wp-json/tsml/meetings"]);
+    expect(new Set(s.requests.map((r) => r.headers["user-agent"]))).toEqual(
+      new Set(["mymeetingapp/1.0 (+https://mymeetingapp.com; admin@goodersoftwarellc.com)"]),
+    );
+  });
+
+  it("still records TSML's own JSON restriction as restricted, not as a bot check", async () => {
+    const s = await site({
+      "/wp-json/tsml/meetings": { status: 403, body: fixture("tsml-restricted.json"), headers: json },
+    });
+    expect(await detectFeed(s.baseUrl, createCrawler())).toMatchObject({ feedType: "restricted" });
   });
 });

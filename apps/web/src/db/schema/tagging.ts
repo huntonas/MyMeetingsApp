@@ -1,6 +1,7 @@
 import { PLATFORMS } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   check,
@@ -103,14 +104,44 @@ export const devices = pgTable(
     firstSeenDate: date("first_seen_date").notNull().default(utcToday),
     lastSeenDate: date("last_seen_date").notNull().default(utcToday),
     blocked: boolean("blocked").notNull().default(false),
+    // Spec §6: the phone's App Attest key once registered: Apple's key id, the public key (SPKI DER, base64) and the
+    // highest assertion counter seen, which every write must exceed. All three or none.
+    attestKeyId: text("attest_key_id"),
+    attestPublicKey: text("attest_public_key"),
+    attestCounter: bigint("attest_counter", { mode: "number" }),
   },
   (table) => [
     check("devices_platform_check", sql`${table.platform} in (${sqlStringList(PLATFORMS)})`),
     check("devices_hash_check", sql`${table.deviceHash} ~ '^[0-9a-f]{64}$'`),
+    // Apple: a key belongs to one device. Postgres treats nulls as distinct, so phones without a key don't collide.
+    uniqueIndex("devices_attest_key_idx").on(table.attestKeyId),
+    check(
+      "devices_attest_check",
+      sql`(${table.attestKeyId} is null) = (${table.attestPublicKey} is null) and (${table.attestKeyId} is null) = (${table.attestCounter} is null)`,
+    ),
   ],
 );
 
-const RATE_LIMIT_BUCKETS = ["tag_submission", "suggestion", "metrics_login"] as const;
+// Spec §2 and §6: the day a device wrote, and (Task 6) the highest App Attest counter it signed that day. Written inside
+// the write's own transaction, so a device's record in `devices` is never written by a tag write; the nightly fold
+// (foldDeviceDays) carries these into `devices`. Kept two UTC days, like rate_limits, and inside the 7-day audit window.
+export const deviceDays = pgTable(
+  "device_days",
+  {
+    deviceHash: text("device_hash").notNull(),
+    day: date("day").notNull(),
+    platform: text("platform", { enum: PLATFORMS }).notNull(),
+    attestKeyId: text("attest_key_id"),
+    attestCounter: bigint("attest_counter", { mode: "number" }),
+  },
+  (table) => [
+    primaryKey({ name: "device_days_pkey", columns: [table.deviceHash, table.day] }),
+    check("device_days_platform_check", sql`${table.platform} in (${sqlStringList(PLATFORMS)})`),
+    check("device_days_attest_check", sql`(${table.attestKeyId} is null) = (${table.attestCounter} is null)`),
+  ],
+);
+
+const RATE_LIMIT_BUCKETS = ["tag_submission", "suggestion", "metrics_login", "attestation"] as const;
 export type RateLimitBucket = (typeof RATE_LIMIT_BUCKETS)[number];
 
 // Spec §5: per device per UTC day, with no meeting id. Kept two days. metrics_login is one site-wide count of

@@ -24,18 +24,70 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
   {
     specRow: "devices",
     specCells: {
-      contents: "device hash, platform, first/last seen date, blocked flag, attestation key",
+      contents:
+        "device hash, platform, first/last seen date (folded in nightly), blocked flag, attestation key",
       linkedTo: "nothing else",
       retention: "until delete-mine; inactive 13 months → deleted (blocked devices kept, see §6)",
     },
     table: {
       name: "devices",
-      columns: ["device_hash", "platform", "first_seen_date", "last_seen_date", "blocked"],
+      columns: [
+        "device_hash",
+        "platform",
+        "first_seen_date",
+        "last_seen_date",
+        "blocked",
+        "attest_key_id",
+        "attest_public_key",
+        "attest_counter",
+      ],
     },
     title: "Your phone's record",
-    what: "A keyed hash of the app's ID for your phone (never the ID itself), whether it's an iPhone or an Android phone, the first and last day the app sent us tags or a suggestion (dates only), whether we've blocked it for spam and, once app checks are switched on, the app's attestation key. On iPhone, the app makes a random ID and keeps it in the iPhone's Keychain, on that phone only: it isn't synced to iCloud Keychain or restored to another phone, and it stays if you delete and reinstall the app. On Android, the app uses Android's own ID for the app (on Android 7, the phone's own ID, shared by every app), which a factory reset changes. The app sends it only when you add, change or remove tags, suggest a tag or use “Delete all my tags”, never when you search or read meetings.",
+    what: "A keyed hash of the app's ID for your phone (never the ID itself), whether it's an iPhone or an Android phone, the first day the app sent us tags, a suggestion or its app check, and the last day it sent us tags or a suggestion (dates only; the last day is brought up to date each night, so it can lag by one, and until the app first sends tags or a suggestion, the last day is the day of its app check), whether we've blocked it for spam and, on iPhone, the app's App Attest key: Apple's ID for the key, its public key and how many times it has signed a request. The private key never leaves the iPhone's Secure Enclave. On iPhone, the app makes a random ID and keeps it in the iPhone's Keychain, on that phone only: it isn't synced to iCloud Keychain or restored to another phone, and it stays if you delete and reinstall the app. On Android, the app uses Android's own ID for the app (on Android 7, the phone's own ID, shared by every app), which a factory reset changes. The app sends it only when you add, change or remove tags, suggest a tag or use “Delete all my tags”, and, on iPhone, in the two requests of the app check that can come just before those (one asks our server for a random challenge, the other sends it a new App Attest key), never when you search or read meetings.",
     linkedTo: "Nothing else. It doesn't mention any meeting.",
-    kept: `Until you use “Delete all my tags”, or until the first nightly cleanup ${String(RETENTION.inactiveDeviceMonths)} months after the app last sent us tags or a suggestion. If we blocked your phone for spam, we keep its hash, platform, dates and blocked flag for as long as the block stands, even after “Delete all my tags” or ${String(RETENTION.inactiveDeviceMonths)} months without contact. That record still isn't linked to any meeting.`,
+    kept: `Until you use “Delete all my tags”, or until the first nightly cleanup ${String(RETENTION.inactiveDeviceMonths)} months after the last day on that record. If we blocked your phone for spam, we keep its hash, platform, dates and blocked flag, but not its App Attest key, for as long as the block stands, even after “Delete all my tags” or ${String(RETENTION.inactiveDeviceMonths)} months without contact. That record still isn't linked to any meeting.`,
+  },
+  {
+    specRow: "device_days",
+    specCells: {
+      contents: "device hash, UTC day, platform, App Attest key id and highest counter that day",
+      linkedTo: "device only",
+      retention: "2 days; folded into devices nightly",
+    },
+    table: {
+      name: "device_days",
+      columns: ["device_hash", "day", "platform", "attest_key_id", "attest_counter"],
+    },
+    title: "Days your phone wrote to us",
+    what: "For each day (UTC) your phone adds or changes tags or suggests a tag: your phone's hash, whether it's an iPhone or an Android phone and, on iPhone, which App Attest key signed and the highest count it reached that day. Each night these update your phone's record above.",
+    linkedTo: "Your phone only. It doesn't mention any meeting.",
+    kept: `${String(RETENTION.deviceDayDays)} days: today's and yesterday's are kept, and older ones are deleted in the next nightly cleanup. “Delete all my tags” deletes them at once.`,
+  },
+  {
+    specRow: "attest_challenges",
+    specCells: {
+      contents: "random single-use challenge, expiry time",
+      linkedTo: "nothing",
+      retention: "5 minutes; used ones deleted at once, expired ones nightly",
+    },
+    table: { name: "attest_challenges", columns: ["challenge", "expires_at"] },
+    title: "App check codes",
+    what: "Before an iPhone proves it's running the real app, our server gives it a random one-time code that the proof must include, and keeps the code and when it stops working.",
+    linkedTo: "Nothing. We don't record which phone asked for it.",
+    kept: `${String(RETENTION.challengeMinutes)} minutes. A code is deleted as soon as it's used, and unused ones in the next nightly cleanup.`,
+  },
+  {
+    specRow: "devicecheck_tokens",
+    specCells: {
+      contents: "SHA-256 of each accepted DeviceCheck token, UTC day seen",
+      linkedTo: "nothing",
+      retention: "2 days",
+    },
+    table: { name: "devicecheck_tokens", columns: ["token_hash", "seen_on"] },
+    title: "Used DeviceCheck codes",
+    what: "On an iPhone without App Attest, the app proves each write with a one-time DeviceCheck code from Apple, which our server asks Apple to check. We keep a fingerprint of each code we accept (its SHA-256 hash, never the code itself) and the day (UTC) we saw it, so the same code can't be used twice.",
+    linkedTo: "Nothing. We don't record which phone sent it.",
+    kept: `${String(RETENTION.deviceCheckTokenDays)} days: today's and yesterday's are kept, and older ones are deleted in the next nightly cleanup.`,
   },
   {
     specRow: "tag_submissions",
@@ -129,7 +181,7 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     },
     table: { name: "rate_limits", columns: ["device_hash", "bucket", "window_start", "count"] },
     title: "Daily limits",
-    what: "Your phone's hash, which daily limit it counts (new tags or suggestions), the day (UTC) and how many you've used that day. A separate count of failed sign-ins to our admin page covers the whole site and names no phone.",
+    what: "Your phone's hash, which daily limit it counts (new tags, suggestions or app check codes), the day (UTC) and how many you've used that day. A separate count of failed sign-ins to our admin page covers the whole site and names no phone.",
     linkedTo: "Your phone only; the sign-in count links to nothing.",
     kept: `${String(RETENTION.rateLimitDays)} days: today's and yesterday's counts (UTC) are kept, and older ones are deleted in the next nightly cleanup.`,
   },
@@ -259,7 +311,7 @@ export const THIRD_PARTIES: readonly { specName: string; name: string; role: str
   {
     specName: "Apple",
     name: "Apple",
-    role: "On iPhone, Apple Maps draws the map and gives directions, Apple's geocoder turns a place you type into a map point, and, once switched on, App Attest and DeviceCheck confirm that requests come from the real app.",
+    role: "On iPhone, Apple Maps draws the map and gives directions, Apple's geocoder turns a place you type into a map point, and App Attest (or DeviceCheck, on an iPhone without it) confirms that tags and suggestions come from the real app.",
   },
   {
     specName: "Google",

@@ -3,9 +3,10 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST } from "@/app/api/v1/tags/route";
 import { db, pool } from "@/db/client";
-import { tagSubmissions } from "@/db/schema";
+import { devices, tagSubmissions } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { blockDevice } from "@/server/devices/block-device";
+import { foldDeviceDays } from "@/server/devices/device-days";
 import { mergeDuplicateMeetings } from "@/server/meetings/merge";
 
 import { resetDb } from "./db";
@@ -79,6 +80,26 @@ describe("blockDevice", () => {
         on s.xmin::text::bigint - d.xmin::text::bigint in (0, 1)
     `);
     expect(rows).toEqual([{ linked: 0 }]);
+  });
+
+  // The privacy policy: a blocked phone's kept record holds no App Attest key, even without "Delete all my tags".
+  it("clears the device's App Attest key", async () => {
+    await tag(await seedMeetingStarted(1));
+    await foldDeviceDays();
+    await db.update(devices).set({
+      attestKeyId: "zgSY9YSD+7TaDXssY6WlOPVS1K3Lmk+pFhlcSWE+ZV0=",
+      attestPublicKey: "MFkw",
+      attestCounter: 7,
+    });
+    await blockDevice(DEVICE_A_HASH);
+    expect(
+      (await db.select().from(devices)).map((row) => [
+        row.blocked,
+        row.attestKeyId,
+        row.attestPublicKey,
+        row.attestCounter,
+      ]),
+    ).toEqual([[true, null, null, null]]);
   });
 
   it("refuses a hash no device has", async () => {

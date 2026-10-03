@@ -341,6 +341,22 @@ describe("the results map", () => {
     ).toBeOnTheScreen();
     expect(screen.getByTestId("results-map")).toBe(map);
     expect(screen.queryByText("Online meetings you can join")).toBeNull();
+    // A pan sets its own radius from the view, so there's nothing farther to offer: the person zooms out instead.
+    expect(screen.queryByRole("button", { name: "Search farther" })).toBeNull();
+  });
+
+  // Owner to confirm at review: the wider search zooms the map out to fit its 60 miles.
+  it("offers Search farther over an empty map, and opens the map around the wider search", async () => {
+    api.reply(SEARCH, { meetings: [far] });
+    api.replyOnce(SEARCH, { meetings: [] });
+    await launchNearby();
+    await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
+    await fireEvent.press(screen.getByRole("button", { name: "Search" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Map" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Search farther" }));
+    expect(await screen.findByRole("button", { name: /Far Group/ })).toBeOnTheScreen();
+    expect(mapProps().initialRegion.latitudeDelta).toBeCloseTo(1.7427, 4);
+    expect(searchBodies().at(-1)).toEqual({ lat: 35.76, lng: -83.97, radiusKm: 97 });
   });
 
   it("says when no marker matches the filters, and clears them from the map", async () => {

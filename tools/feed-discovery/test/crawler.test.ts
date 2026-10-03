@@ -220,12 +220,15 @@ describe("createCrawler", () => {
       "/b": { status: 200, body: "b" },
     });
     const crawler = createCrawler();
+    const start = Date.now();
     await Promise.all([crawler.get(`${server.baseUrl}/a`), crawler.get(`${server.baseUrl}/b`)]);
-    const times = server.requests.map((r) => r.at);
     expect(server.requests.map((r) => r.path).sort()).toEqual(["/a", "/b", "/robots.txt"]);
-    for (let i = 1; i < times.length; i += 1) {
-      expect((times[i] ?? 0) - (times[i - 1] ?? Infinity)).toBeGreaterThanOrEqual(990);
-    }
+    // Each request leaves no sooner than a second after the one before it, and arrives some time after it leaves, so
+    // the second and third to arrive can't come sooner than one and two seconds in. (Gaps between arrivals would also
+    // count how much longer one request took than another to arrive: the first, opening the connection, takes longest.)
+    const arrivals = server.requests.map((r) => r.at - start).sort((a, b) => a - b);
+    expect(arrivals[1]).toBeGreaterThanOrEqual(1000);
+    expect(arrivals[2]).toBeGreaterThanOrEqual(2000);
   });
 
   it("fetches robots.txt only once per origin", async () => {

@@ -46,8 +46,12 @@ this automatically against a HAR capture:
     (`WriteHeaders.shape.deviceId`/`.platform`/`.appVersion`): a 16-64 character id of letters, digits and
     hyphens, `ios` or `android`, and a `1.2.3`-style version. A capture that carries more than one distinct
     `X-Device-Id` value is itself a finding ("sends more than one device ID") — the id itself is never
-    printed, there or anywhere else in the report. `X-Attestation` is a finding on every write until Phase 6
-    turns it on ("sends X-Attestation, which isn't switched on yet");
+    printed, there or anywhere else in the report. `X-Attestation` is required on the five writes and must be
+    exactly `appattest.v1.<44-character key id>.<13-digit clock>.<base64>` or `devicecheck.v1.<base64>` (the
+    shared `parseAttestation`). The app check's own `POST /attest/challenge` (no body) and
+    `POST /attest/register` (`AttestRegisterRequest`, byte-exact) carry the device headers and never a proof.
+    A simulator can't attest, so from Phase 6 the audit runs on an iPhone (Task 14 of the Phase 6 plan has the
+    steps);
   - `If-None-Match`/`If-Modified-Since` are allowed only on a GET read, and only when the value exactly
     equals an `etag`/`Last-Modified` that an **earlier response to that same URL, in this same capture**
     actually returned — never an arbitrary value. Vercel's ETags are a hash of the response body, shared by
@@ -72,20 +76,25 @@ this automatically against a HAR capture:
   This is also why coordinates written in scientific/exponential notation (e.g. `3.596e1`) have no path
   through our own server undetected: `JSON.stringify` never re-emits a number that way, so the byte-for-byte
   comparison already catches it without needing to specifically look for that notation;
-- **Writes** (Phase 5b, spec §7): each of the app's five writes is held to the same byte-exact standard as
+- **Writes** (Phase 5b, spec §7; the app check's two requests added in Phase 6): each of the app's seven writes is held to the same byte-exact standard as
   search — `JSON.stringify` of its own contract's `parse`, or no body at all — and every device header above:
   - `POST /tags` — `TagSubmissionRequest` (`meetingId`, `tags`, optional `nearMeeting`);
   - `PUT /tags/:id` — `TagEditRequest` (`tags`);
   - `DELETE /tags/:id` — no body;
   - `POST /tags/delete-mine` — no body;
-  - `POST /suggestions` — `SuggestionRequest` (`text`).
+  - `POST /suggestions` — `SuggestionRequest` (`text`);
+  - `POST /attest/challenge` — no body (Phase 6, the app check);
+  - `POST /attest/register` — `AttestRegisterRequest` (Phase 6, the app check).
+
+  The first five must also carry `X-Attestation` ("write without the x-attestation header"); the app check's
+  own two requests never do, since they run before the phone has a key.
 
   A missing device header is its own finding ("write without the x-device-id header", and so on); a body that
   doesn't match its contract byte-for-byte is "write body isn't exactly what the app sends"; a body on a write
   whose contract has none is "sends a body on a write that has none" — checked as `bodyText(request) !== ""`,
   or a non-empty HAR `params`, or `bodySize > 0`, not just whether `postData` exists, since `savehar.py` always
   writes an empty `postData` for a bodiless POST and a plain existence check would fail every real delete-mine
-  capture. Any other method or path reaching our server — not a read, the search, or one of these five — is
+  capture. Any other method or path reaching our server — not a read, the search, or one of these seven — is
   "isn't one of the app's requests".
 
 The exact point's first three decimals fail the run on any host when written with a dot or a decimal comma

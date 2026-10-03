@@ -240,6 +240,13 @@ describe("the privacy policy page", () => {
     expect(text).toContain("“Delete all my tags” on the app's Me tab");
   });
 
+  // The app check's own requests (POST /attest/challenge and /attest/register) carry the ID too.
+  it("counts the app check's two requests among those that send the ID", () => {
+    expect(text).toContain(
+      "suggest a tag or use “Delete all my tags”, and, on iPhone, in the two requests of the app check that can come just before those (one asks our server for a random challenge, the other sends it a new App Attest key), never when you search or read meetings.",
+    );
+  });
+
   // Task 5A: only tags or a suggestion move the last day on (folded in nightly); registering a key again never does.
   it("counts a phone's inactivity from the last day on its record, which only tags or a suggestion move on", () => {
     expect(text).toContain(

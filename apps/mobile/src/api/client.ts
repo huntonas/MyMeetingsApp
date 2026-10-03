@@ -130,8 +130,14 @@ async function signed(keyId: string, clientData: string, timestamp: number): Pro
 
 // Spec §6: the proof for one write. Whatever stops the phone making one (a simulator, Apple out of reach, a refused
 // registration) sends the write without it, and the server decides whether it needs one. The exception is a
-// registration refused because the phone is blocked: that refusal is the answer, so the person sees it.
-async function attestation(method: WriteMethod, path: string, body: string): Promise<string | undefined> {
+// registration refused because the phone is blocked: for a write that refusal is the answer, so the person sees it;
+// a deletion is sent without a proof, which the server takes from a blocked phone (spec §6).
+async function attestation(
+  method: WriteMethod,
+  path: string,
+  body: string,
+  deletion: boolean,
+): Promise<string | undefined> {
   try {
     const support = integritySupport();
     if (support === "none") return undefined;
@@ -149,7 +155,7 @@ async function attestation(method: WriteMethod, path: string, body: string): Pro
     }
     return await signed(await registerAttestKey(), clientData, timestamp);
   } catch (error) {
-    if (error instanceof ApiError && error.code === "device_blocked") throw error;
+    if (error instanceof ApiError && error.code === "device_blocked" && !deletion) throw error;
     return undefined;
   }
 }
@@ -181,10 +187,11 @@ async function attested<S extends z.ZodType>(
   method: WriteMethod,
   path: string,
   text: string | undefined,
+  deletion: boolean,
 ): Promise<z.output<S>> {
   // A write with no body signs an empty one, as the server reads it.
   const signedBody = text ?? "";
-  const proof = await attestation(method, path, signedBody);
+  const proof = await attestation(method, path, signedBody, deletion);
   try {
     return await attempt(schema, method, path, text, proof);
   } catch (error) {
@@ -195,7 +202,7 @@ async function attested<S extends z.ZodType>(
       parseAttestation(proof)?.kind === "appAttest";
     if (!keyRefused) throw error;
     await forgetAttestKey();
-    return attempt(schema, method, path, text, await attestation(method, path, signedBody));
+    return attempt(schema, method, path, text, await attestation(method, path, signedBody, deletion));
   }
 }
 
@@ -203,17 +210,18 @@ async function attested<S extends z.ZodType>(
 // nothing to say (a deletion) sends no body and no Content-Type. A refused App Attest key (gone from the server after
 // Delete all my tags) is replaced and the write sent once more: nothing was written, as the check runs first. A write
 // whose server deletes this phone's key (`forgetsAttestKey`) forgets it before the next write starts, best effort: a
-// key it couldn't forget is replaced on that write's retry.
+// key it couldn't forget is replaced on that write's retry. A `deletion` (of this phone's own tags) is sent without a
+// proof when the phone is blocked.
 export function sendWrite<S extends z.ZodType>(
   schema: S,
   method: WriteMethod,
   path: string,
   body?: unknown,
-  { forgetsAttestKey = false }: { forgetsAttestKey?: boolean } = {},
+  { forgetsAttestKey = false, deletion = false }: { forgetsAttestKey?: boolean; deletion?: boolean } = {},
 ): Promise<z.output<S>> {
   const text = body === undefined ? undefined : JSON.stringify(body);
   return oneAtATime(async () => {
-    const answer = await attested(schema, method, path, text);
+    const answer = await attested(schema, method, path, text, deletion);
     if (forgetsAttestKey) await forgetAttestKey().catch(() => undefined);
     return answer;
   });

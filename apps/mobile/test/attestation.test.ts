@@ -157,6 +157,20 @@ describe("on an iPhone with App Attest", () => {
     expect(keychainItem("attest-key-id")).toBeUndefined();
   });
 
+  // After a reinstall the Keychain keeps the key's id but Apple's key is gone, so a blocked phone registers again and
+  // is refused. The server takes a blocked phone's deletions without a proof, so they're sent without one.
+  it.each<[string, () => Promise<unknown>, string]>([
+    ["Delete all my tags", () => deleteMine(), "POST /api/v1/tags/delete-mine"],
+    ["removing one meeting's tags", () => removeTags(MEETING_ID), `DELETE /api/v1/tags/${MEETING_ID}`],
+  ])("lets a reinstalled blocked phone use %s, sent without a proof", async (_what, remove, request) => {
+    setKeychainItem("attest-key-id", keyIdFor(9));
+    makeKeyStale(keyIdFor(9));
+    api.reply("/api/v1/attest/register", BLOCKED, 403);
+    await remove();
+    expect(sent()).toEqual([...REGISTERING, request]);
+    expect(proofOf(2)).toBeUndefined();
+  });
+
   it("forgets a key the phone no longer holds, even when Apple can't attest a new one", async () => {
     setKeychainItem("attest-key-id", keyIdFor(9));
     makeKeyStale(keyIdFor(9));

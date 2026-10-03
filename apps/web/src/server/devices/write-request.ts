@@ -1,20 +1,23 @@
 import { DEVICE_HEADERS, isOlderVersion, type Platform, WriteHeaders } from "@mymeetingapp/shared";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { db, type Executor } from "@/db/client";
-import { devices } from "@/db/schema";
 import { parseInput, parseJsonText } from "@/lib/api/request";
 import { ApiError } from "@/lib/api/respond";
 import { readAppConfig } from "@/server/app-config";
 import { verifyAttestation } from "@/server/devices/attestation";
+import { isBlocked } from "@/server/devices/blocked";
 import { recordDeviceDay } from "@/server/devices/device-days";
 import { deviceHash } from "@/server/devices/ids";
 
 // What a write's verified proof carried: the App Attest key and counter of its assertion, or the DeviceCheck token
-// Apple accepted (spent in the write's transaction). Absent while checks are off.
+// Apple accepted (spent in the write's transaction), or, for a deletion from a blocked device, none at all (the block
+// is read again under the device lock). Absent while checks are off.
 export type DeviceProof =
-  { kind: "appAttest"; keyId: string; counter: number } | { kind: "deviceCheck"; token: string };
+  | { kind: "appAttest"; keyId: string; counter: number }
+  | { kind: "deviceCheck"; token: string }
+  | { kind: "blockedDevice" };
 
 export interface WriteDevice {
   platform: Platform;
@@ -37,7 +40,12 @@ function hashed(headers: WriteHeaders): WriteDevice {
 
 // The raw id is hashed here and goes nowhere else: not into the database, the response or a log. The attestation is
 // checked over the request's exact method, path and body text.
-async function verifiedDevice(req: Request, headers: WriteHeaders, body: string): Promise<WriteDevice> {
+async function verifiedDevice(
+  req: Request,
+  headers: WriteHeaders,
+  body: string,
+  deletion: boolean,
+): Promise<WriteDevice> {
   const device = hashed(headers);
   const proof = await verifyAttestation({
     ...device,
@@ -45,6 +53,7 @@ async function verifiedDevice(req: Request, headers: WriteHeaders, body: string)
     method: req.method,
     path: new URL(req.url).pathname,
     body,
+    deletion,
   });
   return proof === undefined ? device : { ...device, proof };
 }
@@ -67,16 +76,16 @@ export async function readWriteRequest<Schema extends z.ZodType>(
     throw new ApiError("upgrade_required");
   }
   const text = await req.text();
-  const device = await verifiedDevice(req, headers, text);
+  const device = await verifiedDevice(req, headers, text, false);
   return { device, body: parseJsonText(text, schema) };
 }
 
 // A write that only deletes the device's own data. Spec §5 allows deletes at any time and §2 puts privacy over
 // convenience, so no app version is too old to delete. The device is identified and attested exactly as for any
-// write (over an empty body), so a forged id can't delete another device's data. Pair it with lockDevice and
-// assertFreshProof, not writeAsDevice.
+// write (over an empty body), so a forged id can't delete another device's data, except that a blocked device needs
+// no proof (verifyAttestation). Pair it with lockDevice and assertFreshProof, not writeAsDevice.
 export async function readDeletionRequest(req: Request): Promise<WriteDevice> {
-  return verifiedDevice(req, readDeviceHeaders(req), await req.text());
+  return verifiedDevice(req, readDeviceHeaders(req), await req.text(), true);
 }
 
 // Serializes one device's writes for the rest of the transaction, so the 7-day rule and daily cap hold under
@@ -95,11 +104,7 @@ export async function lockDevice(hash: string, executor: Executor): Promise<void
 export async function writeAsDevice<T>(device: WriteDevice, write: (tx: Executor) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
     await lockDevice(device.deviceHash, tx);
-    const [row] = await tx
-      .select({ blocked: devices.blocked })
-      .from(devices)
-      .where(eq(devices.deviceHash, device.deviceHash));
-    if (row?.blocked === true) throw new ApiError("device_blocked");
+    if (await isBlocked(device.deviceHash, tx)) throw new ApiError("device_blocked");
     await recordDeviceDay(device, tx);
     return write(tx);
   });

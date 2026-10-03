@@ -12,6 +12,7 @@ import { verifyAssertion } from "@/server/attest/app-attest";
 import { appAttestConfig } from "@/server/attest/config";
 import { validDeviceCheckToken } from "@/server/attest/device-check";
 import { hasAttestKey, highestCounter, registeredKey } from "@/server/attest/keys";
+import { isBlocked } from "@/server/devices/blocked";
 import type { DeviceProof } from "@/server/devices/write-request";
 
 // The counter, not the clock, stops replays; the clock only stops an assertion being held for days, and a tighter
@@ -26,6 +27,8 @@ interface AttestedRequest {
   path: string;
   // The raw body text, exactly as received: the assertion signs these bytes.
   body: string;
+  // A deletion of the device's own data, which a blocked device may make without a proof.
+  deletion: boolean;
 }
 
 // Spec §6: verification sits behind REQUIRE_ATTESTATION so development works without it. Only "off" (or unset)
@@ -66,9 +69,16 @@ async function verifyAppAttest(
 
 // Spec §6: an iPhone's write carries an App Attest assertion over this exact request, or, on an iPhone without App
 // Attest, a DeviceCheck token. Play Integrity arrives in Phase 6b, so until then a required check refuses Android. Off,
-// the header is ignored entirely and there's no proof.
+// the header is ignored entirely and there's no proof. A blocked device is answered before any proof is checked (its
+// record keeps no key to check one with): a write gets device_blocked, which only the holder of its secret ID learns,
+// and a deletion goes ahead without a proof, since its rows are already excluded and deleting always works (spec §6).
+// The deletion reads the block again under the device lock (assertFreshProof).
 export async function verifyAttestation(request: AttestedRequest): Promise<DeviceProof | undefined> {
   if (!attestationRequired()) return undefined;
+  if (await isBlocked(request.deviceHash, db)) {
+    if (!request.deletion) throw new ApiError("device_blocked");
+    return { kind: "blockedDevice" };
+  }
   const proof = request.attestation === undefined ? null : parseAttestation(request.attestation);
   if (request.platform !== "ios" || proof === null) throw new ApiError("attestation_failed");
   if (proof.kind === "appAttest") return verifyAppAttest(request, proof);

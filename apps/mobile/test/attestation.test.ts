@@ -148,6 +148,15 @@ describe("on an iPhone with App Attest", () => {
     expect(keychainItem("attest-key-id")).toBeUndefined();
   });
 
+  // A blocked phone's record keeps no key, so the server refuses its registration: the person is told, and the write
+  // isn't sent without a proof.
+  it("shows the server's words when it refuses the new key because the phone is blocked, and sends no write", async () => {
+    api.reply("/api/v1/attest/register", BLOCKED, 403);
+    await expect(tagIt()).rejects.toMatchObject(BLOCKED.error);
+    expect(sent()).toEqual(REGISTERING);
+    expect(keychainItem("attest-key-id")).toBeUndefined();
+  });
+
   it("forgets a key the phone no longer holds, even when Apple can't attest a new one", async () => {
     setKeychainItem("attest-key-id", keyIdFor(9));
     makeKeyStale(keyIdFor(9));

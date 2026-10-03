@@ -6,14 +6,20 @@ import { utcToday } from "@/db/sql";
 import { ApiError } from "@/lib/api/respond";
 import { spendDeviceCheckToken } from "@/server/attest/device-check";
 import { highestCounter } from "@/server/attest/keys";
+import { isBlocked } from "@/server/devices/blocked";
 import type { WriteDevice } from "@/server/devices/write-request";
 
 // Spec §6: a proof works once. An assertion's counter must exceed every one its key signed before; a DeviceCheck token
 // is spent. Called under the device lock, inside the write's transaction, so of two writes signed with one counter only
-// the first through the lock gets past. Without a proof (checks off) there's nothing to check.
+// the first through the lock gets past. Without a proof (checks off) there's nothing to check. A blocked device's
+// deletion carries none: its block is read again here, under the lock, so only a device still blocked goes without.
 export async function assertFreshProof(device: WriteDevice, tx: Executor): Promise<void> {
   const { proof } = device;
   if (proof === undefined) return;
+  if (proof.kind === "blockedDevice") {
+    if (!(await isBlocked(device.deviceHash, tx))) throw new ApiError("attestation_failed");
+    return;
+  }
   if (proof.kind === "deviceCheck") {
     await spendDeviceCheckToken(proof.token, tx);
     return;

@@ -129,7 +129,8 @@ async function signed(keyId: string, clientData: string, timestamp: number): Pro
 }
 
 // Spec §6: the proof for one write. Whatever stops the phone making one (a simulator, Apple out of reach, a refused
-// registration) sends the write without it, and the server decides whether it needs one.
+// registration) sends the write without it, and the server decides whether it needs one. The exception is a
+// registration refused because the phone is blocked: that refusal is the answer, so the person sees it.
 async function attestation(method: WriteMethod, path: string, body: string): Promise<string | undefined> {
   try {
     const support = integritySupport();
@@ -147,7 +148,8 @@ async function attestation(method: WriteMethod, path: string, body: string): Pro
       }
     }
     return await signed(await registerAttestKey(), clientData, timestamp);
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "device_blocked") throw error;
     return undefined;
   }
 }

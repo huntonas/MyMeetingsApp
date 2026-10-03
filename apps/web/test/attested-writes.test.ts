@@ -176,13 +176,6 @@ describe("a write while app checks are required", () => {
     expect(await storedCounter()).toBe(1);
   });
 
-  it("refuses a replay as a failed check before the server's own rules, even from a blocked phone", async () => {
-    const headers = signed(1);
-    expect((await tag(headers)).status).toBe(201);
-    await db.update(devices).set({ blocked: true }).where(eq(devices.deviceHash, DEVICE_A_HASH));
-    expect(await (await tag(headers)).json()).toEqual(refusal);
-  });
-
   it("lets only one of two writes signed with the same counter through, checked again under the device lock", async () => {
     const second = await otherWrite();
     // Both pass the first check (nothing kept yet) and wait on the device lock; only the first through it keeps 1.
@@ -316,6 +309,70 @@ describe("a write while app checks are required", () => {
       { params: Promise.resolve({ meetingId }) },
     );
     expect(await res.json()).toEqual(refusal);
+  });
+});
+
+// Spec §6: a blocked phone is told so before any proof is checked (its ID is a Keychain secret, so only it learns
+// that), and may delete its own rows without one: they're already excluded, and deleting always works.
+describe("a blocked phone while app checks are required", () => {
+  const blocked = { error: { code: "device_blocked", message: ERROR_MESSAGES.device_blocked } };
+  const block = () => db.update(devices).set({ blocked: true }).where(eq(devices.deviceHash, DEVICE_A_HASH));
+  const deleteTag = (headers: Record<string, string>) =>
+    deleteTagRoute(new Request(`http://test${TAGS}/${meetingId}`, { method: "DELETE", headers }), {
+      params: Promise.resolve({ meetingId }),
+    });
+  const deleteMine = (headers: Record<string, string>) =>
+    deleteMineRoute(new Request(`http://test${DELETE_MINE}`, { method: "POST", headers }));
+
+  it.each<[string, () => Record<string, string>]>([
+    ["no proof", () => deviceHeaders()],
+    ["a replayed proof", () => signed(1)],
+    ["a proof that would pass", () => signed(2, { body: "" })],
+  ])("is refused device_blocked, not attestation_failed, with %s", async (_why, headers) => {
+    expect((await tag(signed(1))).status).toBe(201);
+    await block();
+    const res = await tag(headers(), "");
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual(blocked);
+  });
+
+  it("deletes one meeting's tags without a proof", async () => {
+    expect((await tag(signed(1))).status).toBe(201);
+    await block();
+    expect((await deleteTag(deviceHeaders())).status).toBe(200);
+    expect(await savedTags()).toBe(0);
+  });
+
+  it("deletes all its tags without a proof, keeping its hash and block", async () => {
+    expect((await tag(signed(1))).status).toBe(201);
+    await block();
+    expect((await deleteMine(deviceHeaders())).status).toBe(200);
+    expect(await savedTags()).toBe(0);
+    expect((await db.select().from(devices)).map((row) => [row.deviceHash, row.blocked])).toEqual([
+      [DEVICE_A_HASH, true],
+    ]);
+  });
+
+  it("still needs a proof to delete from a phone that isn't blocked", async () => {
+    expect((await tag(signed(1))).status).toBe(201);
+    expect(await (await deleteTag(deviceHeaders())).json()).toEqual(refusal);
+    expect(await (await deleteMine(deviceHeaders())).json()).toEqual(refusal);
+    expect(await savedTags()).toBe(1);
+  });
+
+  it("confirms the block under the device lock before deleting without a proof", async () => {
+    expect((await tag(signed(1))).status).toBe(201);
+    await block();
+    // Lifted while the deletion waits on the device lock (nothing lifts a block today; this pins the lock's read).
+    const { removing } = await whileHolding(LOCK_DEVICE, [DEVICE_A_HASH], async (holder) => {
+      let settled = false;
+      const removing = deleteMine(deviceHeaders()).finally(() => (settled = true));
+      await untilWaitingOnLock(holder.pid, () => settled);
+      await holder.query("update devices set blocked = false where device_hash = $1", [DEVICE_A_HASH]);
+      return { removing };
+    });
+    expect(await (await removing).json()).toEqual(refusal);
+    expect(await savedTags()).toBe(1);
   });
 });
 

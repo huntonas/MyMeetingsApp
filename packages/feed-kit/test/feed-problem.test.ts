@@ -60,4 +60,10 @@ describe("feedProblem", () => {
       described(200, "application/json", '[{"slug":"a","notes":"Just a moment... we start late"}]'),
     ).toBeNull();
   });
+
+  it("never calls a JSON body a bot check, even one quoting a challenge page's own title", () => {
+    expect(described(403, "application/json", '{"notes":"<title>Just a moment...</title>"}')).not.toContain(
+      "bot check",
+    );
+  });
 });

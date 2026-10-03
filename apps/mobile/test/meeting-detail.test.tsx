@@ -150,6 +150,8 @@ describe("the meeting page", () => {
       (node) => node.type === "RNSScreenStackHeaderConfig" && node.props.title === "Meeting",
     );
     expect(header).toHaveProp("backButtonDisplayMode", "minimal");
+    // VoiceOver reads the back button by its title, which iOS otherwise takes from the screen underneath: "(tabs)".
+    expect(header).toHaveProp("backTitle", "Back");
   });
 
   // A URL's userinfo comes before an "@", and the browser goes to the host after it.

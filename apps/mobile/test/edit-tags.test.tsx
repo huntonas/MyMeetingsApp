@@ -173,6 +173,53 @@ describe("a meeting this phone tagged", () => {
     expect(screen.getByRole("button", { name: "Remove my tags" })).toBeOnTheScreen();
   });
 
+  it("says the tags are removed when a retry finds none, after a removal it couldn't confirm", async () => {
+    // No reply set for the first DELETE: the test server answers 599, as when the connection drops after the server
+    // removed them.
+    await openTagged();
+    await remove();
+    expect(
+      await screen.findByText(
+        "We couldn't reach My Meeting App, so we can't tell whether your tags were removed. Check your connection and try again.",
+      ),
+    ).toBeOnTheScreen();
+    api.reply(
+      TAG_PATH,
+      { error: { code: "not_tagged", message: "You haven't tagged this meeting." } },
+      404,
+      "DELETE",
+    );
+    await remove();
+    expect(await screen.findByText("Your tags are removed.")).toBeOnTheScreen();
+    expect(screen.queryByText("You haven't tagged this meeting.")).toBeNull();
+    expect(await myTagsOn(ID)).toBeNull();
+  });
+
+  it("shows the server's words when a retry finds none after a refusal, which removed nothing", async () => {
+    api.reply(
+      TAG_PATH,
+      {
+        error: { code: "rate_limited", message: "You've reached today's limit. Please try again tomorrow." },
+      },
+      429,
+      "DELETE",
+    );
+    await openTagged();
+    await remove();
+    expect(
+      await screen.findByText("You've reached today's limit. Please try again tomorrow."),
+    ).toBeOnTheScreen();
+    api.reply(
+      TAG_PATH,
+      { error: { code: "not_tagged", message: "You haven't tagged this meeting." } },
+      404,
+      "DELETE",
+    );
+    await remove();
+    expect(await screen.findByText("You haven't tagged this meeting.")).toBeOnTheScreen();
+    expect(screen.queryByText("Your tags are removed.")).toBeNull();
+  });
+
   it("keeps the record and shows the server's words when it refuses for another reason", async () => {
     api.reply(
       TAG_PATH,

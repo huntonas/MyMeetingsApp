@@ -9,7 +9,13 @@ import { useRefreshOnFocus } from "@/cache/use-refresh-on-focus";
 import { useUpgradeRequired } from "@/config/upgrade";
 import { currentPosition } from "@/location/current-position";
 import { findPlace } from "@/location/find-place";
-import { type MapRegion, radiusForRegion, regionAround, SEARCH_RADIUS_KM } from "@/location/geo";
+import {
+  type MapRegion,
+  radiusForRegion,
+  regionAround,
+  SEARCH_RADIUS_KM,
+  WIDER_SEARCH_RADIUS_KM,
+} from "@/location/geo";
 import { type RecentPlace, rememberPlace } from "@/location/recent-places";
 import { shortWhen } from "@/meetings/schedule";
 import { milesLabel, radiusMiles } from "@/meetings/units";
@@ -156,6 +162,8 @@ interface ResultsProps {
   onFiltersOpen: (open: boolean) => void;
   onMapMove: (region: MapRegion) => void;
   onChangePlace: () => void;
+  // Searches the same place again at WIDER_SEARCH_RADIUS_KM.
+  onFarther: () => void;
   // Where the search was before the person first moved the map, while the search is a map area's.
   backTo: SearchOrigin | null;
   onBack: (to: SearchOrigin) => void;
@@ -173,6 +181,7 @@ function Results({
   onFiltersOpen,
   onMapMove,
   onChangePlace,
+  onFarther,
   backTo,
   onBack,
   problem,
@@ -294,6 +303,20 @@ function Results({
   );
   // Spec §8: no in-person meetings here is said plainly, on the list and on the map.
   const noneNearby = `No in-person meetings within ${String(radiusMiles(origin.radiusKm))} miles of ${origin.label}.`;
+  // Offered once, for a place or near-me search's own empty answer: never for a map area (a pan sets its own radius),
+  // never after it was already used, and not on the last search standing in for this one offline.
+  const fartherButton = asked.kind !== "map" &&
+    asked.radiusKm < WIDER_SEARCH_RADIUS_KM &&
+    !origin.lastSearch && (
+      <View style={{ alignSelf: "flex-start" }}>
+        <Button
+          kind="secondary"
+          label="Search farther"
+          hint={`Searches within ${String(radiusMiles(WIDER_SEARCH_RADIUS_KM))} miles of ${origin.label}`}
+          onPress={onFarther}
+        />
+      </View>
+    );
   const clear = (
     <Button
       kind="text"
@@ -377,6 +400,7 @@ function Results({
             {state.status === "ready" && state.data.meetings.length === 0 && (
               <View style={card}>
                 <AppText>{noneNearby}</AppText>
+                {fartherButton}
               </View>
             )}
             {/* Open, the panel's Clear is the one. */}
@@ -426,6 +450,7 @@ function Results({
         {heading()}
         {savedNote}
         <AppText>{noneNearby}</AppText>
+        {fartherButton}
         {onlineInstead}
       </Screen>
     );
@@ -575,6 +600,11 @@ function Nearby() {
           begin();
           setOrigin(null);
           setBackTo(null);
+        }}
+        // A search like any other, so the results (and the map) remount around it, and a new search forgets it.
+        onFarther={() => {
+          begin();
+          search({ ...origin, radiusKm: WIDER_SEARCH_RADIUS_KM });
         }}
         backTo={backTo}
         // A search like any other, so the map remounts around it and its first region report isn't a pan. Near the

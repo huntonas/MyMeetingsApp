@@ -1264,3 +1264,101 @@ describe("results", () => {
     });
   });
 });
+
+describe("Search farther", () => {
+  const NONE_NEAR = "No in-person meetings within 16 miles of Maryville, TN.";
+  const farther = () => screen.findByRole("button", { name: "Search farther" });
+
+  it("repeats the same rounded point at 97 km when a place has nothing within 16 miles", async () => {
+    api.reply(SEARCH, { meetings: [far] });
+    api.replyOnce(SEARCH, { meetings: [] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    expect(await screen.findByText(NONE_NEAR)).toBeOnTheScreen();
+    expect(await farther()).toHaveProp("accessibilityHint", "Searches within 60 miles of Maryville, TN");
+    await fireEvent.press(await farther());
+    expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+    // The distance shows as for any search, from the place itself.
+    expect(screen.getByText("Mon 7:00 PM · 1.4 mi")).toBeOnTheScreen();
+    expect(searchBodies()).toEqual([
+      { lat: 35.76, lng: -83.97, radiusKm: 25 },
+      { lat: 35.76, lng: -83.97, radiusKm: 97 },
+    ]);
+    expect(screen.queryByRole("button", { name: "Search farther" })).toBeNull();
+  });
+
+  it("falls back to the online meetings when 60 miles finds nothing either, and offers no more", async () => {
+    api.reply(SEARCH, { meetings: [] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await fireEvent.press(await farther());
+    expect(
+      await screen.findByText("No in-person meetings within 60 miles of Maryville, TN."),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("Online meetings you can join")).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Search farther" })).toBeNull();
+  });
+
+  it("starts the next place at 16 miles again", async () => {
+    api.reply(SEARCH, { meetings: [] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await fireEvent.press(await farther());
+    await screen.findByText("No in-person meetings within 60 miles of Maryville, TN.");
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
+    // The 16-mile answer (its saved copy is still fresh, so it may come from the phone) and the offer again: the
+    // wider radius belonged to that one search.
+    expect(await screen.findByText(NONE_NEAR)).toBeOnTheScreen();
+    expect(await farther()).toBeOnTheScreen();
+    expect(searchBodies().filter((body) => JSON.stringify(body).includes('"radiusKm":97'))).toHaveLength(1);
+  });
+
+  it("offers it after Use my location too, from the same rounded point", async () => {
+    api.reply(SEARCH, { meetings: [] });
+    await launchNearby();
+    await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
+    await fireEvent.press(await farther());
+    expect(await screen.findByText("No in-person meetings within 60 miles of you.")).toBeOnTheScreen();
+    expect(searchBodies()).toEqual([
+      { lat: 36.16, lng: -86.78, radiusKm: 25 },
+      { lat: 36.16, lng: -86.78, radiusKm: 97 },
+    ]);
+  });
+
+  // Offline, the wider search has no copy of its own, so the one search kept stands in for it (spec §8), said as such;
+  // it's that search's own 16-mile answer, so nothing farther is offered on it.
+  it("offline, shows the last search in its place, said so, and offers nothing farther on it", async () => {
+    api.reply(SEARCH, { meetings: [] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    const button = await farther();
+    await api.close();
+    await fireEvent.press(button);
+    expect(
+      await screen.findByText(
+        "Showing your last search, near Maryville, TN, saved today at 5:30 AM. We couldn't reach My Meeting App, so it may be out of date.",
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText(NONE_NEAR)).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Search farther" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Change place" })).toBeOnTheScreen();
+    api = await startApi();
+  });
+
+  // A new 16-mile search, offline: the empty answer shown is an earlier search's, so "farther" from it would be
+  // farther from somewhere the person didn't ask about now.
+  it("offline, offers nothing farther on an earlier search standing in for a new one", async () => {
+    api.reply(SEARCH, { meetings: [] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await farther();
+    await api.close();
+    await fireEvent.press(screen.getByRole("button", { name: "Change place" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
+    expect(await screen.findByText(/^Showing your last search, near Maryville, TN/)).toBeOnTheScreen();
+    expect(screen.getByText(NONE_NEAR)).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Search farther" })).toBeNull();
+    api = await startApi();
+  });
+});

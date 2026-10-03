@@ -224,7 +224,7 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
   - Distances are measured from the searched point; the list is ordered as above (Soonest by default).
   - Panning the map searches around the new map center (radius from the visible area).
   - Recent searched places are saved on the phone.
-  - If no in-person meetings are found, say so plainly and show the online meetings view rather than an empty screen.
+  - If no in-person meetings are found, say so plainly and offer 'Search farther' once: the same rounded point at 97 km (60 miles), for that search only (a new place or 'Change place' starts at 25 km again), with the map zoomed out to fit it. If there are still none, show the online meetings view rather than an empty screen.
   - Under the starting filters, tomorrow's meetings follow today's under a "Tomorrow" heading (from 5 AM tomorrow to 5 AM the day after, with the chosen types and tags, in the same order), so late at night the list goes on to the morning; the map shows both days. Once the person changes Day or Time, there's no Tomorrow (owner decision, 2026-09-30).
   - If there are in-person meetings, but none left today under the starting filters, with nothing chosen, say "No more meetings nearby tonight." ("today" before 5 PM) beside "Clear", and go straight on to tomorrow's. If tomorrow has none either, say "No more meetings nearby tonight or tomorrow." and offer an "Online now (N)" link to the Online tab rather than listing the online meetings (owner decision, 2026-09-30).
 - **Online now:** meetings in progress from `/meetings/online`, in the user's local time.

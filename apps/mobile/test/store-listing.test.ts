@@ -4,6 +4,9 @@ import path from "node:path";
 import { BRAND } from "@mymeetingapp/shared";
 import { z } from "zod";
 
+import { WIDER_SEARCH_RADIUS_KM } from "@/location/geo";
+import { radiusMiles } from "@/meetings/units";
+
 const read = (file: string): unknown => JSON.parse(readFileSync(path.join(__dirname, "..", file), "utf8"));
 
 const Listing = z.object({
@@ -74,6 +77,13 @@ describe("the App Store listing", () => {
     );
     expect(description).toContain("The app isn't medical advice.");
     expect(description).toContain("the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline");
+  });
+
+  // Nearby's "Search farther" goes as far as WIDER_SEARCH_RADIUS_KM, which the app shows as whole miles.
+  it("says how far Search farther goes, as the app does", () => {
+    expect(english().description).toContain(
+      `- If nothing is close by, search farther, up to ${String(radiusMiles(WIDER_SEARCH_RADIUS_KM))} miles.`,
+    );
   });
 
   it("names the publisher and is released by hand, after the seller check (owner decision needed 1)", () => {

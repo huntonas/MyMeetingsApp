@@ -401,7 +401,8 @@ describe("the meeting page at large text sizes", () => {
     const around = title.parent;
     if (!around) throw new Error("the title has nothing around it");
     expect(around).toHaveStyle({ flexDirection: "row" });
-    expect(within(around).getByRole("button", { name: "Save" })).toBeOnTheScreen();
+    // The heart waits for the phone to say whether the meeting is saved, which can land after the title.
+    expect(await within(around).findByRole("button", { name: "Save" })).toBeOnTheScreen();
   });
 
   // Beside it, the heart took a column on the right and the title broke mid-word: "Spi / ritu / al".
@@ -412,7 +413,7 @@ describe("the meeting page at large text sizes", () => {
     const around = title.parent;
     if (!around) throw new Error("the title has nothing around it");
     expect(around).toHaveStyle({ flexDirection: "column" });
-    expect(within(around).getByRole("button", { name: "Save" })).toBeOnTheScreen();
+    expect(await within(around).findByRole("button", { name: "Save" })).toBeOnTheScreen();
   });
 
   // At 3.12 times, one long word is wider than the phone; twice the size still fits one.

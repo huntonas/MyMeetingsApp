@@ -134,6 +134,7 @@ describe("fetchFeed", () => {
     const second = await serve(() => ({ status: 200, body: "[]" }));
     const throttle = createHostThrottle();
 
+    const start = Date.now();
     await fetchFeed(`${first.baseUrl}/a`, noCache, throttle);
     await fetchFeed(`${second.baseUrl}/a`, noCache, throttle);
     await fetchFeed(`${first.baseUrl}/b`, noCache, throttle);
@@ -141,7 +142,9 @@ describe("fetchFeed", () => {
     const [firstA, firstB] = first.requests;
     const [secondA] = second.requests;
     expect((secondA?.at ?? Infinity) - (firstA?.at ?? 0)).toBeLessThan(500);
-    expect((firstB?.at ?? 0) - (firstA?.at ?? Infinity)).toBeGreaterThanOrEqual(990);
+    // The first host's second request leaves no sooner than a second after its first left, which was after the start.
+    // (The gap between the two arrivals would also count how much longer the first, opening the connection, took.)
+    expect((firstB?.at ?? 0) - start).toBeGreaterThanOrEqual(1000);
   });
 
   it("reports a host that refuses connections", async () => {

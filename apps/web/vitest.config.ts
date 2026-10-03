@@ -6,8 +6,10 @@ export default defineConfig({
   test: {
     environment: "node",
     env: {
-      // Local docker compose and CI both expose the test database here.
-      DATABASE_URL: "postgres://mma:mma@localhost:5433/mma_test",
+      // Local docker compose and CI both expose the database server here. Each run has a database of its own, named
+      // for the vitest process, so two runs at once (two worktrees, or a single file beside `pnpm check`) never
+      // truncate or lock each other's rows. test/global-setup.ts makes it and drops it.
+      DATABASE_URL: `postgres://mma:mma@localhost:5433/mma_test_${String(process.pid)}`,
       // A fixed test-only pepper: hashes in tests are hand-computed literals that depend on it.
       DEVICE_ID_PEPPER: "test-pepper-not-a-secret-0123456789abcdef",
       // Every absolute URL a test expects starts with this.

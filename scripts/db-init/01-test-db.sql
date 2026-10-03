@@ -1,1 +1,0 @@
-CREATE DATABASE mma_test;

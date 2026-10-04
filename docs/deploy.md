@@ -242,12 +242,12 @@ Conversion checks (Task 1 Step 2): _not yet recorded_.
 
 ### Variables
 
-| Variable                                         | Local (`.env.local`)                         | Preview | Staging                                   | Production                       |
-| ------------------------------------------------ | -------------------------------------------- | ------- | ----------------------------------------- | -------------------------------- |
-| `REQUIRE_ATTESTATION`                            | off                                          | off     | on (from TestFlight build 12, 2026-10-03) | off until Task 15                |
-| `APPLE_TEAM_ID` / `APPLE_BUNDLE_ID`              | PVCZBLDJ73 / com.goodersoftware.mymeetingapp | unset   | set                                       | set                              |
-| `APP_ATTEST_ENVIRONMENT`                         | development                                  | unset   | production                                | production                       |
-| `DEVICECHECK_KEY_ID` / `DEVICECHECK_PRIVATE_KEY` | unset                                        | unset   | unset: DeviceCheck refused                | set, the key Sensitive (Task 15) |
+| Variable                                         | Local (`.env.local`)                         | Preview | Staging                                   | Production                                                                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------- | ------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REQUIRE_ATTESTATION`                            | off                                          | off     | on (from TestFlight build 12, 2026-10-03) | off until Task 15                                                                                                                                                                            |
+| `APPLE_TEAM_ID` / `APPLE_BUNDLE_ID`              | PVCZBLDJ73 / com.goodersoftware.mymeetingapp | unset   | set                                       | set                                                                                                                                                                                          |
+| `APP_ATTEST_ENVIRONMENT`                         | development                                  | unset   | production                                | production                                                                                                                                                                                   |
+| `DEVICECHECK_KEY_ID` / `DEVICECHECK_PRIVATE_KEY` | unset                                        | unset   | unset: DeviceCheck refused                | unset: DeviceCheck refused (owner decision 2026-10-03: every supported iPhone and iPad has App Attest, and Mac availability is off; add the key if refusals from unsupported devices appear) |
 
 TestFlight and App Store builds always attest in Apple's production environment. A dev build on a device attests in development, so it works only against local web. A simulator can't attest at all: point it at local web for anything that writes.
 

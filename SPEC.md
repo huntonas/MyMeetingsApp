@@ -154,6 +154,7 @@ Size, Check-in, Timed shares, Good for newcomers, Snacks and Kids welcome were a
 **Submission rules (enforced server-side):**
 
 - 1 to 6 tags per submission, all from the active vocabulary.
+- At most one Size tag per submission or edit (owner decision, 2026-10-04); more is refused with `one_size` ("Choose one size."). In the app the sizes are radio buttons: choosing one unselects the other, so it never counts twice toward the 6. Builds before `/api/v2/vocabulary` never see sizes, so never meet the rule; existing rows and the nightly recount are unaffected.
 - **New submissions and re-confirmations** are allowed only inside the tagging window: from meeting start until 36 hours later, computed in the meeting's own time zone (DST-aware) for the most recent occurrence. Meetings without a day/time (e.g. "by appointment") can't be tagged. Online and hybrid meetings can be tagged. `nearMeeting` is always false for online attendance.
 - **One confirmation per meeting per device per 7 days.** A second new submission within 7 days returns `already_tagged` (the app should offer to edit instead).
 - **Edits are allowed at any time**, even after the window closes. They keep the original `confirmed_at` and `near_meeting`, and don't count toward the daily cap.
@@ -215,7 +216,7 @@ Mobile headers on write requests: `X-Device-Id`, `X-Platform` (`ios` | `android`
 **Search caching:** the meeting list for a `(lat, lng, radiusKm)` key may be cached server-side (Runtime Cache, 15 min, invalidated on sync). Tag counts are always joined fresh from `tag_counts`. Coordinates are never in URLs, so they never appear in request logs or CDN cache keys.
 
 **Errors** return `{ error: { code, message } }` with plain-language messages the app can show directly:
-`invalid_request`, `meeting_not_found`, `window_closed`, `already_tagged`, `not_tagged`, `too_many_tags`, `unknown_tag`, `tags_disabled`, `rate_limited`, `attestation_failed`, `device_blocked`, `upgrade_required`.
+`invalid_request`, `meeting_not_found`, `window_closed`, `already_tagged`, `not_tagged`, `too_many_tags`, `one_size`, `unknown_tag`, `tags_disabled`, `rate_limited`, `attestation_failed`, `device_blocked`, `upgrade_required`.
 
 ## 8. Mobile app
 

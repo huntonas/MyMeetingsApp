@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, type AppStateStatus } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
@@ -140,6 +140,39 @@ describe("Tag this meeting", () => {
     ]);
     await choose("90 minutes");
     expect(screen.getByText("1 of 6 chosen")).toBeOnTheScreen();
+  });
+
+  // Owner decision, 2026-10-04: one size per tagging. The sizes are a radio group: choosing one unselects the other.
+  it("swaps the size like radio buttons, counting it once, and sends only the last one", async () => {
+    api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    // The group isn't one focusable element (its radios are), so it's found by its label rather than its role.
+    const sizes = screen.getByLabelText("Size");
+    expect(sizes).toHaveProp("accessibilityRole", "radiogroup");
+    expect(within(sizes).getAllByRole("radio")).toHaveLength(4);
+    await choose("Welcoming");
+    await fireEvent.press(screen.getByRole("radio", { name: "Small (under 15)" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Large (30–100)" }));
+    expect(screen.getByRole("radio", { name: "Small (under 15)" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Large (30–100)" })).toBeChecked();
+    expect(screen.getByText("2 of 6 chosen")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Send my tags" }));
+    expect(await screen.findByText("Thanks. Your tags are added.")).toBeOnTheScreen();
+    expect(tagWrites()[0]?.body).toBe(
+      `{"meetingId":"${ID}","tags":["welcoming","size-large"],"nearMeeting":false}`,
+    );
+  });
+
+  it("swaps the size even with 6 tags chosen, since the count doesn't grow", async () => {
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    await choose("Welcoming", "Quiet", "Lively", "Coffee", "Snacks");
+    await fireEvent.press(screen.getByRole("radio", { name: "Medium (15–30)" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Very large (100+)" }));
+    expect(screen.getByRole("radio", { name: "Very large (100+)" })).toBeChecked();
+    expect(screen.getByText("6 of 6 chosen")).toBeOnTheScreen();
+    expect(screen.queryByText("Choose up to 6 tags.")).toBeNull();
   });
 
   it("shows the server's new counts at once, and keeps them in the saved copy without making it look newer", async () => {

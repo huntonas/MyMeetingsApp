@@ -9,6 +9,10 @@ export const TAG_CATEGORIES = ["format", "sharing", "crowd", "size", "feel", "pr
 
 type TagCategory = (typeof TAG_CATEGORIES)[number];
 
+// Categories a person chooses at most one tag from, in a submission or an edit (owner decision, 2026-10-04: one size
+// per tagging). The server refuses more with one_size; the tag picker swaps the choice, as radio buttons do.
+export const SINGLE_CHOICE_CATEGORIES: readonly string[] = ["size"] satisfies TagCategory[];
+
 export const TagSlug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 
 const TagLabel = z.string().min(1).max(40);

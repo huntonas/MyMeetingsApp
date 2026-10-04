@@ -7,8 +7,9 @@ interface PillProps {
   label: string;
   selected: boolean;
   onPress: () => void;
-  // A checkbox toggles a filter; a button opens the filter sheet. spokenLabel defaults to label.
-  role?: "checkbox" | "button";
+  // A checkbox toggles a filter or a tag; a radio is one choice of a single-choice group (a meeting's size); a button
+  // opens the filter sheet. spokenLabel defaults to label.
+  role?: "checkbox" | "radio" | "button";
   spokenLabel?: string;
   hint?: string;
   // Given, the pill opens and closes a panel (PanelToggle): it draws ▾ or ▴ after the label, and says expanded or
@@ -33,7 +34,7 @@ export function Pill({
       accessibilityLabel={spokenLabel ?? label}
       accessibilityHint={hint}
       accessibilityState={
-        role === "checkbox" ? { checked: selected } : expanded === undefined ? { selected } : { expanded }
+        role !== "button" ? { checked: selected } : expanded === undefined ? { selected } : { expanded }
       }
       onPress={onPress}
       style={{

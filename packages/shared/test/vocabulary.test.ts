@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ERROR_MESSAGES,
   isV1TagCategory,
+  SINGLE_CHOICE_CATEGORIES,
   STARTER_VOCABULARY,
   TAG_CATEGORIES,
   V1_TAG_CATEGORIES,
@@ -101,5 +103,14 @@ describe("isV1TagCategory", () => {
   it("is true only for the five categories builds before /api/v2 know", () => {
     expect(TAG_CATEGORIES.filter(isV1TagCategory)).toEqual([...V1_TAG_CATEGORIES]);
     expect(isV1TagCategory("vibes")).toBe(false);
+  });
+});
+
+// Owner decision, 2026-10-04: one size per tagging. The refusal's message names the size, so a second single-choice
+// category needs its own wording.
+describe("SINGLE_CHOICE_CATEGORIES", () => {
+  it("is the size category alone, with a message to match", () => {
+    expect(SINGLE_CHOICE_CATEGORIES).toEqual(["size"]);
+    expect(ERROR_MESSAGES.one_size).toBe("Choose one size.");
   });
 });

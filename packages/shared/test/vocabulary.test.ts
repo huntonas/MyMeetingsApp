@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isV1TagCategory,
   STARTER_VOCABULARY,
   TAG_CATEGORIES,
   V1_TAG_CATEGORIES,
@@ -70,6 +71,11 @@ describe("VocabularyResponse", () => {
     expect(VocabularyResponse.safeParse({ tags: [{ ...tag, category }] }).success).toBe(false);
   });
 
+  it.each(["slug", "category"])("rejects a %s longer than 40 characters", (field) => {
+    expect(VocabularyResponse.safeParse({ tags: [{ ...tag, [field]: "a".repeat(41) }] }).success).toBe(false);
+    expect(VocabularyResponse.safeParse({ tags: [{ ...tag, [field]: "a".repeat(40) }] }).success).toBe(true);
+  });
+
   it("rejects labels longer than 40 characters", () => {
     expect(VocabularyResponse.safeParse({ tags: [{ ...tag, label: "x".repeat(41) }] }).success).toBe(false);
   });
@@ -88,5 +94,12 @@ describe("V1VocabularyResponse", () => {
 
   it.each(["size", "vibes"])("rejects the category %j", (category) => {
     expect(V1VocabularyResponse.safeParse({ tags: [{ ...tag, category }] }).success).toBe(false);
+  });
+});
+
+describe("isV1TagCategory", () => {
+  it("is true only for the five categories builds before /api/v2 know", () => {
+    expect(TAG_CATEGORIES.filter(isV1TagCategory)).toEqual([...V1_TAG_CATEGORIES]);
+    expect(isV1TagCategory("vibes")).toBe(false);
   });
 });

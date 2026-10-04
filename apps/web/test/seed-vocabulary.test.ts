@@ -5,6 +5,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { db, pool } from "@/db/client";
 import { tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
+import { getActiveVocabulary } from "@/server/vocabulary";
 
 import { resetDb } from "./db";
 
@@ -40,6 +41,24 @@ describe("seedVocabulary", () => {
     await seedVocabulary();
     await seedVocabulary();
     expect(await tagRows()).toHaveLength(STARTER_VOCABULARY.length);
+  });
+
+  // An approved suggestion is appended at max(sort_order) + 1 (approveSuggestion). A reseed with more tags renumbers
+  // the seeded ones, so without care it would move an approved tag ahead of seeded tags in its category.
+  it("keeps tags it didn't seed after the seeded ones, in their own order", async () => {
+    await db.insert(tags).values([
+      { slug: "big-print", label: "Big print", category: "practical", sortOrder: 26 },
+      { slug: "alarm-clock", label: "Alarm clock", category: "practical", sortOrder: 27 },
+      { slug: "candlelight", label: "Candlelight", category: "feel", sortOrder: 28 },
+    ]);
+    await seedVocabulary();
+    const vocabulary = await getActiveVocabulary();
+    const inCategory = (category: string) =>
+      vocabulary.filter((tag) => tag.category === category).map((tag) => tag.slug);
+    expect(inCategory("practical").slice(-3)).toEqual(["kids-welcome", "big-print", "alarm-clock"]);
+    expect(inCategory("feel").slice(-2)).toEqual(["serious-tone", "candlelight"]);
+    await seedVocabulary();
+    expect(await getActiveVocabulary()).toEqual(vocabulary);
   });
 
   it("leaves a retired tag retired", async () => {

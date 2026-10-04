@@ -4,7 +4,7 @@ import { ActivityIndicator, type Text, View } from "react-native";
 
 import { ApiError } from "@/api/client";
 import { failureMessage } from "@/api/failure-message";
-import { byCategory, useRefreshVocabulary, useVocabularyTags } from "@/meetings/vocabulary";
+import { groupByCategory, useRefreshVocabulary, useVocabularyTags } from "@/meetings/vocabulary";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { moveFocus } from "@/ui/move-focus";
@@ -76,7 +76,7 @@ export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel, children }
       ) : (
         <>
           <AppText tone="muted">{`Choose up to ${String(MAX_TAGS_PER_SUBMISSION)} words that describe this meeting.`}</AppText>
-          {byCategory(tags).map((group) => (
+          {groupByCategory(tags).map((group) => (
             <View key={group.category} style={{ gap: 8 }}>
               <AppText variant="label" accessibilityRole="header">
                 {group.title}

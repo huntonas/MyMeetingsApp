@@ -24,7 +24,7 @@ interface CategoryGroup {
 // The tags grouped by category, wherever they're listed that way (Filters, the tag picker), in the order the server
 // sends them: it owns the display order. Each heading is made from the category's name ("meeting-length" reads
 // "Meeting length"), so a category added after this build shipped still shows, under a sensible heading.
-export function byCategory(tags: Iterable<VocabularyTag>): CategoryGroup[] {
+export function groupByCategory(tags: Iterable<VocabularyTag>): CategoryGroup[] {
   const groups = new Map<string, CategoryGroup>();
   for (const tag of tags) {
     const title = `${tag.category.charAt(0).toUpperCase()}${tag.category.slice(1).replaceAll("-", " ")}`;

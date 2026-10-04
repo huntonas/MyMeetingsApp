@@ -16,9 +16,13 @@ const TagLabel = z.string().min(1).max(40);
 // A category is any slug-shaped name, so an app keeps working when the server adds one it has never heard of: it
 // shows the new group under a heading made from the name.
 export const VocabularyResponse = z.object({
-  tags: z.array(z.object({ slug: TagSlug, label: TagLabel, category: TagSlug })),
+  tags: z.array(z.object({ slug: TagSlug.max(40), label: TagLabel, category: TagSlug.max(40) })),
 });
 export type VocabularyResponse = z.infer<typeof VocabularyResponse>;
+
+export function isV1TagCategory(category: string): category is (typeof V1_TAG_CATEGORIES)[number] {
+  return V1_TAG_CATEGORIES.some((known) => known === category);
+}
 
 export const V1VocabularyResponse = z.object({
   tags: z.array(z.object({ slug: TagSlug, label: TagLabel, category: z.enum(V1_TAG_CATEGORIES) })),

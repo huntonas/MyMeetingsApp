@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function SuggestionsPage({ searchParams }: { searchParams: SearchParams }) {
   const [pending, vocabulary, recent] = await Promise.all([
     listPendingSuggestions(),
-    getActiveVocabulary(TAG_CATEGORIES),
+    getActiveVocabulary(),
     listRecentAiDecisions(),
   ]);
   return (

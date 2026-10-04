@@ -1,4 +1,3 @@
-import { TAG_CATEGORIES } from "@mymeetingapp/shared";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
@@ -58,7 +57,7 @@ async function screenAndApply(id: number, text: string): Promise<void> {
   }
   let screened: Awaited<ReturnType<typeof screenSuggestion>>;
   try {
-    screened = await screenSuggestion(text, await getActiveVocabulary(TAG_CATEGORIES), model);
+    screened = await screenSuggestion(text, await getActiveVocabulary(), model);
   } catch (error) {
     // An AI SDK error can quote the request, which holds the suggestion's text, so only its type is logged.
     logError("[suggestions] AI screening failed", error instanceof Error ? error.name : "unknown error");

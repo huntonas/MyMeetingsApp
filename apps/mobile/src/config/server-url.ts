@@ -1,5 +1,8 @@
-// The live site's host, which only store builds may talk to (in any case, over either scheme).
-const PRODUCTION_HOST = "mymeetingapp.vercel.app";
+import { BRAND } from "@mymeetingapp/shared";
+
+// The live site's hosts, which only store builds may talk to (in any case, over either scheme): its domain, and
+// Vercel's own address for the production project, which still serves it.
+const PRODUCTION_HOSTS: readonly string[] = [BRAND.domain, "mymeetingapp.vercel.app"];
 
 // The one origin the app talks to: the website and its API. A dev build takes it from apps/mobile/.env (Metro inlines
 // it into the bundle); a store build from its eas.json profile. Missing or malformed throws, so a build never talks
@@ -17,7 +20,7 @@ export function serverUrl(): string {
     );
   }
   // Dev builds add and delete tags, which must never reach the live counts.
-  if (__DEV__ && value.replace(/^https?:\/\//i, "").toLowerCase() === PRODUCTION_HOST) {
+  if (__DEV__ && PRODUCTION_HOSTS.includes(value.replace(/^https?:\/\//i, "").toLowerCase())) {
     throw new Error(
       "A dev build never talks to production (it adds and deletes tags). Set EXPO_PUBLIC_SERVER_URL in apps/mobile/.env to https://mymeetingapp-staging.vercel.app or your Mac's LAN address.",
     );

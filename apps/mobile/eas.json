@@ -38,7 +38,7 @@
       "environment": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_SERVER_URL": "https://mymeetingapp.vercel.app"
+        "EXPO_PUBLIC_SERVER_URL": "https://mymeetings.app"
       }
     }
   },

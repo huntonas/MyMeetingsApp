@@ -4945,7 +4945,7 @@ cd apps/web && vercel env rm REQUIRE_ATTESTATION production --yes --scope hunton
 Then redeploy the current production deployment (Vercel → the project → Deployments → the latest Production → Redeploy, or `vercel redeploy <url> --scope huntonas-projects`). Then check with a throwaway device (nothing is written: every request is refused before any write):
 
 ```bash
-P=https://mymeetingapp.vercel.app
+P=https://mymeetings.app
 D="curl-check-$(openssl rand -hex 8)"; H=(-H "X-Device-Id: $D" -H "X-Platform: ios" -H "X-App-Version: 1.0.0")
 curl -s "${H[@]}" -X POST "$P/api/v1/tags/delete-mine" | jq -c .error.code                                            # "attestation_failed"
 curl -s "${H[@]}" -H "X-Attestation: devicecheck.v1.AAAA" -X POST "$P/api/v1/tags/delete-mine" | jq -c .error.code    # "attestation_failed"
@@ -5005,7 +5005,7 @@ Expected: 1320 × 2868 and `hasAlpha: no` for each. If any has alpha, re-save it
 cd apps/mobile && pnpm dlx eas-cli@24.8.0 build --platform ios --profile production --auto-submit --non-interactive
 ```
 
-Expected: build N (EAS's next number), pointed at `https://mymeetingapp.vercel.app`, submitted to app `6817873804`. Then inspect what Apple will review. Download the `.ipa` from the build's page (`pnpm dlx eas-cli@24.8.0 build:view <id>` prints the artifact URL):
+Expected: build N (EAS's next number), pointed at `https://mymeetings.app`, submitted to app `6817873804`. Then inspect what Apple will review. Download the `.ipa` from the build's page (`pnpm dlx eas-cli@24.8.0 build:view <id>` prints the artifact URL):
 
 ```bash
 cd "$TMPDIR" && rm -rf mma-ipa && mkdir mma-ipa && cd mma-ipa && curl -fsSL -o app.ipa "<artifact url>" && unzip -q app.ipa \
@@ -5153,7 +5153,7 @@ git add packages/shared/src/brand.ts apps/web
 git commit -m "feat(web): link the App Store listing and show the Smart App Banner"
 ```
 
-Open the PR (body ends with the attribution line). Once it's merged, check https://mymeetingapp.vercel.app/: the App Store link opens the listing, and Safari on the iPhone shows the banner.
+Open the PR (body ends with the attribution line). Once it's merged, check https://mymeetings.app/: the App Store link opens the listing, and Safari on the iPhone shows the banner.
 
 - [ ] **Step 6: The first week.** Each day, Vercel → Logs, Production, filtered to `/api/v1/tags` and `/api/v1/suggestions`: the share of 401 answers. A 401 is `attestation_failed`.
   - A few are expected (an old simulator, a phone whose clock is days off).

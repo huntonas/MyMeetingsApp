@@ -180,7 +180,7 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 
 ### Variables
 
-- `SITE_URL`: the canonical origin, already set to `https://mymeetingapp.vercel.app` in Production and Preview (not sensitive). It is baked into static pages, `robots.txt` and the sitemap at build time (`src/lib/site-url.ts`), so a change needs a redeploy. A missing or malformed value fails the build.
+- `SITE_URL`: the canonical origin (not sensitive): `https://mymeetings.app` in Production (until the step in "The domain: mymeetings.app" below is done, it is still `https://mymeetingapp.vercel.app`) and `https://mymeetingapp.vercel.app` in Preview. It is baked into static pages, `robots.txt` and the sitemap at build time (`src/lib/site-url.ts`), so a change needs a redeploy. A missing or malformed value fails the build.
 - `METRICS_USER` / `METRICS_PASSWORD`: sensitive, different in Production and Preview. The password must be at least 16 characters (`MIN_PASSWORD_LENGTH` in `src/lib/admin-auth.ts`); a shorter one, or either variable being unset, refuses every sign-in. Generate the password with `openssl rand -base64 30` and save it in the password manager, then set both with `vercel env add METRICS_USER production --sensitive` and `vercel env add METRICS_PASSWORD production --sensitive` (repeat for `preview` with a different password). Like the peppers, the readable copies also go in `apps/web/.env.secrets` (see "Local secrets file" above), because Vercel won't show a sensitive value again.
 
 ### Signing in to /metrics
@@ -208,18 +208,15 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 - **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 7 days (owner, 2026-10-03). Configured window: 7 days (2026-10-03). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
 - **Support email, every quarter:** the policy says we delete support email within 90 days after it's resolved, and that deleted mail can remain in Google's trash and recovery for up to about 55 days after that. Each quarter, never more than 90 days after the last pass, delete every resolved support thread in the Google Workspace mailbox for `admin@goodersoftwarellc.com`, then empty Trash. (Deleting only threads resolved more than 90 days ago, once a quarter, would let a thread wait up to about 180 days.) Never copy an email address or message anywhere else, or link it to a device or tags.
 
-### Connecting mymeetingapp.com later (not done in Phase 4)
+### The domain: mymeetings.app
 
-1. Vercel → the project → Settings → Domains: add `mymeetingapp.com`, and add `www.mymeetingapp.com` redirecting to it.
-2. At the registrar, set the DNS records Vercel shows (an A record for the apex and a CNAME for `www`), or point the nameservers at Vercel.
-3. Wait until Vercel shows the domain as valid, with a certificate.
-4. Replace `SITE_URL` for Production (and Preview) with `https://mymeetingapp.com`: `vercel env rm SITE_URL production`, then `vercel env add SITE_URL production`.
-5. Redeploy production, because the static pages, `robots.txt` and the sitemap carry `SITE_URL` from the build.
-6. Check that `https://mymeetingapp.com/robots.txt` names `https://mymeetingapp.com/sitemap.xml`, and that `/privacy`'s canonical link uses the new domain.
-7. `mymeetingapp.vercel.app` keeps working. Once the new domain is live, you can redirect it from the Vercel domain settings.
-8. The feed User-Agent already names `mymeetingapp.com` (`BRAND.domain`), so nothing changes there. Update the store listings' privacy and support URLs if they were already submitted.
+Connected 2026-10-03. The owner bought `mymeetings.app` through Vercel, so Vercel holds its DNS and certificate and there are no registrar records to keep.
 
-This step is deliberately out of Phase 4 (owner decision 2026-09-29: no domain yet); Phase 4 ends with the site live on the Vercel address.
+- **Canonical:** the apex, `https://mymeetings.app`, attached to the production project. `BRAND.domain` (`packages/shared/src/brand.ts`) names it, so the feed User-Agent says `+https://mymeetings.app`.
+- **`www.mymeetings.app`** 308-redirects to the apex (Vercel → the project → Settings → Domains).
+- **`mymeetingapp.vercel.app`** still serves production too, so nothing that knew the old address breaks. Its pages' canonical links name the apex once `SITE_URL` does. The app's dev-build guard (`apps/mobile/src/config/server-url.ts`) refuses it as well as the apex.
+- **Store builds** talk to `https://mymeetings.app` (`apps/mobile/eas.json`'s `production` profile), and the App Store listing's support, privacy-policy and marketing URLs are on it (`apps/mobile/store.config.json`). Staging stays `https://mymeetingapp-staging.vercel.app`.
+- **`SITE_URL`, once the domain change is merged to `main`:** set it to `https://mymeetings.app` for Production (`vercel env rm SITE_URL production`, then `vercel env add SITE_URL production`), then redeploy production, because the static pages, `robots.txt` and the sitemap carry `SITE_URL` from the build. Then check that `https://mymeetings.app/robots.txt` names `https://mymeetings.app/sitemap.xml`, and that `/privacy`'s canonical link uses the apex. Preview keeps its own value.
 
 ## Staging (TestFlight backend)
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { headerFinding } from "../src/headers";
 
-const SERVER = "mymeetingapp.vercel.app";
+const SERVER = "mymeetings.app";
 const GET = { method: "GET", server: SERVER, write: false, attested: false };
 const POST = { method: "POST", server: SERVER, write: false, attested: false };
 // PUT never reads; every PUT the app sends (tag edit) is an attested write.

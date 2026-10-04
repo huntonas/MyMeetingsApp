@@ -1,6 +1,6 @@
 # The App Store: what's entered by hand
 
-The listing itself (name "My Meeting App: Meeting Finder", subtitle "Recovery meetings near you", description, keywords, URLs, categories, copyright, release) lives in `apps/mobile/store.config.json` and is pushed with `eas metadata:push`. Everything here is entered in App Store Connect by the owner, because the API doesn't cover it or it holds the owner's phone number.
+The listing itself (name "My Meeting App: Meeting Finder", subtitle "Recovery meetings near you", description, keywords, the support, privacy-policy and marketing URLs on `https://mymeetings.app`, categories, copyright, release) lives in `apps/mobile/store.config.json` and is pushed with `eas metadata:push`. Everything here is entered in App Store Connect by the owner, because the API doesn't cover it or it holds the owner's phone number.
 
 ## App Privacy
 

@@ -1,8 +1,8 @@
 import { readEnv } from "@/env";
 
-// The site's canonical origin, for the sitemap, robots.txt, Open Graph and canonical links. Connecting a domain
-// later is a Vercel domain step plus a new SITE_URL. A missing or malformed value fails the build rather than
-// publishing wrong links.
+// The site's canonical origin, for the sitemap, robots.txt, Open Graph and canonical links. Changing the domain
+// is a Vercel domain step plus a new SITE_URL (docs/deploy.md). A missing or malformed value fails the build
+// rather than publishing wrong links.
 export function siteUrl(): string {
   const value = readEnv("SITE_URL");
   const url = value === undefined ? null : URL.parse(value);
@@ -13,7 +13,7 @@ export function siteUrl(): string {
     url.search !== "" ||
     url.hash !== ""
   ) {
-    throw new Error("SITE_URL must be an http(s) origin such as https://mymeetingapp.vercel.app");
+    throw new Error("SITE_URL must be an http(s) origin such as https://mymeetings.app");
   }
   return url.origin;
 }

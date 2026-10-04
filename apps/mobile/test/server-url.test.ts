@@ -1,6 +1,8 @@
 import { serverUrl } from "@/config/server-url";
 
-const PRODUCTION = "https://mymeetingapp.vercel.app";
+const PRODUCTION = "https://mymeetings.app";
+// Vercel's own address for the production project, which still serves it.
+const PRODUCTION_ON_VERCEL = "https://mymeetingapp.vercel.app";
 const STAGING = "https://mymeetingapp-staging.vercel.app";
 
 // __DEV__ is declared a constant, so it is set through Reflect and put back after each test.
@@ -19,6 +21,10 @@ describe("the server a build talks to", () => {
   it.each([
     PRODUCTION,
     `${PRODUCTION}/`,
+    "HTTPS://MyMeetings.App",
+    "http://mymeetings.app",
+    PRODUCTION_ON_VERCEL,
+    `${PRODUCTION_ON_VERCEL}/`,
     "HTTPS://MyMeetingApp.vercel.app",
     "http://mymeetingapp.vercel.app",
   ])("is never production in a dev build (%s)", (url) => {

@@ -312,7 +312,7 @@ describe("detectFeed", () => {
     // Spec §4: one honest request, then nothing more to that site, and never a second User-Agent.
     expect(s.requests.map((r) => r.path)).toEqual(["/robots.txt", "/wp-json/tsml/meetings"]);
     expect(new Set(s.requests.map((r) => r.headers["user-agent"]))).toEqual(
-      new Set(["mymeetingapp/1.0 (+https://mymeetingapp.com; admin@goodersoftwarellc.com)"]),
+      new Set(["mymeetingapp/1.0 (+https://mymeetings.app; admin@goodersoftwarellc.com)"]),
     );
   });
 

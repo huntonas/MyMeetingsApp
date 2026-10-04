@@ -4,12 +4,12 @@ import { classifyHost, normalizeHost } from "../src/host";
 
 describe("normalizeHost", () => {
   it("lowercases and strips a trailing dot", () => {
-    expect(normalizeHost("MyMeetingApp.Vercel.App.")).toBe("mymeetingapp.vercel.app");
+    expect(normalizeHost("MyMeetings.App.")).toBe("mymeetings.app");
   });
 });
 
 describe("classifyHost", () => {
-  const SERVER = "mymeetingapp.vercel.app";
+  const SERVER = "mymeetings.app";
 
   it("recognizes our server", () => {
     expect(classifyHost(new URL(`https://${SERVER}/x`), SERVER)).toBe("server");

@@ -4,7 +4,8 @@ import { SITE_DESCRIPTION } from "@/lib/page-metadata";
 import { siteUrl } from "@/lib/site-url";
 
 // Spec §9: schema.org MobileApplication, on iOS only until the Android app ships. There is no rating on purpose (the
-// app has none), so search engines show no rich result, but the facts are there. "<" is escaped so the text can never close the script element.
+// app has none), so search engines show no rich result, but the facts are there. "<" is escaped so the text can
+// never close the script element.
 export function MobileAppJsonLd() {
   const data = {
     "@context": "https://schema.org",

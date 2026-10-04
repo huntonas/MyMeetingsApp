@@ -29,6 +29,24 @@ describe("the public site", () => {
     },
   );
 
+  // They're sized for the web already (public/screenshots), so Next serves the files as they are.
+  it("serves the app screenshots from this site, as they are", async () => {
+    const html = await (await fetch(`${E2E_URL}/`)).text();
+    const sources = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((match) => match[1] ?? "");
+    expect(sources).toEqual([
+      "/screenshots/1-nearby.webp",
+      "/screenshots/2-map.webp",
+      "/screenshots/3-meeting.webp",
+      "/screenshots/4-tag-picker.webp",
+      "/screenshots/5-me.webp",
+    ]);
+    for (const source of sources) {
+      const res = await fetch(`${E2E_URL}${source}`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/webp");
+    }
+  });
+
   it("builds the structured data with the site URL", async () => {
     const html = await (await fetch(`${E2E_URL}/`)).text();
     expect(html).toContain('"@type":"MobileApplication"');

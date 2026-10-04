@@ -47,6 +47,14 @@ describe("suggestion review in the built app", () => {
     expect(await suggestionRow(id)).toMatchObject({ status: "approved", deviceHash: null });
   });
 
+  it("offers every active tag to merge into, and the size category for a new tag", async () => {
+    await pendingSuggestion("Tiny");
+    const html = await reviewPage();
+    expect(html).toContain('<option value="size-small">Small (under 15)</option>');
+    expect(html).toContain('<option value="kids-welcome">Kids welcome</option>');
+    expect(html).toContain('<option value="size">size</option>');
+  });
+
   it("refuses a label with markup and leaves the suggestion pending", async () => {
     const id = await pendingSuggestion("Relaxed");
     const form = {

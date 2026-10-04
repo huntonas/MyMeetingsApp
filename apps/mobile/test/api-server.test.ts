@@ -17,7 +17,7 @@ describe("test harness, not app behaviour: startApi (test/api-server.ts)", () =>
   });
 
   it("close() doesn't hang while a client holds an open connection", async () => {
-    api.hang("/api/v1/vocabulary");
+    api.hang("/api/v2/vocabulary");
     const pending = fetchVocabulary().catch(() => undefined);
     while (api.requests.length === 0) await new Promise((resolve) => setImmediate(resolve));
     await api.close();

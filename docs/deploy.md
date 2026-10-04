@@ -21,7 +21,8 @@ Done on 2026-09-26: `seed` and `main` are migrated and hold the 26 starter tags.
 - **First deployment:** the project's first Git deployment went to Production even though it came from `phase-1-foundation`. Vercel promotes the first deployment when no production deployment exists. It ran the Phase 1 migrations on `main`, which merging would have done anyway.
 - **Running a command against a Vercel environment:** use `vercel env run -e <environment> -- <command>` from `apps/web`, for example `vercel env run -e production -- pnpm db:seed`. **Move `apps/web/.env.local` aside first**: `vercel env run` lets the local file win, so the command would otherwise hit the local Docker database.
 - **Seeding a Neon branch directly:** use `DATABASE_URL="<branch pooled URL>" pnpm db:seed`. Copy the URL from the Neon console and don't save it to a file.
-- **After seeding:** run `vercel cache purge --type cdn --yes`, because `/api/v1/vocabulary` is cached for an hour.
+- **After seeding:** run `vercel cache purge --type cdn --yes`, because `/api/v2/vocabulary` and `/api/v1/vocabulary` are cached for an hour.
+- **Adding tags:** add them to `STARTER_VOCABULARY` (and a new category to `TAG_CATEGORIES`, which needs a migration for the `tags_category_check` constraint), deploy, then seed each branch that serves the app: `seed` (previews pick it up on their next build), `staging` and `main`. Seeding runs after the deploy, so the migration is already there. A new category never reaches `/api/v1/vocabulary` (`V1_TAG_CATEGORIES`).
 
 `MIN_VERSION_*`, `LATEST_VERSION_*` and `FEATURE_*` are unset on purpose: unset means "never force an upgrade" and "feature on". Add one only when it needs a different value (`vercel env add <NAME> production`).
 
@@ -47,7 +48,7 @@ On 2026-10-01 two leftover branches from the old per-deployment preview branchin
 
 Preview deployments are protected, so use `vercel curl` (or a deployment protection bypass):
 
-- `/api/v1/vocabulary` returns 200 with every starter tag, including `old-timers`, and `cache-control: public, s-maxage=3600, stale-while-revalidate=86400`.
+- `/api/v2/vocabulary` returns 200 with every tag in `STARTER_VOCABULARY`, including `old-timers` and `size-small`, and `cache-control: public, s-maxage=3600, stale-while-revalidate=86400`; `/api/v1/vocabulary` returns the same without the `size` tags.
 - `/api/v1/config` returns 200 with the configured versions and switches.
 - In the Neon console, `preview`'s parent is `seed` and its last restore is the build's time.
 - `/`, `/privacy`, `/terms` and `/support` return 200 and set no cookie.
@@ -57,7 +58,7 @@ Preview deployments are protected, so use `vercel curl` (or a deployment protect
 Staging (`https://mymeetingapp-staging.vercel.app`) is public, so plain `curl` works — no `vercel curl` bypass needed:
 
 - `/api/v1/config` returns 200 with no Vercel login page.
-- `/api/v1/vocabulary` returns the configured tags (26 on 2026-09-30).
+- `/api/v2/vocabulary` returns the configured tags (26 on 2026-09-30; 35 once seeded after the 2026-10-03 additions), and `/api/v1/vocabulary` the same less the 4 `size` tags.
 - `POST /api/v1/meetings/search` for a point near Maryville, TN returns meetings (158 on 2026-09-30).
 - `curl -sI` on `/` shows `x-robots-tag: noindex, nofollow`; the same check against production shows none.
 - `/metrics` returns 401 without credentials.

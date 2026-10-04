@@ -12,7 +12,8 @@ import { getJson, postJson } from "@/api/client";
 // Spec §8: read at every launch, to gate Nearby and Online below the minimum supported version.
 export const fetchConfig = () => getJson(AppConfigResponse, "/api/v1/config");
 
-export const fetchVocabulary = () => getJson(VocabularyResponse, "/api/v1/vocabulary");
+// /api/v2: its categories are open-ended, so a category added on the server can't stop this build reading the list.
+export const fetchVocabulary = () => getJson(VocabularyResponse, "/api/v2/vocabulary");
 
 // Spec §2: the point is rounded to 2 decimals before it leaves the phone, and travels only in this POST body. Parsing
 // with the shared schema first means an unrounded point throws here instead of being sent.

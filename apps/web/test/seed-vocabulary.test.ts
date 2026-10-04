@@ -24,6 +24,14 @@ describe("seedVocabulary", () => {
     expect(await tagRows()).toEqual(STARTER_VOCABULARY.map((tag) => ({ ...tag, status: "active" })));
   });
 
+  it("seeds the size category and the tags added on 2026-10-03", async () => {
+    await seedVocabulary();
+    const slugs = (await tagRows()).map((row) => row.slug);
+    expect(slugs).toEqual(
+      expect.arrayContaining(["size-small", "size-very-large", "check-in", "kids-welcome"]),
+    );
+  });
+
   it("returns how many tags it seeded", async () => {
     expect(await seedVocabulary()).toBe(STARTER_VOCABULARY.length);
   });

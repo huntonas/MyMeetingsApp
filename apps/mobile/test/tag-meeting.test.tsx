@@ -29,7 +29,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   api.reply(PATH, { meeting: meeting() });
   announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
 });
@@ -105,7 +105,7 @@ describe("Tag this meeting", () => {
     api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
     await openMeeting();
     await fireEvent.press(await tagButton());
-    for (const category of ["Format", "Sharing", "Crowd", "Feel", "Practical"]) {
+    for (const category of ["Format", "Sharing", "Crowd", "Size", "Feel", "Practical"]) {
       expect(screen.getByRole("header", { name: category })).toBeOnTheScreen();
     }
     expect(screen.getByText("Choose up to 6 words that describe this meeting.")).toBeOnTheScreen();
@@ -120,6 +120,26 @@ describe("Tag this meeting", () => {
     expect(write?.headers["x-platform"]).toBe("ios");
     expect(write?.headers["x-app-version"]).toBe("0.1.0");
     expect(write?.headers["x-device-id"]).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
+  // The server can add a category after this build ships; its tags still show, under a heading made from its name.
+  it("lists a category this app has never heard of after the others, under a heading made from its name", async () => {
+    const later = { slug: "ninety-minutes", label: "90 minutes", category: "meeting-length" };
+    api.reply("/api/v2/vocabulary", { tags: [...VOCABULARY.tags, later] });
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    const headings = screen.getAllByRole("header").map((heading) => heading.props.children as unknown);
+    expect(headings.slice(-7)).toEqual([
+      "Format",
+      "Sharing",
+      "Crowd",
+      "Size",
+      "Feel",
+      "Practical",
+      "Meeting length",
+    ]);
+    await choose("90 minutes");
+    expect(screen.getByText("1 of 6 chosen")).toBeOnTheScreen();
   });
 
   it("shows the server's new counts at once, and keeps them in the saved copy without making it look newer", async () => {
@@ -356,7 +376,7 @@ describe("Tag this meeting", () => {
   it("offers no tags to choose while the tag list hasn't loaded, and nothing to send", async () => {
     // The tag list can't be read (no saved copy either), so no tag has a name to choose by.
     api.reply(
-      "/api/v1/vocabulary",
+      "/api/v2/vocabulary",
       { error: { code: "server_error", message: "Something went wrong." } },
       500,
     );
@@ -384,7 +404,7 @@ describe("Tag this meeting", () => {
       "POST",
     );
     await openMeeting();
-    api.reply("/api/v1/vocabulary", { tags: VOCABULARY.tags.filter((t) => t.slug !== "coffee") });
+    api.reply("/api/v2/vocabulary", { tags: VOCABULARY.tags.filter((t) => t.slug !== "coffee") });
     await tag("Quiet", "Coffee");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "One of those tags isn't available anymore. Refresh the list and try again.",

@@ -17,7 +17,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   setNow(NOW);
 });
 afterEach(async () => {
@@ -57,7 +57,7 @@ function replyDays(monday: MeetingSummary[]) {
 const card = (name: string) => screen.findByRole("button", { name });
 const header = (name: string) => screen.queryByRole("header", { name });
 const onlineRequests = () => api.requests.filter((r) => r.path.startsWith("/api/v1/meetings/online")).length;
-const vocabularyRequests = () => api.requests.filter((r) => r.path === "/api/v1/vocabulary").length;
+const vocabularyRequests = () => api.requests.filter((r) => r.path === "/api/v2/vocabulary").length;
 
 // AppState is what the app hands foreground changes off to; the spy lets a test play them.
 function spyOnAppState() {
@@ -277,7 +277,7 @@ describe("the Online tab", () => {
     await renderApp("/online");
     await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`);
     expect(vocabularyRequests()).toBe(1);
-    api.reply("/api/v1/vocabulary", {
+    api.reply("/api/v2/vocabulary", {
       tags: VOCABULARY.tags.map((tag) =>
         tag.slug === "welcoming" ? { ...tag, label: "Warm welcome" } : tag,
       ),

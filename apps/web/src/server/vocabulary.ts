@@ -1,5 +1,5 @@
 import { TAG_CATEGORIES } from "@mymeetingapp/shared";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { tags } from "@/db/schema";
@@ -13,10 +13,15 @@ export const VOCABULARY_ORDER = [
   asc(tags.slug),
 ];
 
-export async function getActiveVocabulary() {
-  return db
+// The active tags in `categories` only: /api/v1 leaves out the categories older builds can't read. The rows are typed
+// by the categories asked for, which the query guarantees.
+export async function getActiveVocabulary<Category extends (typeof TAG_CATEGORIES)[number]>(
+  categories: readonly Category[],
+) {
+  const rows = await db
     .select({ slug: tags.slug, label: tags.label, category: tags.category })
     .from(tags)
-    .where(eq(tags.status, "active"))
+    .where(and(eq(tags.status, "active"), inArray(tags.category, categories)))
     .orderBy(...VOCABULARY_ORDER);
+  return rows as { slug: string; label: string; category: Category }[];
 }

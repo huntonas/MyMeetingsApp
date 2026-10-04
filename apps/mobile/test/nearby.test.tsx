@@ -64,7 +64,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   setPlace("Maryville, TN", MARYVILLE);
 });
 afterEach(async () => {
@@ -1111,6 +1111,16 @@ describe("results", () => {
     });
   });
 
+  it("lists a category this app has never heard of in the filter sheet, under a heading made from its name", async () => {
+    const later = { slug: "ninety-minutes", label: "90 minutes", category: "meeting-length" };
+    api.reply("/api/v2/vocabulary", { tags: [...VOCABULARY.tags, later] });
+    await renderApp("/filters");
+    expect(await screen.findByRole("header", { name: "Meeting length" })).toBeOnTheScreen();
+    expect(screen.getByRole("checkbox", { name: "90 minutes" })).toBeOnTheScreen();
+    expect(screen.getByRole("header", { name: "Size" })).toBeOnTheScreen();
+    expect(screen.getByRole("checkbox", { name: "Very large (100+)" })).toBeOnTheScreen();
+  });
+
   it("puts Help in the filter sheet's header", async () => {
     await renderApp("/filters");
     expect(await screen.findByRole("button", { name: "Help now: crisis lines" })).toBeOnTheScreen();
@@ -1228,14 +1238,14 @@ describe("results", () => {
   });
 
   it("reads the tag list again on the next screen change after it failed, without waiting for a foreground", async () => {
-    api.reply("/api/v1/vocabulary", { problem: "offline" }, 500);
+    api.reply("/api/v2/vocabulary", { problem: "offline" }, 500);
     api.reply(SEARCH, { meetings: [near] });
     await renderApp("/");
     await searchFor("Maryville, TN");
     expect(
       await screen.findByRole("button", { name: "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's" }),
     ).toBeOnTheScreen();
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await fireEvent.press(screen.getByLabelText("Me"));
     await fireEvent.press(await screen.findByLabelText("Nearby"));
     expect(

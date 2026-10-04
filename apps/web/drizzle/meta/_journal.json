@@ -141,6 +141,20 @@
       "when": 1790978005591,
       "tag": "0019_devicecheck-tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791088750529,
+      "tag": "0020_lock-timeout-tag-size",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791088751000,
+      "tag": "0021_tag-size-category",
+      "breakpoints": true
     }
   ]
 }

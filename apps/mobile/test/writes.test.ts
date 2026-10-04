@@ -149,13 +149,13 @@ describe("writes", () => {
   });
 
   it("leave later reads, the search included, without any device header", async () => {
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     api.reply("/api/v1/meetings/search", { meetings: [] }, 200, "POST");
     await deleteMine();
     await fetchVocabulary();
     await searchMeetings({ lat: 40.71, lng: -74.01, radiusKm: 10 });
     const reads = api.requests.slice(1);
-    expect(reads.map((r) => r.path)).toEqual(["/api/v1/vocabulary", "/api/v1/meetings/search"]);
+    expect(reads.map((r) => r.path)).toEqual(["/api/v2/vocabulary", "/api/v1/meetings/search"]);
     for (const read of reads) {
       for (const header of ["x-device-id", "x-platform", "x-app-version", "x-attestation"]) {
         expect(read.headers[header]).toBeUndefined();

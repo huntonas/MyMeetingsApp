@@ -1,11 +1,10 @@
-import { TAG_CATEGORIES } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
 import { FILTER_TYPES, TYPE_LABELS } from "@/meetings/type-labels";
 import { WEEKDAYS } from "@/meetings/schedule";
-import { CATEGORY_TITLES, useVocabularyTags } from "@/meetings/vocabulary";
+import { byCategory, useVocabularyTags } from "@/meetings/vocabulary";
 import { filtering, NO_FILTERS, TIME_ORDER, TIMES_OF_DAY, toggled, useFilters } from "@/search/filters";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
@@ -27,7 +26,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 export default function FiltersScreen() {
   const { chosen, setFilters } = useFilters();
   const { filters } = filtering(chosen, useNow());
-  const tags = [...useVocabularyTags().values()];
+  const groups = byCategory(useVocabularyTags().values());
   return (
     <Screen>
       <Group title="Day">
@@ -67,20 +66,18 @@ export default function FiltersScreen() {
         ))}
       </Group>
       <AppText tone="muted">What people say</AppText>
-      {TAG_CATEGORIES.map((category) => (
-        <Group key={category} title={CATEGORY_TITLES[category]}>
-          {tags
-            .filter((tag) => tag.category === category)
-            .map((tag) => (
-              <Pill
-                key={tag.slug}
-                label={tag.label}
-                selected={filters.tags.includes(tag.slug)}
-                onPress={() => {
-                  setFilters({ tags: toggled(filters.tags, tag.slug) });
-                }}
-              />
-            ))}
+      {groups.map((group) => (
+        <Group key={group.category} title={group.title}>
+          {group.tags.map((tag) => (
+            <Pill
+              key={tag.slug}
+              label={tag.label}
+              selected={filters.tags.includes(tag.slug)}
+              onPress={() => {
+                setFilters({ tags: toggled(filters.tags, tag.slug) });
+              }}
+            />
+          ))}
         </Group>
       ))}
       <Button

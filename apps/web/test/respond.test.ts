@@ -1,6 +1,6 @@
 import { format } from "node:util";
 
-import { VocabularyResponse } from "@mymeetingapp/shared";
+import { V1VocabularyResponse, VocabularyResponse } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -36,7 +36,7 @@ describe("jsonResponse", () => {
   it("throws when the data breaks the contract", () => {
     const broken = { tags: [{ ...tag, category: "vibes" }] };
     // @ts-expect-error -- deliberately breaks the contract
-    expect(() => jsonResponse(VocabularyResponse, broken, "none")).toThrow();
+    expect(() => jsonResponse(V1VocabularyResponse, broken, "none")).toThrow();
   });
 });
 

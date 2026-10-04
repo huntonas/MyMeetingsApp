@@ -1,3 +1,4 @@
+import { STARTER_VOCABULARY } from "@mymeetingapp/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -101,7 +102,7 @@ describe("readMetrics (spec §10: totals only)", () => {
       { meetingId, tagId: await tagId("coffee"), newDevices: 6, priorDevices: 1, reviewedAt: new Date() },
     ]);
     expect(await readMetrics()).toMatchObject({
-      vocabulary: { active: 25, retired: 1 },
+      vocabulary: { active: STARTER_VOCABULARY.length - 1, retired: 1 },
       pendingSuggestions: 2,
       openSwings: 1,
     });

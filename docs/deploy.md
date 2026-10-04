@@ -12,7 +12,7 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 - Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, created with `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`. Since 2026-09-29 it is connected to **Production only** (reconnected with no per-deployment branching, no prefix, Sensitive off so `vercel env run` can read the URLs); Preview has its own variables (see "Preview databases").
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
   - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
-- **Restore history:** the privacy policy says deleted data can remain in Neon's restore history for at most 30 days (owner decision 3). Keep the production project's restore window at 30 days or less, and record the configured window here: _not yet recorded_.
+- **Restore history:** the privacy policy says deleted data can remain in Neon's restore history for at most 7 days (owner, 2026-10-03; was 30). The production project's restore window is **7 days** (set 2026-10-03, owner); the policy says up to 7 days. Change the policy and its test together if this ever changes.
 
 Needs the dashboard (no CLI or API for these): see "Preview databases" below.
 
@@ -205,7 +205,7 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 - The policy renders `apps/web/src/content/privacy-inventory.ts`, and `privacy-policy.test.tsx` checks it against SPEC.md §2 and §13 and the schema.
 - When `SUGGESTION_MODEL` changes, update the suggestion-screening entry in `THIRD_PARTIES`.
 - The policy and terms say "Draft, pending legal review" until the §16 legal review is done.
-- **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 30 days (owner decision 3). Keep the production project's restore window at 30 days or less. Configured window: _not yet recorded_ (see "Restore history" under "One-time setup" above; the owner records the actual value there once checked in the Neon console). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
+- **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 7 days (owner, 2026-10-03). Configured window: 7 days (2026-10-03). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
 - **Support email, every quarter:** the policy says we delete support email within 90 days after it's resolved, and that deleted mail can remain in Google's trash and recovery for up to about 55 days after that. Each quarter, never more than 90 days after the last pass, delete every resolved support thread in the Google Workspace mailbox for `admin@goodersoftwarellc.com`, then empty Trash. (Deleting only threads resolved more than 90 days ago, once a quarter, would let a thread wait up to about 180 days.) Never copy an email address or message anywhere else, or link it to a device or tags.
 
 ### Connecting mymeetingapp.com later (not done in Phase 4)

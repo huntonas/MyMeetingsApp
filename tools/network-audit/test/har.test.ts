@@ -9,7 +9,7 @@ function capture(postData: unknown) {
         {
           request: {
             method: "POST",
-            url: "https://mymeetingapp.vercel.app/api/v1/meetings/search",
+            url: "https://mymeetings.app/api/v1/meetings/search",
             headers: [],
             postData,
           },
@@ -48,7 +48,7 @@ describe("Har", () => {
     const entry = {
       request: {
         method: "GET",
-        url: "https://mymeetingapp.vercel.app/api/v1/vocabulary",
+        url: "https://mymeetings.app/api/v1/vocabulary",
         headers: [],
         bodySize: 0,
       },
@@ -60,7 +60,7 @@ describe("Har", () => {
     const entry = {
       request: {
         method: "GET",
-        url: "https://mymeetingapp.vercel.app/api/v1/vocabulary",
+        url: "https://mymeetings.app/api/v1/vocabulary",
         headers: [],
         cookies: [{ name: "a", value: "b", path: "/", expires: null, httpOnly: false, secure: true }],
       },
@@ -85,7 +85,7 @@ describe("Har", () => {
 
   it("accepts response.headers, ignoring the extra fields a real capture includes", () => {
     const entry = {
-      request: { method: "GET", url: "https://mymeetingapp.vercel.app/api/v1/vocabulary", headers: [] },
+      request: { method: "GET", url: "https://mymeetings.app/api/v1/vocabulary", headers: [] },
       response: {
         status: 200,
         statusText: "OK",
@@ -98,7 +98,7 @@ describe("Har", () => {
 
   it("accepts an entry with no response at all", () => {
     const entry = {
-      request: { method: "GET", url: "https://mymeetingapp.vercel.app/api/v1/vocabulary", headers: [] },
+      request: { method: "GET", url: "https://mymeetings.app/api/v1/vocabulary", headers: [] },
     };
     expect(Har.safeParse({ log: { entries: [entry] } }).success).toBe(true);
   });

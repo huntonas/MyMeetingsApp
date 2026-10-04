@@ -12,7 +12,7 @@ Done with the Vercel CLI (60.x) on 2026-09-26:
 - Neon provisioned from the Marketplace as `mymeetingapp-db`: region `iad1`, free plan, created with `vercel integration add neon --name mymeetingapp-db --no-env-pull --no-claim`. Since 2026-09-29 it is connected to **Production only** (reconnected with no per-deployment branching, no prefix, Sensitive off so `vercel env run` can read the URLs); Preview has its own variables (see "Preview databases").
   - `--no-env-pull` keeps the production URL out of `apps/web/.env.local`, which must keep pointing at local Docker.
   - The integration also created unused `NEON_AUTH_*` / `VITE_NEON_AUTH_URL` variables. Neon Auth is on by default and can't be changed after creation, and the app never reads them.
-- **Restore history:** the privacy policy says deleted data can remain in Neon's restore history for at most 30 days (owner decision 3). Keep the production project's restore window at 30 days or less, and record the configured window here: _not yet recorded_.
+- **Restore history:** the privacy policy says deleted data can remain in Neon's restore history for at most 7 days (owner, 2026-10-03; was 30). The production project's restore window is **7 days** (set 2026-10-03, owner); the policy says up to 7 days. Change the policy and its test together if this ever changes.
 
 Needs the dashboard (no CLI or API for these): see "Preview databases" below.
 
@@ -180,7 +180,7 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 
 ### Variables
 
-- `SITE_URL`: the canonical origin, already set to `https://mymeetingapp.vercel.app` in Production and Preview (not sensitive). It is baked into static pages, `robots.txt` and the sitemap at build time (`src/lib/site-url.ts`), so a change needs a redeploy. A missing or malformed value fails the build.
+- `SITE_URL`: the canonical origin (not sensitive): `https://mymeetings.app` in Production (until the step in "The domain: mymeetings.app" below is done, it is still `https://mymeetingapp.vercel.app`) and `https://mymeetingapp.vercel.app` in Preview. It is baked into static pages, `robots.txt` and the sitemap at build time (`src/lib/site-url.ts`), so a change needs a redeploy. A missing or malformed value fails the build.
 - `METRICS_USER` / `METRICS_PASSWORD`: sensitive, different in Production and Preview. The password must be at least 16 characters (`MIN_PASSWORD_LENGTH` in `src/lib/admin-auth.ts`); a shorter one, or either variable being unset, refuses every sign-in. Generate the password with `openssl rand -base64 30` and save it in the password manager, then set both with `vercel env add METRICS_USER production --sensitive` and `vercel env add METRICS_PASSWORD production --sensitive` (repeat for `preview` with a different password). Like the peppers, the readable copies also go in `apps/web/.env.secrets` (see "Local secrets file" above), because Vercel won't show a sensitive value again.
 
 ### Signing in to /metrics
@@ -205,21 +205,18 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 - The policy renders `apps/web/src/content/privacy-inventory.ts`, and `privacy-policy.test.tsx` checks it against SPEC.md §2 and §13 and the schema.
 - When `SUGGESTION_MODEL` changes, update the suggestion-screening entry in `THIRD_PARTIES`.
 - The policy and terms say "Draft, pending legal review" until the §16 legal review is done.
-- **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 30 days (owner decision 3). Keep the production project's restore window at 30 days or less. Configured window: _not yet recorded_ (see "Restore history" under "One-time setup" above; the owner records the actual value there once checked in the Neon console). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
+- **Neon restore history:** the policy says deleted data can remain in the database provider's restore history for up to 7 days (owner, 2026-10-03). Configured window: 7 days (2026-10-03). If the owner shortens the wording to an exact window, change the Backups paragraph in `apps/web/src/app/(site)/privacy/page.tsx` and the matching test in `privacy-policy.test.tsx` together.
 - **Support email, every quarter:** the policy says we delete support email within 90 days after it's resolved, and that deleted mail can remain in Google's trash and recovery for up to about 55 days after that. Each quarter, never more than 90 days after the last pass, delete every resolved support thread in the Google Workspace mailbox for `admin@goodersoftwarellc.com`, then empty Trash. (Deleting only threads resolved more than 90 days ago, once a quarter, would let a thread wait up to about 180 days.) Never copy an email address or message anywhere else, or link it to a device or tags.
 
-### Connecting mymeetingapp.com later (not done in Phase 4)
+### The domain: mymeetings.app
 
-1. Vercel → the project → Settings → Domains: add `mymeetingapp.com`, and add `www.mymeetingapp.com` redirecting to it.
-2. At the registrar, set the DNS records Vercel shows (an A record for the apex and a CNAME for `www`), or point the nameservers at Vercel.
-3. Wait until Vercel shows the domain as valid, with a certificate.
-4. Replace `SITE_URL` for Production (and Preview) with `https://mymeetingapp.com`: `vercel env rm SITE_URL production`, then `vercel env add SITE_URL production`.
-5. Redeploy production, because the static pages, `robots.txt` and the sitemap carry `SITE_URL` from the build.
-6. Check that `https://mymeetingapp.com/robots.txt` names `https://mymeetingapp.com/sitemap.xml`, and that `/privacy`'s canonical link uses the new domain.
-7. `mymeetingapp.vercel.app` keeps working. Once the new domain is live, you can redirect it from the Vercel domain settings.
-8. The feed User-Agent already names `mymeetingapp.com` (`BRAND.domain`), so nothing changes there. Update the store listings' privacy and support URLs if they were already submitted.
+Connected 2026-10-03. The owner bought `mymeetings.app` through Vercel, so Vercel holds its DNS and certificate and there are no registrar records to keep.
 
-This step is deliberately out of Phase 4 (owner decision 2026-09-29: no domain yet); Phase 4 ends with the site live on the Vercel address.
+- **Canonical:** the apex, `https://mymeetings.app`, attached to the production project. `BRAND.domain` (`packages/shared/src/brand.ts`) names it, so the feed User-Agent says `+https://mymeetings.app`.
+- **`www.mymeetings.app`** 308-redirects to the apex (Vercel → the project → Settings → Domains).
+- **`mymeetingapp.vercel.app`** still serves production too, so nothing that knew the old address breaks. Its pages' canonical links name the apex once `SITE_URL` does. The app's dev-build guard (`apps/mobile/src/config/server-url.ts`) refuses it as well as the apex.
+- **Store builds** talk to `https://mymeetings.app` (`apps/mobile/eas.json`'s `production` profile), and the App Store listing's support, privacy-policy and marketing URLs are on it (`apps/mobile/store.config.json`). Staging stays `https://mymeetingapp-staging.vercel.app`.
+- **`SITE_URL`, once the domain change is merged to `main`:** set it to `https://mymeetings.app` for Production (`vercel env rm SITE_URL production`, then `vercel env add SITE_URL production`), then redeploy production, because the static pages, `robots.txt` and the sitemap carry `SITE_URL` from the build. Then check that `https://mymeetings.app/robots.txt` names `https://mymeetings.app/sitemap.xml`, and that `/privacy`'s canonical link uses the apex. Preview keeps its own value.
 
 ## Staging (TestFlight backend)
 
@@ -239,6 +236,25 @@ A long-lived backend for the TestFlight build to talk to, separate from Preview 
 Team `PVCZBLDJ73`, being converted from individual to Gooder Software LLC (owner decision 1, 2026-10-02). App Store Connect app `6817873804`, named "My Meeting App: Meeting Finder" (claimed 2026-10-02), bundle ID `com.goodersoftware.mymeetingapp`. EAS submits with the App Store Connect API key `ZG2Z6A5JY3`.
 
 Conversion checks (Task 1 Step 2): _not yet recorded_.
+
+### Variables
+
+| Variable                                         | Local (`.env.local`)                         | Preview | Staging                                   | Production                                                                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------- | ------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REQUIRE_ATTESTATION`                            | off                                          | off     | on (from TestFlight build 12, 2026-10-03) | off until Task 15                                                                                                                                                                            |
+| `APPLE_TEAM_ID` / `APPLE_BUNDLE_ID`              | PVCZBLDJ73 / com.goodersoftware.mymeetingapp | unset   | set                                       | set                                                                                                                                                                                          |
+| `APP_ATTEST_ENVIRONMENT`                         | development                                  | unset   | production                                | production                                                                                                                                                                                   |
+| `DEVICECHECK_KEY_ID` / `DEVICECHECK_PRIVATE_KEY` | unset                                        | unset   | unset: DeviceCheck refused                | unset: DeviceCheck refused (owner decision 2026-10-03: every supported iPhone and iPad has App Attest, and Mac availability is off; add the key if refusals from unsupported devices appear) |
+
+TestFlight and App Store builds always attest in Apple's production environment. A dev build on a device attests in development, so it works only against local web. A simulator can't attest at all: point it at local web for anything that writes.
+
+### Staging roll-out (2026-10-03)
+
+- PR #20 merged; production and staging deployed with the attestation migrations, checks off.
+- Staging checks with a throwaway device: a challenge of 43 characters; no device headers → `invalid_request`; a made-up registration → `attestation_failed`; delete-mine → `{"deletedTags":0}`.
+- TestFlight builds 10 and 11 failed: the App Store provisioning profile predated App Attest. The owner turned App Attest on for the identifier and ran one interactive build, which regenerated the profile; build 12 succeeded.
+- Build 12 on the owner's iPhone registered a real App Attest key against staging (Apple's attestation verified against the pinned root).
+- Checks switched on in staging (redeploy). Without a proof, and with a DeviceCheck token (staging has no DeviceCheck key), delete-mine answers `attestation_failed`. On the iPhone, tag, edit, remove, Delete all and tag again all succeeded; staging's `device_days` counter reached 2.
 
 ## Rules
 

@@ -132,8 +132,8 @@ describe("proxy for /metrics (spec §10)", () => {
         method: "POST",
         headers: {
           authorization: OWNER,
-          origin: "https://mymeetingapp.vercel.app",
-          "x-forwarded-host": "mymeetingapp.vercel.app",
+          origin: "https://mymeetings.app",
+          "x-forwarded-host": "mymeetings.app",
         },
       }),
     );

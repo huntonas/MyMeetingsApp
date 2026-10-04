@@ -42,7 +42,7 @@ describe("fetchFeed", () => {
       lastModified: "Sat, 26 Sep 2026 10:00:00 GMT",
     });
     expect(server.requests[0]?.headers["user-agent"]).toBe(
-      "mymeetingapp/1.0 (+https://mymeetingapp.com; admin@goodersoftwarellc.com)",
+      "mymeetingapp/1.0 (+https://mymeetings.app; admin@goodersoftwarellc.com)",
     );
   });
 
@@ -112,7 +112,7 @@ describe("fetchFeed", () => {
     await fetchFeed(`${server.baseUrl}/feed`, noCache, createHostThrottle());
     expect(server.requests).toHaveLength(1);
     expect(server.requests[0]?.headers["user-agent"]).toBe(
-      "mymeetingapp/1.0 (+https://mymeetingapp.com; admin@goodersoftwarellc.com)",
+      "mymeetingapp/1.0 (+https://mymeetings.app; admin@goodersoftwarellc.com)",
     );
   });
 

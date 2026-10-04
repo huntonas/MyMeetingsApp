@@ -94,7 +94,7 @@ export default function PrivacyPage() {
 
       <h2>Backups</h2>
       <p>
-        Deleted data can remain in our database provider&apos;s restore history for up to 30 days, and then
+        Deleted data can remain in our database provider&apos;s restore history for up to 7 days, and then
         it&apos;s gone. We use that history only to recover from a failure.
       </p>
 
@@ -125,7 +125,7 @@ export default function PrivacyPage() {
         We&apos;ll post any change here with a new date. Questions go to{" "}
         <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
       </p>
-      <p className="fine-print">Updated 2 October 2026.</p>
+      <p className="fine-print">Updated 3 October 2026.</p>
     </>
   );
 }

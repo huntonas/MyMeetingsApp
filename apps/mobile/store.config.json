@@ -23,9 +23,9 @@
           "near me",
           "newcomer"
         ],
-        "marketingUrl": "https://mymeetingapp.vercel.app",
-        "supportUrl": "https://mymeetingapp.vercel.app/support",
-        "privacyPolicyUrl": "https://mymeetingapp.vercel.app/privacy"
+        "marketingUrl": "https://mymeetings.app",
+        "supportUrl": "https://mymeetings.app/support",
+        "privacyPolicyUrl": "https://mymeetings.app/privacy"
       }
     }
   }

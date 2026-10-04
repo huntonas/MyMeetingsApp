@@ -19,14 +19,14 @@ async function harFile(entries: unknown[]): Promise<string> {
 const SEARCH_ENTRY = {
   request: {
     method: "POST",
-    url: "https://mymeetingapp.vercel.app/api/v1/meetings/search",
+    url: "https://mymeetings.app/api/v1/meetings/search",
     headers: [],
     postData: { text: '{"lat":36.16,"lng":-86.78,"radiusKm":25}' },
   },
 };
 const BASE_ARGS = [
   "--server",
-  "mymeetingapp.vercel.app",
+  "mymeetings.app",
   "--private",
   "2011-04-17",
   "--exact",
@@ -114,7 +114,7 @@ describe("run", () => {
   });
 
   it("explains itself when the capture or server is missing", async () => {
-    await expect(run(["--server", "mymeetingapp.vercel.app"])).rejects.toThrow(
+    await expect(run(["--server", "mymeetings.app"])).rejects.toThrow(
       /^Usage: pnpm --filter network-audit check-har/,
     );
   });
@@ -122,30 +122,21 @@ describe("run", () => {
   it("requires at least one --private", async () => {
     const file = await harFile([SEARCH_ENTRY]);
     await expect(
-      run(["--har", file, "--server", "mymeetingapp.vercel.app", "--exact", "36.16,-86.78"]),
+      run(["--har", file, "--server", "mymeetings.app", "--exact", "36.16,-86.78"]),
     ).rejects.toThrow("--private is required: give at least one canary");
   });
 
   it("requires at least one --exact", async () => {
     const file = await harFile([SEARCH_ENTRY]);
     await expect(
-      run(["--har", file, "--server", "mymeetingapp.vercel.app", "--private", "2011-04-17"]),
+      run(["--har", file, "--server", "mymeetings.app", "--private", "2011-04-17"]),
     ).rejects.toThrow("--exact is required: give at least one point");
   });
 
   it("rejects a blank --private value", async () => {
     const file = await harFile([SEARCH_ENTRY]);
     await expect(
-      run([
-        "--har",
-        file,
-        "--server",
-        "mymeetingapp.vercel.app",
-        "--private",
-        "  ",
-        "--exact",
-        "36.16,-86.78",
-      ]),
+      run(["--har", file, "--server", "mymeetings.app", "--private", "  ", "--exact", "36.16,-86.78"]),
     ).rejects.toThrow("--private values can't be blank");
   });
 
@@ -177,13 +168,13 @@ describe("run", () => {
         "--har",
         file,
         "--server",
-        "https://mymeetingapp.vercel.app",
+        "https://mymeetings.app",
         "--private",
         "2011-04-17",
         "--exact",
         "36.16,-86.78",
       ]),
-    ).rejects.toThrow("--server takes a bare host[:port], not a URL: https://mymeetingapp.vercel.app");
+    ).rejects.toThrow("--server takes a bare host[:port], not a URL: https://mymeetings.app");
   });
 
   it("refuses a --server with a path", async () => {
@@ -193,12 +184,12 @@ describe("run", () => {
         "--har",
         file,
         "--server",
-        "mymeetingapp.vercel.app/api",
+        "mymeetings.app/api",
         "--private",
         "2011-04-17",
         "--exact",
         "36.16,-86.78",
       ]),
-    ).rejects.toThrow("--server takes a bare host[:port], not a URL: mymeetingapp.vercel.app/api");
+    ).rejects.toThrow("--server takes a bare host[:port], not a URL: mymeetings.app/api");
   });
 });

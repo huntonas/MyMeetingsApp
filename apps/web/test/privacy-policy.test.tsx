@@ -276,7 +276,7 @@ describe("the privacy policy page", () => {
 
   // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   it("is dated, with no draft notice", () => {
-    expect(text).toContain("Updated 2 October 2026.");
+    expect(text).toContain("Updated 3 October 2026.");
     expect(text).not.toContain("Draft");
   });
 
@@ -321,6 +321,6 @@ describe("the privacy policy page", () => {
   });
 
   it("says deleted data can outlive deletion in the database's restore history (spec §9)", () => {
-    expect(text).toContain("restore history for up to 30 days");
+    expect(text).toContain("restore history for up to 7 days");
   });
 });

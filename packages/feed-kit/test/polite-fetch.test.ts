@@ -24,7 +24,7 @@ describe("politeFetch", () => {
     });
     expect(result).toBeInstanceOf(Response);
     expect(server.requests[0]?.headers).toMatchObject({
-      "user-agent": "mymeetingapp/1.0 (+https://mymeetingapp.com; admin@goodersoftwarellc.com)",
+      "user-agent": "mymeetingapp/1.0 (+https://mymeetings.app; admin@goodersoftwarellc.com)",
       accept: "application/json",
     });
   });

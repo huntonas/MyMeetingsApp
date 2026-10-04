@@ -15,7 +15,7 @@ import { classifyHost, normalizeHost } from "./host";
 import { isPrivateOrLoopbackHost, looksLikeCoordinatePair } from "./lookat";
 
 export interface AuditOptions {
-  // Our server's host as it appears in URLs (mymeetingapp.vercel.app, or 192.168.x.y:3000 for local web).
+  // Our server's host as it appears in URLs (mymeetings.app, or 192.168.x.y:3000 for local web).
   server: string;
   // Never in any request to any host: the sobriety date and other personal data set as canaries (spec §2).
   privateValues: string[];

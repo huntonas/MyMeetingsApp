@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { auditHar } from "../src/audit";
 import type { Har } from "../src/har";
 
-const SERVER = "mymeetingapp.vercel.app";
+const SERVER = "mymeetings.app";
 const OPTIONS = {
   server: SERVER,
   privateValues: ["2011-04-17", "Apr 17, 2011"],
@@ -208,7 +208,7 @@ describe("auditHar", () => {
   it("matches the server host without regard to case", () => {
     const report = auditHar(har(entry("GET", `https://${SERVER}/api/v1/vocabulary`), VALID_SEARCH), {
       ...OPTIONS,
-      server: "MyMeetingApp.Vercel.App",
+      server: "MyMeetings.App",
     });
     expect(report).toEqual({
       serverRequests: 2,
@@ -247,7 +247,7 @@ describe("auditHar", () => {
 
     it("A2: flags a capture that only reaches a different host than --server", () => {
       // A local dev capture (192.168.1.5:3000) accidentally checked against the production --server: since
-      // it never reaches mymeetingapp.vercel.app, this must not pass just because nothing else looks wrong.
+      // it never reaches mymeetings.app, this must not pass just because nothing else looks wrong.
       const report = auditHar(
         har(
           entry("POST", "http://192.168.1.5:3000/api/v1/meetings/search", {

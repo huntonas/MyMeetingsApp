@@ -29,7 +29,7 @@ describe("EAS build profiles", () => {
   it("points TestFlight builds at staging and store builds at production", () => {
     const { build } = easJson();
     expect(build.testflight?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp-staging.vercel.app");
-    expect(build.production?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetingapp.vercel.app");
+    expect(build.production?.env?.EXPO_PUBLIC_SERVER_URL).toBe("https://mymeetings.app");
   });
 
   // Documentation, not protection: a dev build's JavaScript comes from Metro, which inlines the URL from the local

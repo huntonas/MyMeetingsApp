@@ -1,4 +1,5 @@
-// Owner decision: the privacy promise comes first. Each line restates spec §2 in plain words.
+// Owner decision: privacy comes first. The hero says it in a line; this is the promise in full, each line restating
+// spec §2 in plain words.
 export function PrivacyPromise() {
   return (
     <>
@@ -11,7 +12,7 @@ export function PrivacyPromise() {
           about 1 km, and we don't keep it.
         </li>
         <li>
-          <strong>Your sobriety date and favorites stay on your phone.</strong>
+          <strong>Your sobriety date and saved meetings stay on your phone.</strong>
         </li>
         <li>
           <strong>No ads, no tracking, no analytics and no cookies,</strong> in the app or on this site.

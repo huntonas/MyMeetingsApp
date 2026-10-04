@@ -43,9 +43,9 @@ export default function SupportPage() {
       </p>
       <h3>Does the app know who I am?</h3>
       <p>
-        No. There are no accounts, and your exact location, sobriety date and favorites stay on your phone; a
-        search sends only a point rounded to about 1 km. The <a href="/privacy">privacy policy</a> explains
-        what we keep and why.
+        No. There are no accounts, and your exact location, sobriety date and saved meetings stay on your
+        phone; a search sends only a point rounded to about 1 km. The <a href="/privacy">privacy policy</a>{" "}
+        explains what we keep and why.
       </p>
 
       <h2>Opting out</h2>

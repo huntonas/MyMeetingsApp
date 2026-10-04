@@ -10,8 +10,10 @@
   --accent-text: #ffffff;
   --tag-bg: #eef3f7;
   --notice-bg: #fff6d6;
+  --bezel: #1d2327;
   --gutter: 1.25rem;
   --measure: 40rem;
+  --wide: 66rem;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,6 +27,7 @@
     --accent-text: #0e1418;
     --tag-bg: #243039;
     --notice-bg: #3a3218;
+    --bezel: #050708;
   }
 }
 
@@ -61,6 +64,13 @@ a {
   max-width: var(--measure);
   margin: 0 auto;
   padding-inline: var(--gutter);
+}
+
+/* The header, footer and landing page use the wide column; the other pages keep the reading width. */
+.site-header,
+.site-footer,
+.page:has(> .landing) {
+  max-width: var(--wide);
 }
 
 .site-header {
@@ -101,98 +111,11 @@ h2 {
   margin: 3rem 0 0.75rem;
 }
 
-.lede {
-  font-size: 1.15rem;
-  color: var(--muted);
-}
-
-.promise {
-  list-style: none;
-  margin: 1.5rem 0;
-  padding: 1rem 1.25rem;
-  border-left: 4px solid var(--accent);
-  background: var(--surface);
-}
-
-.promise li + li {
-  margin-top: 0.5rem;
-}
-
 .site-footer {
   border-top: 1px solid var(--line);
   padding-block: 1.5rem 3rem;
   color: var(--muted);
   font-size: 0.9rem;
-}
-
-figcaption {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.store-badges {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.store-badge {
-  display: inline-block;
-  padding: 0.6rem 1rem;
-  border: 2px solid var(--line);
-  border-radius: 0.6rem;
-  color: var(--muted);
-}
-
-.screenshot-placeholder {
-  aspect-ratio: 9 / 19.5;
-  width: min(16rem, 100%);
-  margin: 2rem 0;
-  display: grid;
-  place-items: center;
-  border: 2px dashed var(--line);
-  border-radius: 2rem;
-  color: var(--muted);
-}
-
-.meeting-card {
-  margin: 1.5rem 0;
-  padding: 1.25rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 0.75rem;
-}
-
-.meeting-name {
-  font-weight: 700;
-  font-size: 1.1rem;
-  margin: 0.25rem 0;
-}
-
-.meeting-meta {
-  color: var(--muted);
-  margin: 0;
-}
-
-.tag-list {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.tag-list li {
-  background: var(--tag-bg);
-  border-radius: 999px;
-  padding: 0.2rem 0.75rem;
-}
-
-.count {
-  font-weight: 700;
 }
 
 h3 {
@@ -293,4 +216,186 @@ select {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
+}
+
+/* Landing page: mobile first. One column of words then screenshots; from 52rem, words beside screenshots. */
+.landing h1 {
+  font-size: clamp(2rem, 1.5rem + 2.2vw, 2.9rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 1.5rem 0 1rem;
+}
+
+.landing h2 {
+  font-size: clamp(1.5rem, 1.25rem + 1vw, 1.9rem);
+  line-height: 1.2;
+  margin: 0 0 1rem;
+}
+
+.lede {
+  font-size: 1.2rem;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+
+.hero-promise {
+  font-weight: 700;
+  margin: 0 0 1.75rem;
+}
+
+.get-app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.get-app p {
+  margin: 0;
+}
+
+.store-badge {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.2;
+  padding: 0.55rem 1.1rem;
+  border: 2px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.store-badge small {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hero,
+.feature {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+.hero {
+  padding-block: 1rem 3rem;
+}
+
+.hero-media,
+.feature-media {
+  display: flex;
+  justify-content: center;
+}
+
+.feature {
+  padding-block: 3.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.feature-text > :last-child {
+  margin-bottom: 0;
+}
+
+/* A plain CSS phone: rounded corners and a thin bezel, sized by --phone. */
+.phone {
+  --phone: min(15rem, 68vw);
+  width: var(--phone);
+  padding: calc(var(--phone) * 0.03);
+  border-radius: calc(var(--phone) * 0.15);
+  background: var(--bezel);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 1.5rem 3rem -1.5rem rgb(0 0 0 / 0.35);
+}
+
+.phone img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--phone) * 0.125);
+}
+
+.phone-pair {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.phone-pair .phone {
+  --phone: min(12.5rem, 40vw);
+}
+
+.phone-pair .phone + .phone {
+  margin-top: 2.5rem;
+}
+
+.promise {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.promise li {
+  padding-left: 1rem;
+  border-left: 3px solid var(--accent);
+}
+
+.promise li + li {
+  margin-top: 0.75rem;
+}
+
+.also {
+  padding-block: 3.5rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.also-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+}
+
+.also-list li {
+  padding: 0.75rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+}
+
+.landing #help {
+  margin-top: 2.5rem;
+}
+
+@media (min-width: 52rem) {
+  .hero,
+  .feature {
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+  }
+
+  .hero {
+    grid-template-columns: 1.2fr 1fr;
+    padding-block: 2rem 4rem;
+  }
+
+  .hero .phone {
+    --phone: 17rem;
+  }
+
+  .feature {
+    padding-block: 3.5rem;
+  }
+
+  .features .feature:nth-child(odd) .feature-media {
+    order: -1;
+  }
+
+  .phone-pair .phone {
+    --phone: 13rem;
+  }
 }

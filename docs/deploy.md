@@ -240,6 +240,25 @@ Team `PVCZBLDJ73`, being converted from individual to Gooder Software LLC (owner
 
 Conversion checks (Task 1 Step 2): _not yet recorded_.
 
+### Variables
+
+| Variable                                         | Local (`.env.local`)                         | Preview | Staging                                   | Production                       |
+| ------------------------------------------------ | -------------------------------------------- | ------- | ----------------------------------------- | -------------------------------- |
+| `REQUIRE_ATTESTATION`                            | off                                          | off     | on (from TestFlight build 12, 2026-10-03) | off until Task 15                |
+| `APPLE_TEAM_ID` / `APPLE_BUNDLE_ID`              | PVCZBLDJ73 / com.goodersoftware.mymeetingapp | unset   | set                                       | set                              |
+| `APP_ATTEST_ENVIRONMENT`                         | development                                  | unset   | production                                | production                       |
+| `DEVICECHECK_KEY_ID` / `DEVICECHECK_PRIVATE_KEY` | unset                                        | unset   | unset: DeviceCheck refused                | set, the key Sensitive (Task 15) |
+
+TestFlight and App Store builds always attest in Apple's production environment. A dev build on a device attests in development, so it works only against local web. A simulator can't attest at all: point it at local web for anything that writes.
+
+### Staging roll-out (2026-10-03)
+
+- PR #20 merged; production and staging deployed with the attestation migrations, checks off.
+- Staging checks with a throwaway device: a challenge of 43 characters; no device headers → `invalid_request`; a made-up registration → `attestation_failed`; delete-mine → `{"deletedTags":0}`.
+- TestFlight builds 10 and 11 failed: the App Store provisioning profile predated App Attest. The owner turned App Attest on for the identifier and ran one interactive build, which regenerated the profile; build 12 succeeded.
+- Build 12 on the owner's iPhone registered a real App Attest key against staging (Apple's attestation verified against the pinned root).
+- Checks switched on in staging (redeploy). Without a proof, and with a DeviceCheck token (staging has no DeviceCheck key), delete-mine answers `attestation_failed`. On the iPhone, tag, edit, remove, Delete all and tag again all succeeded; staging's `device_days` counter reached 2.
+
 ## Rules
 
 - Previews never use the production branch's data: they restore from `seed`, which holds no device data (see Preview databases).

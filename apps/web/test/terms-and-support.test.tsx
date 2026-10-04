@@ -57,7 +57,7 @@ describe("the support page", () => {
 
   it("says only the exact location stays on the phone, since a search sends a rounded point", () => {
     expect(text).toContain(
-      "your exact location, sobriety date and favorites stay on your phone; a search sends only a point rounded to about 1 km",
+      "your exact location, sobriety date and saved meetings stay on your phone; a search sends only a point rounded to about 1 km",
     );
   });
 

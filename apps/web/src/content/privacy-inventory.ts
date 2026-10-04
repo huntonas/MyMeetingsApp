@@ -273,7 +273,7 @@ export const ON_PHONE: readonly { specItem: string; text: string }[] = [
     text: "what you type in the search box (to find the place, your phone asks Apple, Google or, on some Android phones, the phone maker's location service, not us)",
   },
   { specItem: "recent searches", text: "your recent searches" },
-  { specItem: "favorites", text: "your favorite meetings" },
+  { specItem: "favorites", text: "your saved meetings" },
   { specItem: "sobriety date", text: "your sobriety date" },
   { specItem: "local record of tagged meetings", text: "the list of meetings you've tagged" },
   {

@@ -274,9 +274,18 @@ describe("the privacy policy page", () => {
     expect(text).toContain("Nothing. We don't record which phone sent it.");
   });
 
+  // Owner decision, 2026-10-04: no paid Vercel Firewall rules, so a site-wide hourly count of app check codes is kept.
+  it("says the hourly count of app check codes covers the whole site and names no phone", () => {
+    expect(text).toContain(
+      "Two other counts cover the whole site and name no phone: failed sign-ins to our admin page each day, and the app check codes we give out each hour (UTC).",
+    );
+    expect(text).toContain("Your phone only; the site-wide counts link to nothing.");
+    expect(text).toContain("and unused ones when the next code is given out or in the next nightly cleanup.");
+  });
+
   // Owner decision, 2026-10-02: the policy is final, so it carries its date and no draft notice.
   it("is dated, with no draft notice", () => {
-    expect(text).toContain("Updated 3 October 2026.");
+    expect(text).toContain("Updated 4 October 2026.");
     expect(text).not.toContain("Draft");
   });
 

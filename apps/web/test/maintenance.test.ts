@@ -97,6 +97,21 @@ describe("runMaintenance", () => {
     );
   });
 
+  it("purges the site-wide hourly challenge counts like the others", async () => {
+    await db.insert(rateLimits).values(
+      [0, 1, 2].map((days) => ({
+        deviceHash: "attestation-site-07",
+        bucket: "attestation_site" as const,
+        windowStart: utcDate(daysAgo(days)),
+        count: 1000,
+      })),
+    );
+    expect((await runMaintenance()).rateLimitRowsPurged).toBe(1);
+    expect((await db.select().from(rateLimits)).map((row) => row.windowStart).sort()).toEqual(
+      [utcDate(daysAgo(1)), utcDate(daysAgo(0))].sort(),
+    );
+  });
+
   it("unlinks devices from suggestions older than 30 days", async () => {
     await db.insert(suggestions).values([
       { text: "Old idea", deviceHash: DEVICE_A_HASH, createdAt: daysAgo(31) },

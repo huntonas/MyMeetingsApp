@@ -159,7 +159,7 @@ The feed sync includes `admin@goodersoftwarellc.com` in the User-Agent header of
 
 ### Maintenance cron
 
-`/api/cron/maintenance` runs nightly at 08:07 UTC (off the quarter hour, so it never starts alongside a feed sync): it purges `tag_audit` rows older than 7 days, `rate_limits` rows older than yesterday (UTC), suggestion device links older than 30 days and devices inactive for 13 months (blocked devices are kept), then recounts every meeting's tags. Run it by hand from Settings → Cron Jobs → Run. The response is counts only.
+`/api/cron/maintenance` runs nightly at 08:07 UTC (off the quarter hour, so it never starts alongside a feed sync): it purges `tag_audit` rows older than 7 days, `rate_limits` rows older than yesterday (UTC, the site-wide counts included), expired App Attest challenges, suggestion device links older than 30 days and devices inactive for 13 months (blocked devices are kept), then recounts every meeting's tags. Run it by hand from Settings → Cron Jobs → Run. The response is counts only.
 
 ### Blocking a device
 
@@ -198,8 +198,8 @@ Device-derived tables (`devices`, `tag_submissions`, `tag_counts`, `tag_audit`, 
 ### Signing in to /metrics
 
 - Open `/metrics`; the browser asks for the user name and password.
-- **Owner step: a Vercel Firewall rate-limit rule.** In the dashboard → the project → Firewall → Rules, add a custom rule: the path starts with `/metrics`, rate-limited by IP address, a 60-second window, about 30 requests, action Deny (429). This is the per-visitor limit; the app itself stores no IP address for a sign-in attempt (spec §2). **Status (2026-09-29): not yet created — the owner deferred it.** Until it exists, only the site-wide backstop applies; if a burst locks the owner out, clear it with the SQL below.
-- Backstop: the app also keeps one site-wide count of failed sign-ins, in Postgres, with no IP, device or user name attached. After 200 failed sign-ins in a UTC day, everyone is refused (429) until midnight UTC, even with the right credentials. A test burst against a preview or production counts toward this same total. Clear it in the Neon SQL editor:
+- **No Vercel Firewall rule (owner decision, 2026-10-04: rate-limit rules are a paid feature).** Nothing limits each visitor, and the app stores no IP address for a sign-in attempt (spec §2). The site-wide backstop below is the only limit; if a burst locks the owner out, clear it with the SQL below. See "Rate limits without Vercel Firewall rules" under Phase 6.
+- Backstop: the app keeps one site-wide count of failed sign-ins, in Postgres, with no IP, device or user name attached. After 200 failed sign-ins in a UTC day, everyone is refused (429) until midnight UTC, even with the right credentials. A test burst against a preview or production counts toward this same total. Clear it in the Neon SQL editor:
   ```sql
   delete from rate_limits where bucket = 'metrics_login';
   ```
@@ -267,6 +267,24 @@ TestFlight and App Store builds always attest in Apple's production environment.
 - TestFlight builds 10 and 11 failed: the App Store provisioning profile predated App Attest. The owner turned App Attest on for the identifier and ran one interactive build, which regenerated the profile; build 12 succeeded.
 - Build 12 on the owner's iPhone registered a real App Attest key against staging (Apple's attestation verified against the pinned root).
 - Checks switched on in staging (redeploy). Without a proof, and with a DeviceCheck token (staging has no DeviceCheck key), delete-mine answers `attestation_failed`. On the iPhone, tag, edit, remove, Delete all and tag again all succeeded; staging's `device_days` counter reached 2.
+
+### Rate limits without Vercel Firewall rules
+
+Owner decision, 2026-10-04: no paid Vercel Firewall rate-limit rules. That drops both planned rules, `/api/v1/attest/` per IP and `/metrics` per IP (plan O5). Free site-wide counts in Postgres's `rate_limits`, with no IP, device or user name attached, are the backstops instead:
+
+| Path                            | The per-IP rule it replaces       | Free backstop                                                                                                                                                                                                                                       |
+| ------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/attest/challenge` | 20 requests a minute per IP       | 10 challenges a UTC day per device (bucket `attestation`), and, since a client can invent device IDs, 1,000 a UTC hour across the whole site (bucket `attestation_site`, key `attestation-site-HH`). Past either, the answer is 429 `rate_limited`. |
+| `POST /api/v1/attest/register`  | (the same rule)                   | Not counted itself. It spends a challenge before any verification, so a request without a live one is refused after one indexed delete.                                                                                                             |
+| `/metrics`                      | about 30 requests a minute per IP | 200 failed sign-ins a UTC day across the whole site (bucket `metrics_login`), then everyone is refused until midnight UTC. See "Signing in to /metrics".                                                                                            |
+
+Issuing a challenge also deletes expired ones (an indexed delete on `attest_challenges.expires_at`), so the table stays small between nightly runs. A flood can still use up the hour's 1,000 and stop real phones registering until the hour ends; a phone registers only once per install, and one refused registers again on its next write, so phones that already have a key are unaffected. To lift it early, in the Neon SQL editor:
+
+```sql
+delete from rate_limits where bucket = 'attestation_site';
+```
+
+Vercel's free, automatic DDoS mitigation still applies to every path.
 
 ## Rules
 

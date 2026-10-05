@@ -68,13 +68,13 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     specCells: {
       contents: "random single-use challenge, expiry time",
       linkedTo: "nothing",
-      retention: "5 minutes; used ones deleted at once, expired ones nightly",
+      retention: "5 minutes; used ones deleted at once, expired ones when the next is issued and nightly",
     },
     table: { name: "attest_challenges", columns: ["challenge", "expires_at"] },
     title: "App check codes",
     what: "Before an iPhone proves it's running the real app, our server gives it a random one-time code that the proof must include, and keeps the code and when it stops working.",
     linkedTo: "Nothing. We don't record which phone asked for it.",
-    kept: `${String(RETENTION.challengeMinutes)} minutes. A code is deleted as soon as it's used, and unused ones in the next nightly cleanup.`,
+    kept: `${String(RETENTION.challengeMinutes)} minutes. A code is deleted as soon as it's used, and unused ones when the next code is given out or in the next nightly cleanup.`,
   },
   {
     specRow: "devicecheck_tokens",
@@ -175,14 +175,14 @@ export const DATA_INVENTORY: readonly InventoryEntry[] = [
     specRow: "rate_limits",
     specCells: {
       contents:
-        "device hash, bucket, count (plus one site-wide count of failed /metrics sign-ins, with no device)",
-      linkedTo: "device only (the sign-in count: nothing)",
+        "device hash, bucket, count (plus site-wide counts with no device: failed /metrics sign-ins per day, app check challenges per hour)",
+      linkedTo: "device only (the site-wide counts: nothing)",
       retention: "2 days",
     },
     table: { name: "rate_limits", columns: ["device_hash", "bucket", "window_start", "count"] },
-    title: "Daily limits",
-    what: "Your phone's hash, which daily limit it counts (new tags, suggestions or app check codes), the day (UTC) and how many you've used that day. A separate count of failed sign-ins to our admin page covers the whole site and names no phone.",
-    linkedTo: "Your phone only; the sign-in count links to nothing.",
+    title: "Daily and hourly limits",
+    what: "Your phone's hash, which daily limit it counts (new tags, suggestions or app check codes), the day (UTC) and how many you've used that day. Two other counts cover the whole site and name no phone: failed sign-ins to our admin page each day, and the app check codes we give out each hour (UTC).",
+    linkedTo: "Your phone only; the site-wide counts link to nothing.",
     kept: `${String(RETENTION.rateLimitDays)} days: today's and yesterday's counts (UTC) are kept, and older ones are deleted in the next nightly cleanup.`,
   },
   {

@@ -141,12 +141,19 @@ export const deviceDays = pgTable(
   ],
 );
 
-const RATE_LIMIT_BUCKETS = ["tag_submission", "suggestion", "metrics_login", "attestation"] as const;
+const RATE_LIMIT_BUCKETS = [
+  "tag_submission",
+  "suggestion",
+  "metrics_login",
+  "attestation",
+  "attestation_site",
+] as const;
 export type RateLimitBucket = (typeof RATE_LIMIT_BUCKETS)[number];
 
-// Spec §5: per device per UTC day, with no meeting id. Kept two days. metrics_login is one site-wide count of
-// failed /metrics sign-ins (spec §10) under the fixed key "metrics-login": no device, IP address or username. It is
-// a backstop of 200 a UTC day; a Vercel Firewall rule on /metrics limits each visitor, so the app stores no IP.
+// Spec §5: per device per UTC day, with no meeting id. Kept two days. Two buckets are site-wide counts with no device,
+// IP address or username, backstops in place of a paid Vercel Firewall rule (owner decision, 2026-10-04):
+// metrics_login counts failed /metrics sign-ins (spec §10) under the fixed key "metrics-login", and attestation_site
+// counts App Attest challenges per UTC hour under the key "attestation-site-" and the hour (00 to 23).
 export const rateLimits = pgTable(
   "rate_limits",
   {

@@ -25,9 +25,9 @@ function publicHeaders(): Record<string, string> {
   return readEnv("VERCEL_TARGET_ENV") === "production" ? {} : { "X-Robots-Tag": "noindex, nofollow" };
 }
 
-// Spec §10: HTTP Basic Auth for /metrics and its admin views. A Vercel Firewall rule on /metrics limits each
-// visitor, so the app stores no IP; failed sign-ins also count toward a site-wide backstop of 200 a UTC day in
-// Postgres. Nothing about a request is logged. Vercel serves only HTTPS, so the credentials never travel in the
+// Spec §10: HTTP Basic Auth for /metrics and its admin views. Failed sign-ins count toward a site-wide backstop of 200
+// a UTC day in Postgres; there is no per-visitor limit (no paid Vercel Firewall rule, owner decision 2026-10-04), and
+// the app stores no IP. Nothing about a request is logged. Vercel serves only HTTPS, so the credentials never travel in the
 // clear.
 export async function proxy(request: NextRequest): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD" && !isSameOrigin(request)) {

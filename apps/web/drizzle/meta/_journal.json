@@ -155,6 +155,20 @@
       "when": 1791088751000,
       "tag": "0021_tag-size-category",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791171244319,
+      "tag": "0022_lock-timeout-attestation-site",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791171244862,
+      "tag": "0023_attestation-site-limit",
+      "breakpoints": true
     }
   ]
 }

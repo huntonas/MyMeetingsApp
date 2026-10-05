@@ -112,7 +112,7 @@ Each has a recommendation, and the plan follows it so work isn't blocked.
 4. **The phone attests when it can; the server decides.** A failed registration, Apple being unreachable or a simulator sends the write without a proof. With the switch off it succeeds; with it on, the server answers `attestation_failed` in its own words.
 5. **Writes go one at a time** on the phone, so assertion counters reach the server in order.
 6. **One retry.** When the server refuses an App Attest proof, the app forgets its key, registers a new one and sends the write once more. Nothing was written the first time, because the check runs before any write.
-7. **Registration and the challenge endpoint skip the version check,** like deletions, so an app of any version can still delete its data once checks are required. The challenge endpoint is limited to 10 a day per device (`rate_limits` bucket `attestation`). A Vercel Firewall rule (owner) limits each IP.
+7. **Registration and the challenge endpoint skip the version check,** like deletions, so an app of any version can still delete its data once checks are required. The challenge endpoint is limited to 10 a day per device (`rate_limits` bucket `attestation`). A Vercel Firewall rule (owner) limits each IP. Superseded 2026-10-04: no Firewall rule (paid feature, O5); a site-wide count of 1,000 challenges a UTC hour (bucket `attestation_site`) is the backstop instead.
 8. **DeviceCheck is only a fallback.**
    - A phone that has registered an App Attest key can't switch to DeviceCheck.
    - Staging holds no DeviceCheck key, so it refuses DeviceCheck. Only production holds the `.p8`, as a Sensitive variable.
@@ -194,15 +194,15 @@ Each has a recommendation, and the plan follows it so work isn't blocked.
 
 Task 1 holds the steps; this is the order to start them in. None blocks Tasks 2–13.
 
-| #   | Task                                                                                                                                                                                                              | Lead time                               | Needed by                                        |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------ |
-| O1  | Finish the membership conversion (in progress), then the follow-ups: re-accept agreements, confirm team ID and seller name, confirm the EAS credentials and the App Store Connect API key `ZG2Z6A5JY3` still work | Apple's verification: days to weeks     | Release (Owner decision needed 1); not the build |
-| O2  | Optional: an outside legal review (the brief is ready); not required, per the owner's decision of 2026-10-02                                                                                                      | Weeks, if done                          | Nothing                                          |
-| O3  | Choose and claim the App Store name, and rename the record from "mymeetingapp (817abd)"                                                                                                                           | Minutes, but names can be taken any day | Task 11                                          |
-| O4  | Create the DeviceCheck key (`.p8`) on team `PVCZBLDJ73` and keep it in the password manager                                                                                                                       | Minutes; download once only             | Task 15 (production)                             |
-| O5  | Vercel Firewall rules: `/api/v1/attest/` per IP (new) and `/metrics` (pending since Phase 4)                                                                                                                      | Minutes                                 | Task 15                                          |
-| O6  | Record Neon's production restore window in `docs/deploy.md` (pending since Phase 4)                                                                                                                               | Minutes                                 | Task 15 (the privacy policy states 30 days)      |
-| O7  | App Store Connect forms by hand: App Privacy, age rating, review contact, screenshots, availability                                                                                                               | An hour                                 | Task 15                                          |
+| #   | Task                                                                                                                                                                                                                                                    | Lead time                               | Needed by                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------ |
+| O1  | Finish the membership conversion (in progress), then the follow-ups: re-accept agreements, confirm team ID and seller name, confirm the EAS credentials and the App Store Connect API key `ZG2Z6A5JY3` still work                                       | Apple's verification: days to weeks     | Release (Owner decision needed 1); not the build |
+| O2  | Optional: an outside legal review (the brief is ready); not required, per the owner's decision of 2026-10-02                                                                                                                                            | Weeks, if done                          | Nothing                                          |
+| O3  | Choose and claim the App Store name, and rename the record from "mymeetingapp (817abd)"                                                                                                                                                                 | Minutes, but names can be taken any day | Task 11                                          |
+| O4  | Create the DeviceCheck key (`.p8`) on team `PVCZBLDJ73` and keep it in the password manager                                                                                                                                                             | Minutes; download once only             | Task 15 (production)                             |
+| O5  | Vercel Firewall rules: `/api/v1/attest/` per IP (new) and `/metrics` (pending since Phase 4). **Not done, by owner decision 2026-10-04 (paid feature); a site-wide backstop covers it** (`docs/deploy.md`, "Rate limits without Vercel Firewall rules") | Minutes                                 | Task 15                                          |
+| O6  | Record Neon's production restore window in `docs/deploy.md` (pending since Phase 4)                                                                                                                                                                     | Minutes                                 | Task 15 (the privacy policy states 30 days)      |
+| O7  | App Store Connect forms by hand: App Privacy, age rating, review contact, screenshots, availability                                                                                                                                                     | An hour                                 | Task 15                                          |
 
 ## File structure
 
@@ -335,7 +335,7 @@ Owner decision 1 makes the Apple account work the longest lead in the phase. It 
   3. **Download** `AuthKey_<KEYID>.p8`. Apple allows this once. Put the file in the password manager and note the 10-character Key ID beside it.
   4. Never email it, commit it or paste it into a chat. If it's ever lost or exposed, revoke it on the same page and make another; nothing else depends on it.
 
-- [ ] **Step 6 (Owner, O5): Vercel Firewall.** Vercel → the project → Firewall → Rules. Add a custom rule: the path starts with `/api/v1/attest/`, rate-limited by IP address, a 60-second window, 20 requests, action Deny (429). While there, add the `/metrics` rule that `docs/deploy.md` lists as deferred.
+- [x] **Step 6 (Owner, O5): Vercel Firewall.** Not done, by owner decision 2026-10-04 (paid feature); a site-wide backstop covers it: 1,000 challenges a UTC hour across the site (`rate_limits` bucket `attestation_site`) beside the 10 a day per device, and the existing 200 failed `/metrics` sign-ins a UTC day. See "Rate limits without Vercel Firewall rules" in `docs/deploy.md`.
 
 - [ ] **Step 7 (Owner, O6): Neon's restore window.** Neon console → the production project → Settings → the restore window. Record it under "Restore history" in `docs/deploy.md`. It must be 30 days or less: the privacy policy says so.
 
@@ -3922,7 +3922,7 @@ Phase 6 plan Tasks 15 and 16 run this. Each line is checked before "Submit for R
 
 - [ ] Production: `REQUIRE_ATTESTATION=on`, the Apple variables set, the DeviceCheck credential check answered `attestation_failed` (not `server_error`).
 - [ ] Production `/api/v1/config` sets no minimum version above 1.0.0; feeds healthy on `/metrics`.
-- [ ] Vercel Firewall rules on `/api/v1/attest/` and `/metrics` exist.
+- [ ] No Vercel Firewall rules (O5: not done, by owner decision 2026-10-04); the site-wide backstops in `docs/deploy.md` cover `/api/v1/attest/` and `/metrics`.
 - [ ] Neon's production restore window is recorded and is 30 days or less.
 - [ ] The §16 legal review is done and "Draft, pending legal review." is gone (owner decision needed 4).
 - [ ] The production build is in no tester group but "Release check"; the owner searched with it and saw `POST /api/v1/meetings/search` in production's logs.
@@ -4921,7 +4921,7 @@ The production build is the first build ever pointed at production. It reaches o
 - Modify: `docs/deploy.md`, `docs/app-store.md` (review history), `docs/mobile.md`
 
 - [ ] **Step 1 (Owner): the gates.** Check `docs/app-store.md`'s release checklist. Then:
-  - The Firewall rules (O5) and the restore window (O6) must be done before Step 3.
+  - The restore window (O6) must be done before Step 3. The Firewall rules (O5) are not done, by owner decision 2026-10-04 (paid feature); a site-wide backstop covers them.
   - The legal review (O2) decides Owner decision needed 4 before Step 9. If it isn't finished, the owner either waits or gives an explicit go-ahead to submit with the "Draft" line.
   - The conversion (O1) doesn't block submission; it gates release (Task 16).
 

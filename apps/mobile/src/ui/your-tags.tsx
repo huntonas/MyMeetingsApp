@@ -1,10 +1,4 @@
-import {
-  BRAND,
-  ERROR_MESSAGES,
-  type ErrorCode,
-  type MeetingSummary,
-  type TagWriteResponse,
-} from "@mymeetingapp/shared";
+import { BRAND, type ErrorCode, type MeetingSummary, type TagWriteResponse } from "@mymeetingapp/shared";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type Text, View } from "react-native";
@@ -17,7 +11,7 @@ import { lastOccurrence } from "@/meetings/schedule";
 import { useVocabularyTags, type VocabularyTag } from "@/meetings/vocabulary";
 import { wasNear } from "@/tagging/attendance-record";
 import { forgetMyTags, type MyTags, myTagsOn, recordEdit, recordSubmission } from "@/tagging/my-tags";
-import { attendanceOccurrence, checkablePlace, confirmedThisWeek, taggingOpen } from "@/tagging/window";
+import { attendanceOccurrence, checkablePlace, whyNoNewTags } from "@/tagging/window";
 import { civilDateOf, dateLabel } from "@/time/civil-date";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
@@ -32,26 +26,6 @@ import { TagPanel } from "@/ui/tag-panel";
 // "Welcoming · Coffee": a tag the phone no longer has a name for is left out rather than shown as a slug.
 export function tagNames(slugs: readonly string[], labels: ReadonlyMap<string, VocabularyTag>): string {
   return slugs.flatMap((slug) => labels.get(slug)?.label ?? []).join(" · ");
-}
-
-// Why the phone offers no new submission now, or null when it does. "" means there's nothing worth saying (What
-// people say already explains an opted-out group; a phone that tagged this week edits instead).
-function whyNoNewTags(
-  meeting: MeetingSummary,
-  record: MyTags | null,
-  now: Date,
-  tagging: boolean,
-  upgradeRequired: boolean,
-): string | null {
-  if (meeting.tagsDisabled) return "";
-  if (!tagging) return ERROR_MESSAGES.tags_disabled;
-  if (upgradeRequired) return ERROR_MESSAGES.upgrade_required;
-  if (meeting.timezone === null)
-    return "This meeting's listing doesn't give its time zone, so it can't be tagged.";
-  if (record !== null && confirmedThisWeek(record.confirmedAt, now)) return "";
-  if (!taggingOpen({ ...meeting, timezone: meeting.timezone }, now))
-    return record === null ? "You can add tags from the start of this meeting until 36 hours after." : "";
-  return null;
 }
 
 // Spec §8: a new submission says whether a check on this phone found it near this occurrence (the one the tagging

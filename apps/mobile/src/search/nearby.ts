@@ -4,7 +4,7 @@ import { z } from "zod";
 import { searchMeetings } from "@/api/reads";
 import type { CachedRead } from "@/cache/cached-read";
 import { distanceKm, type LatLng, roundForSearch } from "@/location/geo";
-import { upcomingStart } from "@/meetings/schedule";
+import { lastOccurrence, upcomingStart } from "@/meetings/schedule";
 import type { Section } from "@/search/filters";
 
 export interface SearchOrigin {
@@ -77,6 +77,18 @@ export function describedOrigin(result: SearchResult, asked: SearchOrigin) {
   };
 }
 
+type SearchMeeting = MeetingSearchResponse["meetings"][number];
+
+// The distance from the real point, which never leaves the phone; the server's, from the rounded one, for a meeting
+// with no map point.
+const measuredFrom = (meeting: SearchMeeting, from: LatLng): NearbyMeeting => ({
+  ...meeting,
+  exactKm:
+    meeting.latitude === null || meeting.longitude === null
+      ? meeting.distanceKm
+      : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude }),
+});
+
 // Soonest (the default) or nearest first: the person's choice, held in memory only.
 export type NearbyOrder = "soonest" | "nearest";
 
@@ -96,11 +108,7 @@ export function listNearby(
     const upcoming = upcomingStart(meeting, now);
     const goes = section(meeting, upcoming);
     if (goes === null) return [];
-    const exactKm =
-      meeting.latitude === null || meeting.longitude === null
-        ? meeting.distanceKm
-        : distanceKm(from, { latitude: meeting.latitude, longitude: meeting.longitude });
-    return [{ meeting: { ...meeting, exactKm }, startsAt: upcoming.getTime(), goes }];
+    return [{ meeting: measuredFrom(meeting, from), startsAt: upcoming.getTime(), goes }];
   });
   type Measured = (typeof measured)[number];
   const byDistance = (a: Measured, b: Measured) => a.meeting.exactKm - b.meeting.exactKm;
@@ -111,4 +119,25 @@ export function listNearby(
   const inSection = (goes: Exclude<Section, null>) =>
     sorted.filter((item) => item.goes === goes).map(({ meeting }) => meeting);
   return { listed: inSection("listed"), tomorrow: inSection("tomorrow") };
+}
+
+// "Went to a meeting? Tag it" (owner decision, 2026-10-04): the meetings given whose page would offer to tag them now
+// (`offered`), the latest start first and ties to the nearest, so the one the person just left is at the top. Worked
+// out from the answer the list already has: the server sends each place's meetings whatever their time, so nothing
+// more is asked of it.
+export function meetingsToTag(
+  meetings: MeetingSearchResponse["meetings"],
+  from: LatLng,
+  now: Date,
+  offered: (meeting: SearchMeeting) => boolean,
+): NearbyMeeting[] {
+  return meetings
+    .flatMap((meeting) => {
+      // `offered` already refuses a meeting with no time zone; checking here too narrows the type for lastOccurrence.
+      if (meeting.timezone === null || !offered(meeting)) return [];
+      const started = lastOccurrence({ ...meeting, timezone: meeting.timezone }, now).start.getTime();
+      return [{ meeting: measuredFrom(meeting, from), started }];
+    })
+    .sort((a, b) => b.started - a.started || a.meeting.exactKm - b.meeting.exactKm)
+    .map(({ meeting }) => meeting);
 }

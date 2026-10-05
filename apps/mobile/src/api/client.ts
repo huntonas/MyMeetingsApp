@@ -14,6 +14,7 @@ import type { z } from "zod";
 
 import { serverUrl } from "@/config/server-url";
 import {
+  AppleUnreachable,
   assertion,
   attestNewKey,
   deviceCheckToken,
@@ -128,49 +129,64 @@ async function signed(keyId: string, clientData: string, timestamp: number): Pro
   return appAttestHeader(keyId, timestamp, await assertion(keyId, clientData));
 }
 
-// Spec §6: the proof for one write. Whatever stops the phone making one (a simulator, Apple out of reach, a refused
-// registration) sends the write without it, and the server decides whether it needs one. The exception is a
-// registration refused because the phone is blocked: for a write that refusal is the answer, so the person sees it;
-// a deletion is sent without a proof, which the server takes from a blocked phone (spec §6).
+// Spec §6: the proof for one write, or why there's none. Whatever stops the phone making one (a simulator, Apple out of
+// reach, a refused registration) sends the write without it, and the server decides whether it needs one; Apple out
+// of reach is remembered, so a refusal then says to try again rather than to update. The exception is a registration
+// refused because the phone is blocked: for a write that refusal is the answer, so the person sees it; a deletion is
+// sent without a proof, which the server takes from a blocked phone (spec §6).
 async function attestation(
   method: WriteMethod,
   path: string,
   body: string,
   deletion: boolean,
-): Promise<string | undefined> {
+): Promise<{ proof?: string; appleUnreachable?: AppleUnreachable }> {
   try {
     const support = integritySupport();
-    if (support === "none") return undefined;
-    if (support === "deviceCheck") return deviceCheckHeader(await deviceCheckToken());
+    if (support === "none") return {};
+    if (support === "deviceCheck") return { proof: deviceCheckHeader(await deviceCheckToken()) };
     const timestamp = Date.now();
     const clientData = assertionClientData({ method, path, timestamp, body });
     const saved = await savedAttestKey();
     if (saved !== null) {
       try {
-        return await signed(saved, clientData, timestamp);
+        return { proof: await signed(saved, clientData, timestamp) };
       } catch (error) {
         if (!(error instanceof StaleAttestKey)) throw error;
         await forgetAttestKey();
       }
     }
-    return await signed(await registerAttestKey(), clientData, timestamp);
+    return { proof: await signed(await registerAttestKey(), clientData, timestamp) };
   } catch (error) {
     if (error instanceof ApiError && error.code === "device_blocked" && !deletion) throw error;
-    return undefined;
+    return error instanceof AppleUnreachable ? { appleUnreachable: error } : {};
   }
 }
 
+type Attestation = Awaited<ReturnType<typeof attestation>>;
+
+// The write, sent with whatever proof the phone could make. When the server refuses it for want of a proof Apple
+// couldn't help make, that, not the app, is why: the refusal becomes Apple's.
 async function attempt<S extends z.ZodType>(
   schema: S,
   method: WriteMethod,
   path: string,
   body: string | undefined,
-  proof: string | undefined,
+  { proof, appleUnreachable }: Attestation,
 ): Promise<z.output<S>> {
   const headers = await deviceHeaders();
   if (proof !== undefined) headers[DEVICE_HEADERS.attestation] = proof;
-  if (body === undefined) return request(schema, path, { method, headers });
-  return request(schema, path, { method, headers: { ...headers, "Content-Type": "application/json" }, body });
+  try {
+    if (body === undefined) return await request(schema, path, { method, headers });
+    return await request(schema, path, {
+      method,
+      headers: { ...headers, "Content-Type": "application/json" },
+      body,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "attestation_failed" && appleUnreachable !== undefined)
+      throw appleUnreachable;
+    throw error;
+  }
 }
 
 let writing: Promise<unknown> = Promise.resolve();
@@ -191,9 +207,10 @@ async function attested<S extends z.ZodType>(
 ): Promise<z.output<S>> {
   // A write with no body signs an empty one, as the server reads it.
   const signedBody = text ?? "";
-  const proof = await attestation(method, path, signedBody, deletion);
+  const first = await attestation(method, path, signedBody, deletion);
+  const { proof } = first;
   try {
-    return await attempt(schema, method, path, text, proof);
+    return await attempt(schema, method, path, text, first);
   } catch (error) {
     const keyRefused =
       error instanceof ApiError &&

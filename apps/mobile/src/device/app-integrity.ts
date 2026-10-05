@@ -34,6 +34,17 @@ export function integritySupport(): IntegritySupport {
   return AppIntegrity.isDeviceCheckSupported ? "deviceCheck" : "none";
 }
 
+// Apple's servers couldn't be reached (DCError.serverUnavailable), so no proof could be made just now. Kept apart
+// from other failures because a write the server then refuses for want of a proof is worth retrying, not updating for.
+export class AppleUnreachable extends Error {
+  constructor() {
+    super("Apple's servers couldn't be reached");
+    this.name = "AppleUnreachable";
+  }
+}
+
+const SERVER_UNAVAILABLE = "ERR_SERVER_UNAVAILABLE";
+
 function integrity(): NonNullable<typeof AppIntegrity> {
   if (AppIntegrity === null) throw new Error("App checks aren't available on this phone");
   return AppIntegrity;
@@ -53,7 +64,14 @@ export const rememberAttestKey = (keyId: string) => SecureStore.setItemAsync(KEY
 export const forgetAttestKey = () => SecureStore.deleteItemAsync(KEY, OPTIONS);
 
 // Apple's calls can wait on its servers, so each is bounded like a location call.
-export const deviceCheckToken = () => withinTimeLimit(integrity().deviceCheckToken());
+export async function deviceCheckToken(): Promise<string> {
+  try {
+    return await withinTimeLimit(integrity().deviceCheckToken());
+  } catch (error) {
+    if (hasCode(error, SERVER_UNAVAILABLE)) throw new AppleUnreachable();
+    throw error;
+  }
+}
 
 export async function assertion(keyId: string, clientData: string): Promise<string> {
   try {
@@ -74,9 +92,11 @@ export async function attestNewKey(challenge: string): Promise<{ keyId: string; 
     await SecureStore.deleteItemAsync(UNATTESTED_KEY, OPTIONS);
     return { keyId, attestation };
   } catch (error) {
-    await (hasCode(error, "ERR_SERVER_UNAVAILABLE")
-      ? SecureStore.setItemAsync(UNATTESTED_KEY, keyId, OPTIONS)
-      : SecureStore.deleteItemAsync(UNATTESTED_KEY, OPTIONS));
-    throw error;
+    if (!hasCode(error, SERVER_UNAVAILABLE)) {
+      await SecureStore.deleteItemAsync(UNATTESTED_KEY, OPTIONS);
+      throw error;
+    }
+    await SecureStore.setItemAsync(UNATTESTED_KEY, keyId, OPTIONS);
+    throw new AppleUnreachable();
   }
 }

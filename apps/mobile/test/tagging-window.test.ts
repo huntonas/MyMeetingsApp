@@ -1,9 +1,28 @@
-import { confirmedThisWeek, taggingOpen } from "@/tagging/window";
+import type { MeetingSummary } from "@mymeetingapp/shared";
+
+import { whyNoNewTags } from "@/tagging/window";
+
+import { meeting as listed } from "./fixtures";
 
 // Nooners: Mondays 12:00–1:00 PM in Chicago. Monday 5 October 2026 at noon is 17:00 UTC.
 const NOONERS = { day: 1, time: "12:00", endTime: "13:00", timezone: "America/Chicago" };
 
-describe("taggingOpen (spec §5, as the server's taggingWindowOpen)", () => {
+// Whether the phone offers a new tagging at `at`, with tagging on, the app current and no record on this phone.
+const taggingOpen = (meeting: Partial<MeetingSummary>, at: Date) =>
+  whyNoNewTags(listed(meeting), null, at, true, false) === null;
+
+// Whether a record confirmed at `confirmedAt` stops a new tagging at `at`, on a meeting whose window is open then
+// (Mondays at 10 AM in Chicago, so from 15:00 UTC on Monday 5 and 12 October 2026).
+const confirmedThisWeek = (confirmedAt: Date, at: Date) =>
+  whyNoNewTags(
+    listed({ day: 1, time: "10:00", endTime: null, timezone: "America/Chicago" }),
+    { meetingId: "m", name: "Ten O'Clock", tags: [], confirmedAt, updatedAt: confirmedAt },
+    at,
+    true,
+    false,
+  ) === "";
+
+describe("the tagging window (spec §5, as the server's taggingWindowOpen)", () => {
   it.each([
     ["a minute before the start", "2026-10-05T16:59:00Z", false],
     ["at the start", "2026-10-05T17:00:00Z", true],
@@ -36,7 +55,7 @@ describe("taggingOpen (spec §5, as the server's taggingWindowOpen)", () => {
   });
 });
 
-describe("confirmedThisWeek (spec §5's 7-day rule, as the server's)", () => {
+describe("one tagging a week (spec §5's 7-day rule, as the server's)", () => {
   it.each([
     ["6 days 23 hours later", "2026-10-12T16:00:00Z", true],
     ["exactly 7 days later", "2026-10-12T17:00:00Z", false],

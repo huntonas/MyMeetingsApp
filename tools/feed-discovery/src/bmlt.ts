@@ -1,4 +1,4 @@
-import type { RegistryEntry } from "@mymeetingapp/feed-kit";
+import { type RegistryEntry, sameBmltRoot } from "@mymeetingapp/feed-kit";
 import { z } from "zod";
 
 import type { Crawler } from "./crawler";
@@ -36,7 +36,11 @@ const US_SHARE = 0.5;
 export const ServerList = z.array(z.object({ name: z.string().min(1), url: z.url() }));
 const BmltAnswer = z.object({
   meetings: z.array(
-    z.object({ location_province: z.string().optional(), location_municipality: z.string().optional() }),
+    z.object({
+      location_province: z.string().optional(),
+      location_municipality: z.string().optional(),
+      root_server_uri: z.string().optional(),
+    }),
   ),
 });
 
@@ -75,11 +79,15 @@ export async function bmltEntry(
   const result = await crawler.get(url);
   if (result.kind !== "response" || result.status !== 200) return null;
   const answer = parsed(result.body);
-  if (answer === null || answer.meetings.length === 0) return null;
+  // Only the rows the sync would apply: the server's own (normalizeBmlt counts them by the same rule).
+  const meetings = answer?.meetings.filter(
+    (meeting) => meeting.root_server_uri === undefined || sameBmltRoot(meeting.root_server_uri, server.url),
+  );
+  if (meetings === undefined || meetings.length === 0) return null;
 
   const counts = new Map<string, number>();
   const cities = new Set<string>();
-  for (const meeting of answer.meetings) {
+  for (const meeting of meetings) {
     const code = stateCode(meeting.location_province);
     if (code === null) continue;
     counts.set(code, (counts.get(code) ?? 0) + 1);
@@ -88,7 +96,7 @@ export async function bmltEntry(
   }
   const inUs = [...counts.values()].reduce((sum, count) => sum + count, 0);
   const [state] = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([code]) => code);
-  if (state === undefined || inUs / answer.meetings.length < US_SHARE) return null;
+  if (state === undefined || inUs / meetings.length < US_SHARE) return null;
 
   return {
     id: entityId(server.name, "na"),
@@ -100,7 +108,7 @@ export async function bmltEntry(
     feed_type: "bmlt",
     feed_url: url,
     verified: true,
-    meeting_count: answer.meetings.length,
+    meeting_count: meetings.length,
     states_covered: [...counts.keys()].sort(),
     cities_covered: [...cities].sort(),
     checked_at: checkedAt,

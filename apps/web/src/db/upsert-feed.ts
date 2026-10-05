@@ -29,6 +29,7 @@ export const FeedInput = z.object({
   optedOut: z.boolean().optional(),
   // Only a new feed starts out waiting. Once the owner resumes one, an upsert never pauses it again.
   waitingReason: z.enum(WAITING_REASONS).optional(),
+  // Set only when a feed is first made: its meetings took it then and keep it (spec §3).
   fellowship: z.enum(FELLOWSHIPS).optional(),
   format: z.enum(FEED_FORMATS).optional(),
 });
@@ -58,7 +59,6 @@ export async function upsertFeed(input: FeedInput, executor: Executor = db): Pro
         entityType: sql`excluded.entity_type`,
         state: sql`excluded.state`,
         url: sql`excluded.url`,
-        fellowship: sql`excluded.fellowship`,
         format: sql`excluded.format`,
         priority: sql`excluded.priority`,
         optedOut: sql`feeds.opted_out or excluded.opted_out`,

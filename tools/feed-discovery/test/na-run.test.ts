@@ -90,6 +90,8 @@ describe("runNa", () => {
           ? [
               row(`${base}/tn/main_server`, "1", "TN", "Nashville"),
               row(`${base}/tn/main_server`, "2", "Tennessee", "Memphis"),
+              // Another server's row: the sync wouldn't apply it, so it doesn't count.
+              row("https://elsewhere.example.org/main_server", "9", "TN", "Knoxville"),
             ]
           : root === "/nz/main_server"
             ? [row(`${base}/nz/main_server`, "3", "Auckland", "Auckland")]

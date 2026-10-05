@@ -1,4 +1,4 @@
-import { addressKey } from "@mymeetingapp/feed-kit";
+import { addressKey, sameBmltRoot } from "@mymeetingapp/feed-kit";
 import type { MeetingTypeCode } from "@mymeetingapp/shared";
 
 import {
@@ -10,6 +10,7 @@ import {
   timeZone,
   webUrl,
 } from "@/server/feeds/normalize";
+import { zoneAt } from "@/server/meetings/time-zone";
 
 type Raw = Record<string, unknown>;
 
@@ -39,8 +40,6 @@ const TYPE_BY_WORLD_ID: Partial<Record<string, MeetingTypeCode>> = {
 const TEMPORARILY_CLOSED = "TC";
 const VENUE = { inPerson: "1", virtual: "2" } as const;
 const MINUTES_PER_DAY = 24 * 60;
-
-const withoutSlash = (uri: string) => uri.replace(/\/+$/, "");
 
 function isObject(value: unknown): value is Raw {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -74,7 +73,8 @@ function normalizeRow(raw: Raw, worldIds: Map<string, string>): FeedMeeting | nu
   const name = text(raw.meeting_name);
   const time = clockTime(raw.start_time);
   const weekday = Number(text(raw.weekday_tinyint));
-  if (sourceSlug === null || name === null || time === null || !(weekday >= 1 && weekday <= 7)) return null;
+  if (sourceSlug === null || name === null || time === null) return null;
+  if (!Number.isInteger(weekday) || weekday < 1 || weekday > 7) return null;
 
   const formats = (text(raw.formats) ?? "").split(",").map((key) => worldIds.get(key.trim()));
   const venue = text(raw.venue_type);
@@ -84,7 +84,8 @@ function normalizeRow(raw: Raw, worldIds: Map<string, string>): FeedMeeting | nu
   const online = conferenceUrl !== null || conferencePhone !== null;
   // A virtual meeting's address is only where its group is based, which must not become a map pin.
   const formattedAddress = venue === VENUE.virtual ? null : address(raw);
-  const location = venue === VENUE.virtual ? null : point(raw);
+  const coordinates = point(raw);
+  const location = venue === VENUE.virtual ? null : coordinates;
   const inPerson =
     venue !== VENUE.virtual &&
     !formats.includes(TEMPORARILY_CLOSED) &&
@@ -96,7 +97,10 @@ function normalizeRow(raw: Raw, worldIds: Map<string, string>): FeedMeeting | nu
     day: weekday - 1,
     time,
     endTime: endTime(time, raw.duration_time),
-    timezone: timeZone(raw.time_zone),
+    // From the coordinates here, not later in recompute, because a virtual meeting keeps none.
+    timezone:
+      timeZone(raw.time_zone) ??
+      (coordinates === null ? null : zoneAt(coordinates.latitude, coordinates.longitude)),
     name,
     types: [
       ...new Set(
@@ -136,15 +140,21 @@ export function normalizeBmlt(json: unknown, feedUrl: string): { meetings: FeedM
     const worldId = text(format.world_id);
     if (key !== null && worldId !== null) worldIds.set(key, worldId);
   }
-  const root = withoutSlash(feedUrl.slice(0, feedUrl.indexOf("client_interface")));
+  const root = feedUrl.slice(0, feedUrl.indexOf("client_interface"));
   const meetings: FeedMeeting[] = [];
   let skipped = 0;
+  let own = 0;
   for (const item of json.meetings as unknown[]) {
     const from = isObject(item) ? text(item.root_server_uri) : null;
-    if (from !== null && withoutSlash(from) !== root) continue;
+    if (from !== null && !sameBmltRoot(from, root)) continue;
+    own += 1;
     const meeting = isObject(item) ? normalizeRow(item, worldIds) : null;
     if (meeting === null) skipped += 1;
     else meetings.push(meeting);
+  }
+  // Every row another server's: the feed's address no longer names the server its rows do, so say so.
+  if (json.meetings.length > 0 && own === 0) {
+    throw new FeedFormatError("Every meeting in the answer is another BMLT server's");
   }
   return { meetings, skipped };
 }

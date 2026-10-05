@@ -27,7 +27,7 @@ describe("normalizeBmlt", () => {
         day: 0,
         time: "09:00",
         endTime: "10:00",
-        timezone: null,
+        timezone: "America/Chicago",
         name: "Recovery Is Possible",
         types: ["C", "O", "D", "LIT", "X"],
         attendance: "in_person",
@@ -77,6 +77,26 @@ describe("normalizeBmlt", () => {
     });
   });
 
+  // Tennessee's server leaves every time zone blank, and a virtual meeting keeps no coordinates, so its zone must come
+  // from them here: with none, it could never be listed as online now, or tagged.
+  it("takes a blank time zone from the coordinates, even for a virtual meeting that keeps none", () => {
+    const virtual = { ...recovery, venue_type: "2", virtual_meeting_link: "https://zoom.us/j/123456789" };
+    expect(normalizeBmlt(withRows(virtual), FEED).meetings[0]).toMatchObject({
+      timezone: "America/Chicago",
+      latitude: null,
+    });
+    expect(
+      normalizeBmlt(withRows({ ...recovery, time_zone: "America/New_York" }), FEED).meetings[0]?.timezone,
+    ).toBe("America/New_York");
+  });
+
+  it("skips a row whose weekday isn't a whole day", () => {
+    expect(normalizeBmlt(withRows({ ...recovery, weekday_tinyint: "1.5" }), FEED)).toEqual({
+      meetings: [],
+      skipped: 1,
+    });
+  });
+
   it("reads a hybrid meeting as hybrid, and one with no link as in person", () => {
     const hybrid = { ...recovery, venue_type: "3", virtual_meeting_link: "https://zoom.us/j/987654321" };
     expect(normalizeBmlt(withRows(hybrid), FEED).meetings[0]?.attendance).toBe("hybrid");
@@ -108,6 +128,17 @@ describe("normalizeBmlt", () => {
     expect(normalizeBmlt(withRows(own, other), FEED).meetings.map((meeting) => meeting.sourceSlug)).toEqual([
       "1525",
     ]);
+  });
+
+  it("counts a row as its own whatever the root's scheme or host case", () => {
+    const own = { ...recovery, root_server_uri: "http://NATennessee.org/main_server" };
+    expect(normalizeBmlt(withRows(own), FEED).meetings).toHaveLength(1);
+  });
+
+  // A whole region syncing nothing must say why, not succeed with no meetings.
+  it("refuses an answer whose every row is another server's", () => {
+    const other = { ...recovery, root_server_uri: "https://texasoklahomana.org/main_server/" };
+    expect(() => normalizeBmlt(withRows(other), FEED)).toThrow(FeedFormatError);
   });
 
   it("skips a row with no usable day or time", () => {

@@ -1,4 +1,5 @@
 export * from "./address";
+export * from "./bmlt-root";
 export * from "./feed-problem";
 export * from "./polite-fetch";
 export * from "./read-body-capped";

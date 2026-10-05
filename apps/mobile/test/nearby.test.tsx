@@ -76,6 +76,9 @@ async function searchFor(text: string) {
   await fireEvent.press(screen.getByRole("button", { name: "Search" }));
 }
 
+// Above the list, the meetings that began earlier and can still be tagged (went-to-a-meeting.test.tsx).
+const TAG_IT = "Went to a meeting? Tag it";
+
 const filtersToggle = () => screen.getByRole("button", { name: /^Filters/ });
 
 // Opens the filters panel, unless it's open already.
@@ -98,10 +101,10 @@ async function chooseFilters(pill: string, choices: string[]) {
   await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
 }
 
-// The texts on screen that are among `names` (plain words, no pattern characters), in the order they're shown.
+// The texts on screen that are among `names` (plain words; no pattern characters but "?"), in the order they're shown.
 const shownInOrder = (names: string[]) =>
   screen
-    .queryAllByText(new RegExp(`^(${names.join("|")})$`))
+    .queryAllByText(new RegExp(`^(${names.map((name) => name.replace("?", "\\?")).join("|")})$`))
     .map((element) => String(element.props.children));
 
 // AppState is what the app hands foreground changes off to; the spy lets a test play them.
@@ -496,12 +499,6 @@ describe("results", () => {
   });
 
   describe("filters start as today, from now on (owner decision, 2026-09-30)", () => {
-    // These are about the list itself. Meetings that began earlier would also be offered to tag above it
-    // (went-to-a-meeting.test.tsx), so tagging is switched off here to keep them out of what's counted.
-    beforeEach(() => {
-      api.reply("/api/v1/config", { ...CONFIG, features: { ...CONFIG.features, tagging: false } });
-    });
-
     const late = nearbyMeeting({
       id: "33333333-3333-4333-8333-333333333333",
       name: "Late Group",
@@ -559,16 +556,17 @@ describe("results", () => {
       await searchFor("Maryville, TN");
     }
 
-    // The meetings listed, in order, with "Tomorrow" where that section's heading falls.
+    // The meetings shown, in order, with "Tomorrow" where that section's heading falls, and TAG_IT before those
+    // offered to tag.
     async function expectListed(names: string[]) {
       await waitFor(() => {
-        expect(shownInOrder([...ALL, "Tomorrow"])).toEqual(names);
+        expect(shownInOrder([...ALL, "Tomorrow", TAG_IT])).toEqual(names);
       });
     }
 
     it("at 6 PM on a Monday, chooses Monday and the evening and night", async () => {
       await searchAt("2026-10-05T23:00:00Z");
-      await expectListed(["Far Group", "Late Group", "Tomorrow", "Tuesday Group"]);
+      await expectListed([TAG_IT, "Near Group", "Far Group", "Late Group", "Tomorrow", "Tuesday Group"]);
       // The line counts today's, not tomorrow's.
       expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
       await openFilters();
@@ -585,7 +583,7 @@ describe("results", () => {
 
     it("late at night, chooses only the night", async () => {
       await searchAt("2026-10-06T03:30:00Z");
-      await expectListed(["Late Group", "Tomorrow", "Tuesday Group"]);
+      await expectListed([TAG_IT, "Far Group", "Near Group", "Late Group", "Tomorrow", "Tuesday Group"]);
       expect(screen.getByText("1 meeting · today from now")).toBeOnTheScreen();
       await openFilters();
       expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
@@ -596,7 +594,15 @@ describe("results", () => {
     // midnight, which are listed on tomorrow's weekday.
     it("at 11 PM, includes tonight's meetings after midnight", async () => {
       await searchAt("2026-10-06T04:00:00Z", [midnight]);
-      await expectListed(["Late Group", "Midnight Group", "Tomorrow", "Tuesday Group"]);
+      await expectListed([
+        TAG_IT,
+        "Far Group",
+        "Near Group",
+        "Late Group",
+        "Midnight Group",
+        "Tomorrow",
+        "Tuesday Group",
+      ]);
       expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
     });
 
@@ -605,7 +611,14 @@ describe("results", () => {
     it("after midnight, lists the rest of the night and all of today, and a meeting from before midnight that began under an hour ago", async () => {
       // Tuesday 12:30 AM.
       await searchAt("2026-10-06T05:30:00Z", [midnight, quarterTo]);
-      await expectListed(["Quarter To Group", "Midnight Group", "Tuesday Group"]);
+      await expectListed([
+        TAG_IT,
+        "Late Group",
+        "Far Group",
+        "Quarter To Group",
+        "Midnight Group",
+        "Tuesday Group",
+      ]);
       await openFilters();
       expect(screen.getByRole("button", { name: "Day filters, 1 chosen" })).toBeOnTheScreen();
       await fireEvent.press(screen.getByRole("button", { name: "Time filters, 4 chosen" }));
@@ -617,7 +630,7 @@ describe("results", () => {
     it("at 3 AM, lists all of today, its early morning included, but not last night's meeting from over an hour ago", async () => {
       // Tuesday 3 AM.
       await searchAt("2026-10-06T08:00:00Z", [quarterTo, early]);
-      await expectListed(["Early Group", "Tuesday Group"]);
+      await expectListed([TAG_IT, "Quarter To Group", "Late Group", "Early Group", "Tuesday Group"]);
       await openFilters();
       expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
     });
@@ -625,14 +638,14 @@ describe("results", () => {
     it("lists the whole day from 5 AM", async () => {
       // Tuesday 5:00 AM.
       await searchAt("2026-10-06T10:00:00Z", [midnight]);
-      await expectListed(["Tuesday Group"]);
+      await expectListed([TAG_IT, "Midnight Group", "Late Group", "Tuesday Group"]);
       await openFilters();
       expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
     });
 
     it("Clear shows every meeting, and a new search doesn't choose them again", async () => {
       await searchAt("2026-10-05T23:00:00Z");
-      await expectListed(["Far Group", "Late Group", "Tomorrow", "Tuesday Group"]);
+      await expectListed([TAG_IT, "Near Group", "Far Group", "Late Group", "Tomorrow", "Tuesday Group"]);
       await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
       await expectListed(["Far Group", "Late Group", "Tuesday Group", "Near Group"]);
       expect(screen.getByText("4 meetings")).toBeOnTheScreen();
@@ -670,7 +683,13 @@ describe("results", () => {
         await searchFor("Maryville, TN");
         expect(await screen.findByText("Just Begun Group")).toBeOnTheScreen();
         expect(screen.getByText("Late Group")).toBeOnTheScreen();
-        expect(screen.queryByText("Small Hours Group")).toBeNull();
+        // Not in the list: only offered to tag, above it.
+        expect(shownInOrder([TAG_IT, "Small Hours Group", "Just Begun Group", "Late Group"])).toEqual([
+          TAG_IT,
+          "Small Hours Group",
+          "Just Begun Group",
+          "Late Group",
+        ]);
         expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
       }
 
@@ -709,12 +728,14 @@ describe("results", () => {
         time: "06:00",
       };
       const quietEarly = { ...early, tags: [{ slug: "quiet", count: 2 }] };
-      const ALL_WITH_TOMORROW = [...ALL, "Dawn Group", "Tomorrow"];
+      const ALL_WITH_TOMORROW = [...ALL, "Dawn Group", "Tomorrow", TAG_IT];
 
       it("lists tomorrow's meetings under their own heading, after today's, each section in the chosen order", async () => {
         await searchAt("2026-10-05T23:00:00Z", [quietEarly, dawn]);
         await waitFor(() => {
           expect(shownInOrder(ALL_WITH_TOMORROW)).toEqual([
+            TAG_IT,
+            "Near Group",
             "Far Group",
             "Late Group",
             "Tomorrow",
@@ -728,6 +749,8 @@ describe("results", () => {
         await fireEvent.press(screen.getByRole("button", { name: "Sort nearest first" }));
         await waitFor(() => {
           expect(shownInOrder(ALL_WITH_TOMORROW)).toEqual([
+            TAG_IT,
+            "Near Group",
             "Late Group",
             "Far Group",
             "Tomorrow",
@@ -770,7 +793,7 @@ describe("results", () => {
         await launchNearby();
         await searchFor("Maryville, TN");
         expect(await screen.findByText("No more meetings nearby today.")).toBeOnTheScreen();
-        expect(shownInOrder(ALL_WITH_TOMORROW)).toEqual(["Tomorrow", "Tuesday Group"]);
+        expect(shownInOrder(ALL_WITH_TOMORROW)).toEqual([TAG_IT, "Near Group", "Tomorrow", "Tuesday Group"]);
       });
     });
 
@@ -804,7 +827,14 @@ describe("results", () => {
         name: "Friday Group",
         day: 5,
       };
-      const NAMES = ["Wednesday Evening Group", "Happy Destiny", "Thursday Noon", "Friday Group", "Tomorrow"];
+      const NAMES = [
+        "Wednesday Evening Group",
+        "Happy Destiny",
+        "Thursday Noon",
+        "Friday Group",
+        "Tomorrow",
+        TAG_IT,
+      ];
       const zoomNightOwls = meeting({
         id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
         name: "Zoom Night Owls",
@@ -829,7 +859,14 @@ describe("results", () => {
       it("says so and goes straight on to tomorrow's meetings", async () => {
         await searchLate([wednesday, friday, thursdayNoon, happyDestiny]);
         expect(await screen.findByText("No more meetings nearby tonight.")).toBeOnTheScreen();
-        expect(shownInOrder(NAMES)).toEqual(["Tomorrow", "Happy Destiny", "Thursday Noon"]);
+        // Wednesday's meeting, over at 8 PM, can still be tagged.
+        expect(shownInOrder(NAMES)).toEqual([
+          TAG_IT,
+          "Wednesday Evening Group",
+          "Tomorrow",
+          "Happy Destiny",
+          "Thursday Noon",
+        ]);
         expect(screen.getByRole("button", { name: /^Happy Destiny, Thu 7:00 AM, / })).toBeOnTheScreen();
         // The way out is in view with the Filters panel closed, and no online meetings: there's tomorrow.
         expect(filtersToggle()).toHaveProp("accessibilityState", { expanded: false });
@@ -885,12 +922,13 @@ describe("results", () => {
     it("moves on to the new day while the app stays open, and a group the person hasn't changed keeps following the clock", async () => {
       const playAppState = spyOnAppState();
       await searchAt("2026-10-06T04:50:00Z");
-      await expectListed(["Late Group", "Tomorrow", "Tuesday Group"]);
+      await expectListed([TAG_IT, "Far Group", "Near Group", "Late Group", "Tomorrow", "Tuesday Group"]);
       // Tuesday 12:10 AM.
       setNow("2026-10-06T05:10:00Z");
       await playAppState("background");
       await playAppState("active");
-      await expectListed(["Tuesday Group"]);
+      // Late Group began over an hour ago, so it's offered to tag instead (the Near Group is behind "Show 1 more").
+      await expectListed([TAG_IT, "Late Group", "Far Group", "Tuesday Group"]);
       await openFilters();
       expect(screen.getByRole("button", { name: "Time filters, 4 chosen" })).toBeOnTheScreen();
 

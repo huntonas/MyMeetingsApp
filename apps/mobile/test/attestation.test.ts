@@ -171,6 +171,23 @@ describe("on an iPhone with App Attest", () => {
     expect(proofOf(2)).toBeUndefined();
   });
 
+  it("says Apple was out of reach when the server refuses the replacement write that Apple couldn't help prove", async () => {
+    setKeychainItem("attest-key-id", keyIdFor(9));
+    setAppleTrouble("unavailable");
+    api.reply("/api/v1/tags", REFUSED, 401, "POST");
+    await expect(tagIt()).rejects.toMatchObject({ name: "AppleUnreachable" });
+    expect(sent()).toEqual(["POST /api/v1/tags", "POST /api/v1/attest/challenge", "POST /api/v1/tags"]);
+    expect(proofOf(2)).toBeUndefined();
+  });
+
+  // Only a refusal for want of a proof is Apple's doing; any other keeps the server's own words.
+  it("keeps the server's words for any other refusal while Apple is out of reach", async () => {
+    setAppleTrouble("unavailable");
+    const limited = { error: { code: "rate_limited", message: ERROR_MESSAGES.rate_limited } };
+    api.reply("/api/v1/tags", limited, 429, "POST");
+    await expect(tagIt()).rejects.toMatchObject(limited.error);
+  });
+
   it("forgets a key the phone no longer holds, even when Apple can't attest a new one", async () => {
     setKeychainItem("attest-key-id", keyIdFor(9));
     makeKeyStale(keyIdFor(9));

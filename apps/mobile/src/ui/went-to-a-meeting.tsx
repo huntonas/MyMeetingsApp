@@ -43,7 +43,7 @@ function useMyTagRecords(): ReadonlyMap<string, MyTags> | undefined {
 }
 
 interface WentToAMeetingProps {
-  // The search's whole answer: the server sends each place's meetings whatever their time.
+  // The search's answer less what the list shows: the server sends each place's meetings whatever their time.
   meetings: MeetingSearchResponse["meetings"];
   from: LatLng;
   now: Date;

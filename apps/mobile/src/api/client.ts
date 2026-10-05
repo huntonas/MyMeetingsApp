@@ -162,17 +162,31 @@ async function attestation(
   }
 }
 
+type Attestation = Awaited<ReturnType<typeof attestation>>;
+
+// The write, sent with whatever proof the phone could make. When the server refuses it for want of a proof Apple
+// couldn't help make, that, not the app, is why: the refusal becomes Apple's.
 async function attempt<S extends z.ZodType>(
   schema: S,
   method: WriteMethod,
   path: string,
   body: string | undefined,
-  proof: string | undefined,
+  { proof, appleUnreachable }: Attestation,
 ): Promise<z.output<S>> {
   const headers = await deviceHeaders();
   if (proof !== undefined) headers[DEVICE_HEADERS.attestation] = proof;
-  if (body === undefined) return request(schema, path, { method, headers });
-  return request(schema, path, { method, headers: { ...headers, "Content-Type": "application/json" }, body });
+  try {
+    if (body === undefined) return await request(schema, path, { method, headers });
+    return await request(schema, path, {
+      method,
+      headers: { ...headers, "Content-Type": "application/json" },
+      body,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "attestation_failed" && appleUnreachable !== undefined)
+      throw appleUnreachable;
+    throw error;
+  }
 }
 
 let writing: Promise<unknown> = Promise.resolve();
@@ -193,13 +207,11 @@ async function attested<S extends z.ZodType>(
 ): Promise<z.output<S>> {
   // A write with no body signs an empty one, as the server reads it.
   const signedBody = text ?? "";
-  const { proof, appleUnreachable } = await attestation(method, path, signedBody, deletion);
+  const first = await attestation(method, path, signedBody, deletion);
+  const { proof } = first;
   try {
-    return await attempt(schema, method, path, text, proof);
+    return await attempt(schema, method, path, text, first);
   } catch (error) {
-    // The server wanted the proof Apple couldn't help make: that, not the app, is why it was refused.
-    if (error instanceof ApiError && error.code === "attestation_failed" && appleUnreachable !== undefined)
-      throw appleUnreachable;
     const keyRefused =
       error instanceof ApiError &&
       error.code === "attestation_failed" &&
@@ -207,7 +219,7 @@ async function attested<S extends z.ZodType>(
       parseAttestation(proof)?.kind === "appAttest";
     if (!keyRefused) throw error;
     await forgetAttestKey();
-    return attempt(schema, method, path, text, (await attestation(method, path, signedBody, deletion)).proof);
+    return attempt(schema, method, path, text, await attestation(method, path, signedBody, deletion));
   }
 }
 

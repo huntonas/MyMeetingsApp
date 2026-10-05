@@ -121,10 +121,10 @@ export function listNearby(
   return { listed: inSection("listed"), tomorrow: inSection("tomorrow") };
 }
 
-// "Went to a meeting? Tag it" (owner decision, 2026-10-04): the meetings in the search's answer that the meeting page
-// would offer to tag now (`offered`, which says no to one with no time zone), the latest start first and ties to the
-// nearest, so the one the person just left is at the top. Worked out from the answer the list already has: the server
-// sends each place's meetings whatever their time, so nothing more is asked of it.
+// "Went to a meeting? Tag it" (owner decision, 2026-10-04): the meetings given whose page would offer to tag them now
+// (`offered`), the latest start first and ties to the nearest, so the one the person just left is at the top. Worked
+// out from the answer the list already has: the server sends each place's meetings whatever their time, so nothing
+// more is asked of it.
 export function meetingsToTag(
   meetings: MeetingSearchResponse["meetings"],
   from: LatLng,
@@ -133,6 +133,7 @@ export function meetingsToTag(
 ): NearbyMeeting[] {
   return meetings
     .flatMap((meeting) => {
+      // `offered` already refuses a meeting with no time zone; checking here too narrows the type for lastOccurrence.
       if (meeting.timezone === null || !offered(meeting)) return [];
       const started = lastOccurrence({ ...meeting, timezone: meeting.timezone }, now).start.getTime();
       return [{ meeting: measuredFrom(meeting, from), started }];

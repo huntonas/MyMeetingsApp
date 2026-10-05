@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { recordSubmission } from "@/tagging/my-tags";
 
 import { startApi, type TestApi } from "./api-server";
-import { resetAppData } from "./app-data";
+import { failStatements, resetAppData } from "./app-data";
 import { setNow } from "./clock";
 import { CONFIG, meeting, nearbyMeeting, VOCABULARY } from "./fixtures";
 import { setPlace } from "./native/native-location";
@@ -189,9 +189,53 @@ describe("Went to a meeting? Tag it", () => {
     expect(shownInOrder()).toEqual(["Tomorrow", "Thursday Group"]);
   });
 
+  // Owner ruling, 2026-10-04: one that began under an hour ago is still in the starting list, and is tagged from there.
+  it("never lists a meeting twice: one the list already shows stays out of the section", async () => {
+    const justBegun = {
+      ...wednesdayLate,
+      id: "88888888-8888-4888-8888-888888888888",
+      name: "Just Begun Group",
+      time: "21:45",
+      endTime: "22:45",
+    };
+    await searchWith([thursday, justBegun, wednesdayLate]);
+    await screen.findByRole("header", { name: HEADING });
+    expect(shownInOrder(["Just Begun Group"])).toEqual([
+      HEADING,
+      "Wednesday Late Group",
+      "Just Begun Group",
+      "Tomorrow",
+      "Thursday Group",
+    ]);
+  });
+
+  // The meeting's page reads the record again before offering anything.
+  it("lists meetings as if none were tagged when the phone's record can't be read", async () => {
+    await recordSubmission(wednesdayLate, ["quiet"], new Date("2026-10-08T03:00:00Z"));
+    await failStatements(
+      "getAllAsync",
+      "select meeting_id, name, tags, confirmed_at, updated_at from my_tags",
+    );
+    await searchWith([thursday, wednesdayLate]);
+    expect(await screen.findByRole("header", { name: HEADING })).toBeOnTheScreen();
+    expect(screen.getByText("Wednesday Late Group")).toBeOnTheScreen();
+  });
+
   it("shows nothing while tagging is switched off", async () => {
     api.reply("/api/v1/config", { ...CONFIG, features: { tagging: false, suggestions: true } });
     await searchWith([thursday, wednesdayLate]);
+    expect(screen.queryByRole("header", { name: HEADING })).toBeNull();
+    expect(screen.queryByText("Wednesday Late Group")).toBeNull();
+  });
+
+  it("hides once the person chooses a type, even with the starting day and time", async () => {
+    await searchWith([thursday, wednesdayLate]);
+    await screen.findByRole("header", { name: HEADING });
+    await fireEvent.press(screen.getByRole("button", { name: /^Filters/ }));
+    await fireEvent.press(screen.getByRole("button", { name: "Type filters" }));
+    await fireEvent.press(await screen.findByRole("checkbox", { name: "Open" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
+    expect(await screen.findByRole("button", { name: "Type filters, 1 chosen" })).toBeOnTheScreen();
     expect(screen.queryByRole("header", { name: HEADING })).toBeNull();
     expect(screen.queryByText("Wednesday Late Group")).toBeNull();
   });

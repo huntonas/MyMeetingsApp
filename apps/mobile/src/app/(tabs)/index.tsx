@@ -219,6 +219,12 @@ function Results({
     [lastFound, origin.point, order, now, section],
   );
   const onMap = useMemo(() => [...listed, ...tomorrow], [listed, tomorrow]);
+  // What "Went to a meeting? Tag it" may offer: the answer less what the list already shows, so no meeting is listed
+  // twice (owner ruling, 2026-10-04). One that began under an hour ago is still listed, and tagged from there.
+  const notListed = useMemo(() => {
+    const shown = new Set(onMap.map((meeting) => meeting.id));
+    return lastFound.filter((meeting) => !shown.has(meeting.id));
+  }, [lastFound, onMap]);
   const rows = useMemo<Row[]>(
     () => [
       ...listed.map((meeting) => ({ kind: "meeting" as const, meeting })),
@@ -469,7 +475,7 @@ function Results({
           {savedNote}
           {/* Only while the person has chosen nothing: a filter they chose is for finding something else, and Clear
               lists every meeting anyway. */}
-          {untouched && <WentToAMeeting meetings={lastFound} from={origin.point} now={now} />}
+          {untouched && <WentToAMeeting meetings={notListed} from={origin.point} now={now} />}
           {summary}
           {/* Nothing tonight or tomorrow, and the person chose nothing: a way to the Online tab rather than an empty
               screen, and rather than a long list of online meetings under it (owner decision, 2026-09-30). */}

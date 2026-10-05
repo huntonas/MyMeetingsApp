@@ -169,7 +169,7 @@ describe("the landing page's content", () => {
       operatingSystem: "iOS",
       applicationCategory: "LifestyleApplication",
       description:
-        "Find AA meetings near you and see how attendees describe them. Free, with no account, no ads and no tracking.",
+        "Find recovery meetings near you and see how attendees describe them. Free, with no account, no ads and no tracking.",
       url: "https://mymeetingapp.test",
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       publisher: { "@type": "Organization", name: "Gooder Software LLC" },

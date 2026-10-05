@@ -115,6 +115,10 @@ describe("the meeting page", () => {
     expect(screen.getByText("Side door, upstairs")).toBeOnTheScreen();
     expect(screen.getByText("Open · Big Book")).toBeOnTheScreen();
     expect(screen.getByText("Nooners Group")).toBeOnTheScreen();
+    // Owner decision, 2026-10-05: the app names AA only to say it isn't affiliated.
+    expect(
+      screen.getByText("Listings come from local service offices and may be out of date."),
+    ).toBeOnTheScreen();
     expect(screen.getByRole("header", { name: "What people say" })).toBeOnTheScreen();
     // Every tag, not a card's top three, each read out with its count.
     expect(await screen.findByLabelText("Welcoming 14 people")).toBeOnTheScreen();

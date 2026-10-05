@@ -56,10 +56,11 @@ describe("the App Store listing", () => {
     expect(english().title).not.toMatch(/\bAA\b/i);
   });
 
-  it("carries spec §11's keywords", () => {
+  it("carries spec §11's keywords, none of them AA", () => {
     expect(english().keywords).toEqual(
-      expect.arrayContaining(["aa meetings", "meeting finder", "sobriety counter"]),
+      expect.arrayContaining(["support group", "meeting finder", "sobriety counter"]),
     );
+    expect(english().keywords.join(",")).not.toMatch(/\baa\b/i);
   });
 
   it("links the privacy policy and support pages on the site the store build uses (spec §11)", () => {

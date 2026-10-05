@@ -22,6 +22,16 @@ export function describesTheAppAsItIs(description: () => string): void {
     expect(description()).toContain("the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline");
   });
 
+  // Owner decision, 2026-10-05: "recovery meetings", not "AA meetings". The AA name is AA World Services' mark and
+  // the Sixth Tradition keeps AA from lending it to an outside enterprise, so only the disclaimer names AA.
+  it("names AA only to say it isn't affiliated", () => {
+    const rest = description().replace(
+      "not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services, Inc.",
+      "",
+    );
+    expect(rest).not.toMatch(/\bA\.?A\b|Alcoholics Anonymous/);
+  });
+
   // Nearby's "Search farther" goes as far as WIDER_SEARCH_RADIUS_KM, which the app shows as whole miles.
   it("says how far Search farther goes, as the app does", () => {
     expect(description()).toContain(

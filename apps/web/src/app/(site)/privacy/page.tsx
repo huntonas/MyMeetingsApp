@@ -70,10 +70,10 @@ export default function PrivacyPage() {
 
       <h2>Meeting listings</h2>
       <p>
-        Meeting times and places come from meeting lists that AA intergroups and other service entities
-        publish. We keep the meeting details (name, time, place, format, online links, dial-in numbers and
-        notes), never the separate contact fields (names, emails, phone numbers) some lists include. Meeting
-        notes are shown as the intergroup published them. We look up missing map locations with the US Census
+        Meeting times and places come from meeting lists that intergroups and other service entities publish.
+        We keep the meeting details (name, time, place, format, online links, dial-in numbers and notes),
+        never the separate contact fields (names, emails, phone numbers) some lists include. Meeting notes are
+        shown as the intergroup published them. We look up missing map locations with the US Census
         Bureau&apos;s geocoder, sending it only the meeting&apos;s address.
       </p>
 

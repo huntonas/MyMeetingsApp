@@ -152,7 +152,7 @@ function MeetingInfo({
         </Section>
       )}
       <AppText variant="small" tone="muted">
-        Listings come from local AA service offices and may be out of date.
+        Listings come from local service offices and may be out of date.
       </AppText>
       {meeting.sourceUrl !== null && (
         <HandOffButton

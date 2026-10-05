@@ -71,20 +71,20 @@ The Maps SDK's crash logs, diagnostics and map interactions also help Google imp
 
 Play Console → App content → Content rating → Start questionnaire. Email: `admin@goodersoftwarellc.com`. Category: **Reference, News, or Educational** (a directory of meetings; it asks about drug and alcohol references, which apply).
 
-| Question                                                           | Answer                   | Why                                                                                                         |
-| ------------------------------------------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Violence, blood, gore                                              | No                       |                                                                                                             |
-| Sexuality, nudity, sexual content                                  | No                       |                                                                                                             |
-| Language (profanity, crude humor)                                  | No                       | Tags are a fixed list of neutral words; suggestions are screened and reviewed before anyone sees them       |
-| Fear, horror                                                       | No                       |                                                                                                             |
-| **Controlled substances: references to alcohol, tobacco or drugs** | **Yes, references only** | Spec §11: "alcohol references apply". AA and recovery are named; no depiction of use, nothing encourages it |
-| Depicts or encourages use of alcohol, tobacco or drugs             | No                       |                                                                                                             |
-| Gambling, simulated gambling, real-money contests                  | No                       |                                                                                                             |
-| Users can interact or exchange content with each other             | No                       | No messaging, profiles or free text; tags are counted words from a fixed list (as the App Store's "No")     |
-| Shares the user's current physical location with other users       | No                       | Only a yes or no, folded into a count, and never shown as a person's                                        |
-| Allows users to purchase digital goods                             | No                       | Free, no in-app purchases                                                                                   |
-| Unrestricted internet access (a web browser or search engine)      | No                       | Links open the browser, Maps or the phone app                                                               |
-| Contains ads                                                       | No                       |                                                                                                             |
+| Question                                                           | Answer                   | Why                                                                                                              |
+| ------------------------------------------------------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Violence, blood, gore                                              | No                       |                                                                                                                  |
+| Sexuality, nudity, sexual content                                  | No                       |                                                                                                                  |
+| Language (profanity, crude humor)                                  | No                       | Tags are a fixed list of neutral words; suggestions are screened and reviewed before anyone sees them            |
+| Fear, horror                                                       | No                       |                                                                                                                  |
+| **Controlled substances: references to alcohol, tobacco or drugs** | **Yes, references only** | Spec §11: "alcohol references apply". Recovery and alcohol are named; no depiction of use, nothing encourages it |
+| Depicts or encourages use of alcohol, tobacco or drugs             | No                       |                                                                                                                  |
+| Gambling, simulated gambling, real-money contests                  | No                       |                                                                                                                  |
+| Users can interact or exchange content with each other             | No                       | No messaging, profiles or free text; tags are counted words from a fixed list (as the App Store's "No")          |
+| Shares the user's current physical location with other users       | No                       | Only a yes or no, folded into a count, and never shown as a person's                                             |
+| Allows users to purchase digital goods                             | No                       | Free, no in-app purchases                                                                                        |
+| Unrestricted internet access (a web browser or search engine)      | No                       | Links open the browser, Maps or the phone app                                                                    |
+| Contains ads                                                       | No                       |                                                                                                                  |
 
 Expected: a teen rating in most regions (ESRB Teen, PEGI 12 or similar), in line with the App Store's 13+. IARC sets each region's rating itself; record the certificate it emails.
 

@@ -7,7 +7,7 @@ Revised 2026-09-26 after spec review. See [Changes from v1](#changes-from-v1) at
 
 ## 1. What we're building
 
-A free iOS and Android app for finding AA meetings and seeing how attendees describe them, using neutral keywords from a fixed list. No free-text reviews, no ratings, no accounts.
+A free iOS and Android app for finding recovery meetings (AA meetings at launch) and seeing how attendees describe them, using neutral keywords from a fixed list. No free-text reviews, no ratings, no accounts.
 
 Three deliverables in one monorepo (pnpm workspaces + Turborepo):
 
@@ -290,7 +290,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
   - Plus whatever Google's own guidance lists for the Maps SDK and Play Integrity; the Maps SDK's crash logs, diagnostics and app interactions are marked shared with Google (analytics).
 - iOS location purpose strings (when-in-use, temporary full accuracy), iOS privacy manifest (required-reason APIs), Android coarse + fine foreground location permissions only.
 - Age rating questionnaires (alcohol references apply).
-- App Store keywords: AA meetings, meeting finder, sobriety counter. "AA" is an AAWS trademark: use it descriptively only, never in the app name or icon.
+- App Store keywords: support group, meeting finder, sobriety counter ("recovery meetings" is already in the subtitle, which Apple also searches). "AA" is an AAWS trademark: the listing, keywords and website say "recovery meetings", and name AA only in the not-affiliated disclaimer (owner decision, 2026-10-05).
 
 ## 12. Infrastructure (Vercel Pro + Neon)
 

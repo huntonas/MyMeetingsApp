@@ -2,7 +2,7 @@ import { BRAND } from "@mymeetingapp/shared";
 import type { Metadata } from "next";
 
 export const SITE_DESCRIPTION =
-  "Find AA meetings near you and see how attendees describe them. Free, with no account, no ads and no tracking.";
+  "Find recovery meetings near you and see how attendees describe them. Free, with no account, no ads and no tracking.";
 
 // The one way a page names itself. Next.js replaces a layout's openGraph object rather than merging it, so every
 // page's card carries the site name, type and locale itself. Relative URLs resolve against the root layout's

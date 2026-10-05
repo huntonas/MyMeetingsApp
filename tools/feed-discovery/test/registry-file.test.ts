@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -39,6 +39,23 @@ const entryB: RegistryEntry = {
   notes: "no website listed",
 };
 
+const naRegion: RegistryEntry = {
+  id: "volunteer-region-na",
+  name: "Volunteer Region",
+  entity_type: "region",
+  fellowship: "na",
+  state: "TN",
+  website: "https://natennessee.org",
+  feed_type: "bmlt",
+  feed_url: "https://natennessee.org/main_server/client_interface/json/?switcher=GetSearchResults",
+  verified: true,
+  meeting_count: 462,
+  states_covered: ["TN"],
+  cities_covered: [],
+  checked_at: "2026-10-05",
+  notes: "",
+};
+
 let dir: string;
 
 beforeEach(async () => {
@@ -73,5 +90,14 @@ describe("writeRegistry / readRegistry", () => {
     const path = join(dir, "registry.yaml");
     await expect(writeRegistry(path, [entryA, { ...entryB, id: "" }])).rejects.toThrow();
     await expect(access(path)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("writes an NA entry's fellowship, and no fellowship for AA's", async () => {
+    const path = join(dir, "registry.yaml");
+    await writeRegistry(path, [entryA, naRegion]);
+    const raw = await readFile(path, "utf-8");
+    expect(raw.match(/fellowship: na/g)).toHaveLength(1);
+    expect(raw).not.toContain("fellowship: aa");
+    expect((await readRegistry(path)).map((entry) => entry.fellowship)).toEqual([undefined, "na"]);
   });
 });

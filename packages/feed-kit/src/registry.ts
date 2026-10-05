@@ -1,3 +1,4 @@
+import { FELLOWSHIPS } from "@mymeetingapp/shared";
 import { parse } from "yaml";
 import { z } from "zod";
 
@@ -10,7 +11,7 @@ const FEED_TYPES = [
   "restricted",
   "bot_blocked",
 ] as const;
-const REGISTRY_ENTITY_TYPES = ["area", "district", "intergroup", "central_office"] as const;
+const REGISTRY_ENTITY_TYPES = ["area", "district", "intergroup", "central_office", "region"] as const;
 
 const WebUrl = z.url({ protocol: /^https?$/ });
 
@@ -19,6 +20,8 @@ export const RegistryEntry = z.object({
   id: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/),
   name: z.string().min(1),
   entity_type: z.enum(REGISTRY_ENTITY_TYPES),
+  // Absent means AA: every entry aa.org's directory finds is an AA entity.
+  fellowship: z.enum(FELLOWSHIPS).optional(),
   state: z.string().regex(/^[A-Z]{2}$/),
   website: WebUrl.nullable(),
   feed_type: z.enum(FEED_TYPES),

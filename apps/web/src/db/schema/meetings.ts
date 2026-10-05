@@ -1,4 +1,4 @@
-import type { MeetingTypeCode } from "@mymeetingapp/shared";
+import { FELLOWSHIPS, type MeetingTypeCode } from "@mymeetingapp/shared";
 import { type SQL, sql } from "drizzle-orm";
 import {
   bigint,
@@ -33,13 +33,18 @@ export const meetings = pgTable(
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
     timezone: text("timezone"),
+    // Spec §3: a meeting is one fellowship's, its feed's, and only matches meetings of the same fellowship.
+    fellowship: text("fellowship", { enum: FELLOWSHIPS }).notNull().default("aa"),
     // Spec §3: a group asked not to be tagged. No tags are accepted or shown.
     tagsDisabled: boolean("tags_disabled").notNull().default(false),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("meetings_day_time_idx").on(table.day, table.time)],
+  (table) => [
+    index("meetings_day_time_idx").on(table.day, table.time),
+    check("meetings_fellowship_check", sql`${table.fellowship} in (${sqlStringList(FELLOWSHIPS)})`),
+  ],
 );
 
 const ZOOM_HOST = "^https?://(?:[a-z0-9-]+[.])*zoom[.]us";

@@ -41,7 +41,7 @@ What "Delete all my tags" leaves, as the privacy policy says: a blocked phone's 
 
 ### Data types
 
-Every type below: **Collected: yes. Shared: no.** Our host (Vercel), database (Neon) and suggestion screening act for us, and Google's Maps SDK and Play Integrity are libraries in the app, which Play counts as collection by the app. Not sold, never used for advertising or marketing, and no tracking.
+Every type below: **Collected: yes. Shared: no**, except the Maps SDK's crash logs, diagnostics and app interactions, which are **shared with Google** (below). Our host (Vercel), database (Neon) and suggestion screening act for us, and Google's Maps SDK and Play Integrity are libraries in the app, which Play counts as collection by the app. Not sold, never used for advertising or marketing, and no tracking.
 
 | Play data type                                             | Collected by                                                                                                           | SPEC §13 rows                                                                                                                                     | Ephemeral?                                       | Required or optional                                                                                               | Purposes                                             |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
@@ -52,7 +52,7 @@ Every type below: **Collected: yes. Shared: no.** Our host (Vercel), database (N
 | App info and performance → **Crash logs**, **Diagnostics** | Maps SDK for Android (stack traces, device metadata: OS version, model, SDK version)                                   | Not ours; the app has no analytics or crash SDK                                                                                                   | No                                               | Required                                                                                                           | Analytics (Google's, for the SDK)                    |
 | Device or other IDs → **Device or other IDs**              | The app (`ANDROID_ID` with writes); Play Integrity (device attestation); Maps SDK (pseudonymous daily-user identifier) | `devices` (keyed hash), `device_days`, `tag_submissions.submitter_id`, `rate_limits`, `tag_audit` (7 days), `suggestions` (device link ≤ 30 days) | No                                               | Optional for the app's ID (sent only with tags, suggestions and "Delete all my tags"); required for the Maps SDK's | App functionality; Fraud prevention, security        |
 
-Precise location is declared although SPEC §11 lists only approximate. Play defines approximate location as an area of at least 3 km² and precise as anything smaller. The search point is rounded to two decimal places, about 1.1 × 0.9 km in the US, so about 1 km², and the near-meeting answer places the phone within 500 m of a known address at a known time. Both fall under Play's "precise", even though Apple's threshold (about 100 m) makes the same data coarse. **Owner decision needed:** confirm this, and SPEC §11 then gains "Precise location (Google's 3 km² threshold)".
+Precise location is declared although SPEC §11 lists only approximate. Play defines approximate location as an area of at least 3 km² and precise as anything smaller. The search point is rounded to two decimal places, about 1.1 × 0.9 km in the US, so about 1 km², and the near-meeting answer places the phone within 500 m of a known address at a known time. Both fall under Play's "precise", even though Apple's threshold (about 100 m) makes the same data coarse. Confirmed by the owner on 2026-10-04; SPEC §11 lists it.
 
 Not declared, and why:
 
@@ -65,7 +65,7 @@ Not declared, and why:
 
 Play Integrity (Google's notes) also receives the `requestHash` the app sends, the app's package, version and signing certificate, and Google's device attestation; Google doesn't pass it to third parties. It's covered by Device or other IDs above. If the app ever opts in to Play Integrity's environment details, add App activity → Other actions and revisit this page.
 
-The Maps SDK's crash logs, diagnostics and map interactions also help Google improve the SDK. Google's notes leave it to the developer whether that is sharing; this page answers no, as most Maps apps do. If the owner wants the most cautious reading, mark those three as shared with Google for analytics: it changes nothing else here.
+The Maps SDK's crash logs, diagnostics and map interactions also help Google improve the SDK. Google's notes leave it to the developer whether that is sharing; this page takes the cautious reading (owner, 2026-10-04): mark those three as **shared** with Google, purpose Analytics. Nothing else here changes.
 
 ## Content rating (IARC)
 

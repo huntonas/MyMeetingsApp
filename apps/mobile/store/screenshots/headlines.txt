@@ -3,5 +3,5 @@
 2-meeting|Know what to expect|before you go
 3-tag-picker|Describe it in a few|words after you go
 4-tag-it|Tag the meeting|you just went to
-5-map|Search any city,|or search farther
+5-map|See every meeting|on one map
 6-me|Count your days. Help is|always one tap away.

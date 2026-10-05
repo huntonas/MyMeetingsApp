@@ -284,9 +284,10 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
   - All marked not linked to identity and not used for tracking.
 - **Google Play Data safety:**
   - Approximate location (processed ephemerally for search)
+  - Precise location (Google's 3 km² threshold: the ~1 km search point and the near-meeting answer fall under it)
   - Device or other IDs
   - App activity / other user-generated content
-  - Plus whatever Google's own guidance lists for the Maps SDK and Play Integrity.
+  - Plus whatever Google's own guidance lists for the Maps SDK and Play Integrity; the Maps SDK's crash logs, diagnostics and app interactions are marked shared with Google (analytics).
 - iOS location purpose strings (when-in-use, temporary full accuracy), iOS privacy manifest (required-reason APIs), Android coarse + fine foreground location permissions only.
 - Age rating questionnaires (alcohol references apply).
 - App Store keywords: AA meetings, meeting finder, sobriety counter. "AA" is an AAWS trademark: use it descriptively only, never in the app name or icon.

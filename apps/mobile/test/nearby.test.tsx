@@ -88,7 +88,7 @@ async function openFilters() {
   if (closed !== null) await fireEvent.press(closed);
 }
 
-const UNCHOSEN = ["Day filters", "Time filters", "Type filters", "Tag filters"];
+const UNCHOSEN = ["Fellowship filters", "Day filters", "Time filters", "Type filters", "Tag filters"];
 async function expectNoFiltersChosen() {
   await openFilters();
   for (const name of UNCHOSEN) expect(screen.getByRole("button", { name })).toBeOnTheScreen();
@@ -421,6 +421,43 @@ describe("Nearby with location", () => {
 });
 
 describe("results", () => {
+  it("narrows to one fellowship, offering only the fellowships and types the answer holds", async () => {
+    api.reply(SEARCH, { meetings: [far, { ...near, fellowship: "na", types: ["O", "JFT"] }] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await screen.findByText("Near Group");
+    await openFilters();
+    await fireEvent.press(await screen.findByRole("button", { name: "Type filters" }));
+    expect(await screen.findByRole("checkbox", { name: "Just for Today" })).toBeOnTheScreen();
+    expect(screen.queryByRole("checkbox", { name: "Women" })).toBeNull();
+    await fireEvent.press(screen.getByRole("checkbox", { name: "NA" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Far Group")).toBeNull();
+    });
+    expect(screen.getByText("Near Group")).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Fellowship filters, 1 chosen" })).toBeOnTheScreen();
+  });
+
+  // Review Focus 5.
+  it("keeps a chosen fellowship offered where the answer has none, and Clear brings everything back", async () => {
+    setPlace("Knoxville, TN", { latitude: 35.96, longitude: -83.92 });
+    api.reply(SEARCH, { meetings: [{ ...near, fellowship: "na" }] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    await chooseFilters("Fellowship filters", ["NA"]);
+    api.reply(SEARCH, { meetings: [far] });
+    await fireEvent.press(await screen.findByRole("button", { name: "Change place" }));
+    await searchFor("Knoxville, TN");
+    expect(await screen.findByText(/^No meetings match your filters/)).toBeOnTheScreen();
+    await openFilters();
+    await fireEvent.press(screen.getByRole("button", { name: "Fellowship filters, 1 chosen" }));
+    expect(await screen.findByRole("checkbox", { name: "NA" })).toBeChecked();
+    await fireEvent.press(screen.getByRole("button", { name: "Clear filters" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
+    expect(await screen.findByText("Far Group")).toBeOnTheScreen();
+  });
+
   it("labels each meeting in the list with its fellowship", async () => {
     api.reply(SEARCH, { meetings: [far, { ...near, fellowship: "na" }] });
     await launchNearby();
@@ -479,7 +516,8 @@ describe("results", () => {
   });
 
   it("narrows by day, type and what people say, and the filter sheet clears them", async () => {
-    api.reply(SEARCH, { meetings: [far, near] });
+    // The sheet offers only the answer's types, so a meeting must have Women for it to be chosen.
+    api.reply(SEARCH, { meetings: [{ ...far, types: ["O", "W"] }, near] });
     await launchNearby();
     await searchFor("Maryville, TN");
     await screen.findByText("Near Group");
@@ -1156,7 +1194,8 @@ describe("results", () => {
     it("keeps one Clear in view, beside the message, when nothing matches, the panel open or closed", async () => {
       await searchMaryville();
       await openFilters();
-      await chooseFilters("Type filters", ["Women"]);
+      // No meeting in the answer has Coffee (the sheet offers only the answer's types, but every tag).
+      await chooseFilters("Tag filters", ["Coffee"]);
       expect(await screen.findByText("No meetings match your filters today or tomorrow.")).toBeOnTheScreen();
       expect(screen.getAllByRole("button", { name: "Clear" })).toHaveLength(1);
       await fireEvent.press(filtersToggle());

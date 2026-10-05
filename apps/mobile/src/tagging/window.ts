@@ -1,7 +1,8 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import { ERROR_MESSAGES, type MeetingSummary } from "@mymeetingapp/shared";
 
 import type { LatLng } from "@/location/geo";
 import { lastOccurrence, type Occurrence, occurrenceEnd, type Scheduled } from "@/meetings/schedule";
+import type { MyTags } from "@/tagging/my-tags";
 import { DAY_MS, MINUTE_MS } from "@/time/civil-date";
 
 // Spec §5: new submissions from the most recent start until 36 hours later, and one per meeting every 7 days. The
@@ -10,14 +11,14 @@ export const TAGGING_WINDOW_MS = 36 * 60 * MINUTE_MS;
 
 // lastOccurrence resolves the start in the meeting's own zone as Postgres's AT TIME ZONE does, so the window opens
 // and closes at the same instants as the server's taggingWindowOpen.
-export function taggingOpen(meeting: Scheduled, now: Date): boolean {
+function taggingOpen(meeting: Scheduled, now: Date): boolean {
   const start = lastOccurrence(meeting, now).start.getTime();
   return now.getTime() >= start && now.getTime() < start + TAGGING_WINDOW_MS;
 }
 
 // A record stamped later than now was made before the phone's clock moved back; counting it would hide tagging for
 // longer than the server's week.
-export function confirmedThisWeek(confirmedAt: Date, now: Date): boolean {
+function confirmedThisWeek(confirmedAt: Date, now: Date): boolean {
   const age = now.getTime() - confirmedAt.getTime();
   return age >= 0 && age < 7 * DAY_MS;
 }
@@ -42,4 +43,25 @@ export function checkablePlace(
 ): LatLng | null {
   if (meeting.attendance === "online" || meeting.latitude === null || meeting.longitude === null) return null;
   return { latitude: meeting.latitude, longitude: meeting.longitude };
+}
+
+// Why the phone offers no new submission now, or null when it does: the one rule for the meeting page's "Tag this
+// meeting" and Nearby's "Went to a meeting? Tag it". "" means there's nothing worth saying (What people say already
+// explains an opted-out group; a phone that tagged this week edits instead).
+export function whyNoNewTags(
+  meeting: MeetingSummary,
+  record: MyTags | null,
+  now: Date,
+  tagging: boolean,
+  upgradeRequired: boolean,
+): string | null {
+  if (meeting.tagsDisabled) return "";
+  if (!tagging) return ERROR_MESSAGES.tags_disabled;
+  if (upgradeRequired) return ERROR_MESSAGES.upgrade_required;
+  if (meeting.timezone === null)
+    return "This meeting's listing doesn't give its time zone, so it can't be tagged.";
+  if (record !== null && confirmedThisWeek(record.confirmedAt, now)) return "";
+  if (!taggingOpen({ ...meeting, timezone: meeting.timezone }, now))
+    return record === null ? "You can add tags from the start of this meeting until 36 hours after." : "";
+  return null;
 }

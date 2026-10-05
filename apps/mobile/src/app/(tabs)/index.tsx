@@ -49,6 +49,7 @@ import { ResultsMap } from "@/ui/results-map";
 import { SavedCopyNote } from "@/ui/saved-copy-note";
 import { Screen } from "@/ui/screen";
 import { UpgradeNotice } from "@/ui/upgrade-notice";
+import { WentToAMeeting } from "@/ui/went-to-a-meeting";
 
 const DENIED = `Location is off for ${BRAND.name}. Search by city, zip code or address instead, or turn location on in Settings.`;
 const UNAVAILABLE = "We couldn't get your location just now. Try again, or search by place.";
@@ -466,6 +467,9 @@ function Results({
           {heading(filtersToggle)}
           {panel}
           {savedNote}
+          {/* Only while the person has chosen nothing: a filter they chose is for finding something else, and Clear
+              lists every meeting anyway. */}
+          {untouched && <WentToAMeeting meetings={lastFound} from={origin.point} now={now} />}
           {summary}
           {/* Nothing tonight or tomorrow, and the person chose nothing: a way to the Online tab rather than an empty
               screen, and rather than a long list of online meetings under it (owner decision, 2026-09-30). */}

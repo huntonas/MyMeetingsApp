@@ -496,6 +496,12 @@ describe("results", () => {
   });
 
   describe("filters start as today, from now on (owner decision, 2026-09-30)", () => {
+    // These are about the list itself. Meetings that began earlier would also be offered to tag above it
+    // (went-to-a-meeting.test.tsx), so tagging is switched off here to keep them out of what's counted.
+    beforeEach(() => {
+      api.reply("/api/v1/config", { ...CONFIG, features: { ...CONFIG.features, tagging: false } });
+    });
+
     const late = nearbyMeeting({
       id: "33333333-3333-4333-8333-333333333333",
       name: "Late Group",

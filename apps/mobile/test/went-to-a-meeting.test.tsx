@@ -115,13 +115,10 @@ describe("Went to a meeting? Tag it", () => {
       HEADING,
       "Wednesday Late Group",
       "Wednesday Evening Group",
-      "Tuesday Night Group",
       "Tomorrow",
       "Thursday Group",
     ]);
-    expect(
-      screen.getByText("Meetings nearby that started in the last 36 hours. Your tags help others choose."),
-    ).toBeOnTheScreen();
+    expect(screen.getByText("Started in the last 36 hours.")).toBeOnTheScreen();
     expect(screen.getByRole("button", { name: /^Wednesday Late Group, Wed 9:00 PM, / })).toHaveProp(
       "accessibilityHint",
       "Opens the meeting's details",
@@ -150,11 +147,13 @@ describe("Went to a meeting? Tag it", () => {
     ]);
   });
 
-  it("shows the latest three, and the rest on request", async () => {
+  // Two, so tonight's meetings still start on the first screen (owner ruling, 2026-10-04).
+  it("shows the latest two, and the rest on request", async () => {
     await searchWith([thursday, tuesdayMorning, tuesdayNight, wednesdayEvening, wednesdayLate]);
     await screen.findByRole("header", { name: HEADING });
+    expect(screen.queryByText("Tuesday Night Group")).toBeNull();
     expect(screen.queryByText("Tuesday Morning Group")).toBeNull();
-    const more = screen.getByRole("button", { name: "Show 1 more" });
+    const more = screen.getByRole("button", { name: "Show 2 more" });
     expect(more).toHaveProp("accessibilityHint", "Lists every meeting nearby you can tag now");
     await fireEvent.press(more);
     expect(shownInOrder()).toEqual([
@@ -167,10 +166,10 @@ describe("Went to a meeting? Tag it", () => {
       "Thursday Group",
     ]);
     const fewer = screen.getByRole("button", { name: "Show fewer" });
-    expect(fewer).toHaveProp("accessibilityHint", "Lists only the latest three");
+    expect(fewer).toHaveProp("accessibilityHint", "Lists only the latest two");
     await fireEvent.press(fewer);
-    expect(screen.queryByText("Tuesday Morning Group")).toBeNull();
-    expect(screen.getByRole("button", { name: "Show 1 more" })).toBeOnTheScreen();
+    expect(screen.queryByText("Tuesday Night Group")).toBeNull();
+    expect(screen.getByRole("button", { name: "Show 2 more" })).toBeOnTheScreen();
   });
 
   it("leaves out what the meeting's page wouldn't offer to tag: tagged from this phone this week, opted out, or with no time zone", async () => {

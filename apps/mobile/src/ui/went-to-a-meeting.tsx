@@ -14,8 +14,9 @@ import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { MeetingCard } from "@/ui/meeting-card";
 
-// Enough for the meeting just left and one or two before it, without pushing the list far down.
-const SHOWN = 3;
+// The meeting just left and one before it: any more would push tonight's meetings off the first screen (owner ruling,
+// 2026-10-04).
+const SHOWN = 2;
 
 // The phone's tag record by meeting, read again each time Nearby comes into view (a meeting page may have added to
 // it); undefined until read. A record that can't be read counts as none: the meeting's page reads it again before
@@ -82,9 +83,7 @@ export function WentToAMeeting({ meetings, from, now }: WentToAMeetingProps) {
       <AppText variant="heading" accessibilityRole="header">
         Went to a meeting? Tag it
       </AppText>
-      <AppText tone="muted">
-        Meetings nearby that started in the last 36 hours. Your tags help others choose.
-      </AppText>
+      <AppText tone="muted">Started in the last 36 hours.</AppText>
       {(all ? toTag : toTag.slice(0, SHOWN)).map((meeting) => (
         <MeetingCard
           key={meeting.id}
@@ -98,7 +97,7 @@ export function WentToAMeeting({ meetings, from, now }: WentToAMeetingProps) {
           <Button
             kind="text"
             label={all ? "Show fewer" : `Show ${String(more)} more`}
-            hint={all ? "Lists only the latest three" : "Lists every meeting nearby you can tag now"}
+            hint={all ? "Lists only the latest two" : "Lists every meeting nearby you can tag now"}
             onPress={() => {
               setAll(!all);
             }}

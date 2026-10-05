@@ -2,16 +2,9 @@ import { and, eq, isNotNull, lt, notExists, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
-import {
-  attestChallenges,
-  deviceCheckTokens,
-  deviceDays,
-  devices,
-  rateLimits,
-  suggestions,
-  tagAudit,
-} from "@/db/schema";
+import { deviceCheckTokens, deviceDays, devices, rateLimits, suggestions, tagAudit } from "@/db/schema";
 import { utcToday } from "@/db/sql";
+import { deleteExpiredChallenges } from "@/server/attest/challenges";
 import { foldDeviceDays } from "@/server/devices/device-days";
 import { RETENTION } from "@/server/retention";
 import { recountAllTags } from "@/server/tags/counts";
@@ -79,11 +72,9 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
         ),
       )
       .returning({ deviceHash: devices.deviceHash });
-    // Spec §6: a challenge lives 5 minutes; spending one deletes it, so only unused ones are left here.
-    const challenges = await tx
-      .delete(attestChallenges)
-      .where(lt(attestChallenges.expiresAt, sql`now()`))
-      .returning({ challenge: attestChallenges.challenge });
+    // Spec §6: a challenge lives 5 minutes; spending one deletes it, and issuing one deletes those already expired, so
+    // only those that expired since the last one was issued are left here.
+    const challengesPurged = await deleteExpiredChallenges(tx);
     // Two days, as device_days: today's and yesterday's tokens stay spent.
     const tokens = await tx
       .delete(deviceCheckTokens)
@@ -94,7 +85,7 @@ export async function runMaintenance(): Promise<MaintenanceSummary> {
       rateLimitRowsPurged: limits.length,
       suggestionsUnlinked: unlinked.length,
       devicesPurged: purged.length,
-      challengesPurged: challenges.length,
+      challengesPurged,
       deviceDaysPurged: days.length,
       deviceCheckTokensPurged: tokens.length,
     };

@@ -1,7 +1,7 @@
 import { format } from "node:util";
 
 import { AttestChallengeResponse, AttestRegisterResponse, ERROR_MESSAGES } from "@mymeetingapp/shared";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { POST as challengeRoute } from "@/app/api/v1/attest/challenge/route";
@@ -97,9 +97,23 @@ describe("POST /api/v1/attest/challenge", () => {
     });
     expect(await db.select().from(attestChallenges)).toHaveLength(10);
     expect(
-      (await db.select().from(rateLimits)).map((row) => [row.deviceHash, row.bucket, row.count]),
-    ).toEqual([[DEVICE_A_HASH, "attestation", 10]]);
+      (await db.select().from(rateLimits).where(eq(rateLimits.bucket, "attestation"))).map((row) => [
+        row.deviceHash,
+        row.count,
+      ]),
+    ).toEqual([[DEVICE_A_HASH, 10]]);
     expect((await challenge(deviceHeaders(DEVICE_B, "android"))).status).toBe(201);
+  });
+
+  it("deletes challenges past their 5 minutes as it issues one, keeping live ones", async () => {
+    await db.insert(attestChallenges).values([
+      { challenge: "expired", expiresAt: new Date(Date.now() - 1000) },
+      { challenge: "live", expiresAt: new Date(Date.now() + 60_000) },
+    ]);
+    const given = await issued();
+    expect((await db.select().from(attestChallenges)).map((row) => row.challenge).sort()).toEqual(
+      [given, "live"].sort(),
+    );
   });
 
   it("counts the challenge and stores it in one transaction, so a failed insert spends nothing", async () => {

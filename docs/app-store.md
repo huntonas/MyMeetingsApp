@@ -101,7 +101,7 @@ Phase 6 plan Tasks 15 and 16 run this. Each line is checked before "Submit for R
 
 - [ ] Production: `REQUIRE_ATTESTATION=on`, the Apple variables set, the DeviceCheck credential check answered `attestation_failed` (not `server_error`).
 - [ ] Production `/api/v1/config` sets no minimum version above 1.0.0; feeds healthy on `/metrics`.
-- [ ] Vercel Firewall rules on `/api/v1/attest/` and `/metrics` exist.
+- [ ] No Vercel Firewall rules (owner decision, 2026-10-04: a paid feature); the site-wide backstops in `docs/deploy.md` ("Rate limits without Vercel Firewall rules") cover `/api/v1/attest/` and `/metrics`.
 - [ ] Neon's production restore window is recorded and is 30 days or less.
 - [ ] The privacy policy and terms are live as written, with no draft notice (owner decision, 2026-10-02).
 - [ ] The production build is in no tester group but "Release check"; the owner searched with it and saw `POST /api/v1/meetings/search` in production's logs.

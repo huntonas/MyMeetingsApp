@@ -90,6 +90,24 @@ describe("runSync", () => {
     expect(restricted.server.requests).toHaveLength(1);
   });
 
+  it("never fetches a feed waiting for its office's permission", async () => {
+    const waiting = await feedServing("waiting", () => ({ status: 200, body: meetingJson(1) }));
+    await db.update(feeds).set({ waitingReason: "bot_check" }).where(eq(feeds.id, waiting.id));
+    expect(await runSync(60_000)).toMatchObject({ synced: 0, failed: 0 });
+    expect(waiting.server.requests).toHaveLength(0);
+    expect(await feed(waiting.id)).toMatchObject({ lastAttemptAt: null });
+  });
+
+  it("sends a restricted list's sharing key with the feed's own query", async () => {
+    const keyed = await feedServing("keyed", () => ({ status: 200, body: meetingJson(1) }));
+    await db
+      .update(feeds)
+      .set({ url: `${keyed.server.baseUrl}/admin-ajax.php?action=meetings`, accessKey: "s3cr3t&x" })
+      .where(eq(feeds.id, keyed.id));
+    expect(await runSync(60_000)).toMatchObject({ synced: 1 });
+    expect(keyed.server.requests[0]?.path).toBe("/admin-ajax.php?action=meetings&key=s3cr3t%26x");
+  });
+
   it("doesn't sync a feed that succeeded within the last week", async () => {
     const recent = await feedServing("recent", () => ({ status: 200, body: meetingJson(1) }));
     await db

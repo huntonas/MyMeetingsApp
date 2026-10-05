@@ -41,9 +41,21 @@ async function recordFailure(feed: Feed, message: string): Promise<Outcome> {
   return "failed";
 }
 
+// The 12 Step Meeting List plugin lets an office give one app a key to its restricted list, read from ?key=.
+function feedAddress(feed: Feed): string {
+  if (feed.accessKey === null) return feed.url;
+  const address = new URL(feed.url);
+  address.searchParams.set("key", feed.accessKey);
+  return address.href;
+}
+
 async function syncFeed(feed: Feed, throttle: HostThrottle): Promise<Outcome> {
   await db.update(feeds).set({ lastAttemptAt: new Date() }).where(eq(feeds.id, feed.id));
-  const fetched = await fetchFeed(feed.url, { etag: feed.etag, lastModified: feed.lastModified }, throttle);
+  const fetched = await fetchFeed(
+    feedAddress(feed),
+    { etag: feed.etag, lastModified: feed.lastModified },
+    throttle,
+  );
   if (fetched.kind === "error") return recordFailure(feed, fetched.message);
   if (fetched.kind === "not_modified") {
     await db.update(feeds).set({ lastSuccessAt: new Date(), lastError: null }).where(eq(feeds.id, feed.id));
@@ -106,6 +118,7 @@ async function dueFeeds(): Promise<Feed[]> {
     .where(
       and(
         eq(feeds.optedOut, false),
+        isNull(feeds.waitingReason),
         or(isNull(feeds.lastSuccessAt), lt(feeds.lastSuccessAt, sql`now() - ${SUCCESS_INTERVAL}`)),
         or(isNull(feeds.lastAttemptAt), lt(feeds.lastAttemptAt, sql`now() - ${RETRY_INTERVAL}`)),
       ),

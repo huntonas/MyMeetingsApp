@@ -7,12 +7,14 @@ import { DEFAULT_PRIORITY, upsertFeed } from "@/db/upsert-feed";
 
 type SeedableEntry = RegistryEntry & { feed_url: string };
 
-// The Phase 2 feeds table only understands these three feed shapes; bmlt and none_found/restricted
-// entries have no consumer yet.
+// The Phase 2 feeds table only understands these three feed shapes; bmlt and none_found entries have no consumer
+// yet. A restricted entry with a feed_url is a 12 Step Meeting List feed whose office hasn't given us a key: it's
+// seeded waiting for permission, so every feed we want is listed in one place.
 function isSeedable(entry: RegistryEntry): entry is SeedableEntry {
+  if (entry.feed_url === null) return false;
+  if (entry.feed_type === "restricted") return true;
   return (
     entry.verified &&
-    entry.feed_url !== null &&
     (entry.feed_type === "tsml" ||
       entry.feed_type === "meeting_guide_json" ||
       entry.feed_type === "google_sheet")
@@ -40,7 +42,7 @@ export interface SeedFeedsResult {
 
 // Loads the discovery registry's verified feeds into the feeds table (spec §4), all in one transaction
 // so a failure part-way leaves the table as it was. Not every registry entry becomes a feed: unverified,
-// un-fed, restricted or bmlt/none_found entries are skipped, and a feed_url shared by several entries
+// un-fed or bmlt/none_found entries are skipped, and a feed_url shared by several entries
 // seeds only the lower-priority one, opted out if any of them is.
 export async function seedFeedsFromRegistry(entries: RegistryEntry[]): Promise<SeedFeedsResult> {
   const seedable = entries.filter(isSeedable);
@@ -87,6 +89,7 @@ export async function seedFeedsFromRegistry(entries: RegistryEntry[]): Promise<S
           state: winner.state,
           url: winner.feed_url,
           optedOut: groupOptedOut,
+          ...(winner.feed_type === "restricted" && { waitingReason: "restricted" }),
         },
         tx,
       );

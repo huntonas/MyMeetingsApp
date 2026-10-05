@@ -31,10 +31,11 @@ interface Metrics {
   vocabulary: { active: number; retired: number };
   pendingSuggestions: number;
   openSwings: number;
-  feeds: { total: number; optedOut: number; needingAttention: number };
+  feeds: { total: number; optedOut: number; waiting: number; needingAttention: number };
 }
 
 interface FeedAttention {
+  id: number;
   slug: string;
   name: string;
   state: string;
@@ -60,13 +61,15 @@ interface Totals extends Record<string, number> {
   openSwings: number;
   feeds: number;
   optedOutFeeds: number;
+  waitingFeeds: number;
   feedsNeedingAttention: number;
 }
 
 // Owner decision 1: a feed needs attention when its last attempt failed, or when it has been tried but hasn't
-// succeeded for longer than the weekly sync plus the one-day retry. Opted-out feeds are never synced.
+// succeeded for longer than the weekly sync plus the one-day retry. Opted-out and waiting feeds are never synced.
 const needsAttention = and(
   eq(feeds.optedOut, false),
+  isNull(feeds.waitingReason),
   or(
     isNotNull(feeds.lastError),
     and(
@@ -100,6 +103,7 @@ async function readTotals(): Promise<Totals> {
       (select count(*)::int from ${tagSwings} where ${tagSwings.reviewedAt} is null) as "openSwings",
       (select count(*)::int from ${feeds}) as "feeds",
       (select count(*)::int from ${feeds} where ${feeds.optedOut}) as "optedOutFeeds",
+      (select count(*)::int from ${feeds} where ${feeds.waitingReason} is not null) as "waitingFeeds",
       (select count(*)::int from ${feeds} where ${needsAttention}) as "feedsNeedingAttention"
   `);
   const [totals] = rows;
@@ -162,6 +166,7 @@ export async function readMetrics(): Promise<Metrics> {
     feeds: {
       total: totals.feeds,
       optedOut: totals.optedOutFeeds,
+      waiting: totals.waitingFeeds,
       needingAttention: totals.feedsNeedingAttention,
     },
   };
@@ -172,6 +177,7 @@ export async function readMetrics(): Promise<Metrics> {
 export async function readFeedsNeedingAttention(): Promise<FeedAttention[]> {
   return db
     .select({
+      id: feeds.id,
       slug: feeds.slug,
       name: feeds.name,
       state: feeds.state,

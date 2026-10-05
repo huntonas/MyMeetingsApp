@@ -106,6 +106,23 @@ describe("seedFeedsFromRegistry", () => {
     expect(await feedRow("tn-area")).toMatchObject({ priority: 20, optedOut: true });
   });
 
+  it("seeds a restricted entry that has a feed_url as waiting for permission, and a re-seed never re-pauses it", async () => {
+    const keyedOffice: RegistryEntry = {
+      ...restricted,
+      feed_url: "https://restricted.example.org/wp-json/tsml/meetings",
+    };
+    expect(await seedFeedsFromRegistry([keyedOffice])).toEqual({ upserted: 1, optedOut: 0, skipped: 0 });
+    expect(await feedRow("tn-restricted")).toMatchObject({
+      url: "https://restricted.example.org/wp-json/tsml/meetings",
+      waitingReason: "restricted",
+    });
+
+    // The owner resumes it once the office sends a key; the registry still says restricted.
+    await db.update(feeds).set({ waitingReason: null }).where(eq(feeds.slug, "tn-restricted"));
+    await seedFeedsFromRegistry([keyedOffice]);
+    expect(await feedRow("tn-restricted")).toMatchObject({ waitingReason: null });
+  });
+
   it("keeps the lower-priority entity when two entries share one feed_url", async () => {
     const sharedUrl = "https://sharedsite.example.org/meetings.json";
     const intergroup: RegistryEntry = {

@@ -92,7 +92,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Verification:** a feed counts as `verified` only after fetching it and confirming it returns a JSON array of meetings with at least `slug`, `name`, `day`, and `time`. Record the meeting count and which states the meetings fall in.
 
-**Restricted feeds:** some intergroups deliberately restrict their feeds (an explicit restricted response, a key requirement, or an auth requirement). Record these as `restricted`, never attempt to bypass them, and list them in the report as "contact the intergroup."
+**Restricted feeds:** some intergroups deliberately restrict their feeds (an explicit restricted response, a key requirement, or an auth requirement). Record these as `restricted`, never attempt to bypass them, and list them in the report as "contact the intergroup." A restricted entry with a feed URL is seeded into `feeds` as waiting for permission (`waiting_reason`), only when its row is first made, so resuming it is never undone by a later seed. A feed behind a bot check is put on the same list by hand from `/metrics`. The sync never fetches a waiting feed. When the office agrees (a 12 Step Meeting List sharing key, sent as `?key=` and kept only in the database, or letting our User-Agent through), the owner resumes it and it is fetched at the next sync.
 
 **Bot checks:** a site that answers with a bot-check page (Cloudflare's or Incapsula's challenge) is recorded as `bot_blocked` and listed separately in the report as "ask the site to allow mymeetingapp's User-Agent." Never try to get past one: no browser or curl User-Agent, no TLS imitation, no retries meant to slip through.
 
@@ -126,7 +126,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Re-verification:** flag feeds that stop responding, new entities in the directory, and meeting-count drops over 30%.
 
-**Good-citizen rules (instead of seeking permission):** feeds are public data owned by each entity, so no one is contacted for permission. We honor every restriction an entity sets, identify ourselves honestly in the User-Agent, respect robots.txt, sync each feed no more than once a week, and honor any opt-out an entity or group requests promptly. Only Google Sheet feeds pass through a third party's server (`sheets.code4recovery.org`). If Sheet feeds turn out to matter for coverage, read public Sheets directly through Google's Sheets API instead of relying on that service.
+**Good-citizen rules (instead of seeking permission):** feeds are public data owned by each entity, so no one is contacted for permission, except an entity whose restriction or bot check keeps us out: we ask it to let us in, and record the outreach on the feed. We honor every restriction an entity sets, identify ourselves honestly in the User-Agent, respect robots.txt, sync each feed no more than once a week, and honor any opt-out an entity or group requests promptly. Only Google Sheet feeds pass through a third party's server (`sheets.code4recovery.org`). If Sheet feeds turn out to matter for coverage, read public Sheets directly through Google's Sheets API instead of relying on that service.
 
 ## 5. Tagging system
 
@@ -272,7 +272,7 @@ Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hoste
 - Admin actions use Server Actions (Next.js checks the request origin) so Basic Auth can't be abused through CSRF.
 - Server components query Postgres directly; no public metrics endpoint.
 - **Shows:** active devices (7 and 30 days, from `last_seen_date`, as of the last nightly run), new tag submissions this week, share with the attendance check, meetings with at least one tag vs. total, pending suggestions, submissions per day (14 days), top tags (30 days), platform split (as of the last nightly run), per-feed sync health (flag feeds whose last attempt failed, or that have been tried without a success for 8 days: the weekly sync plus its one-day retry).
-- **Admin views:** suggestion review, AI decision log, flagged tag swings (with the 7-day audit rows needed to block), block device, per-meeting `tags_disabled`, feed `opted_out`.
+- **Admin views:** suggestion review, AI decision log, flagged tag swings (with the 7-day audit rows needed to block), block device, per-meeting `tags_disabled`, feed `opted_out`, feeds waiting for permission (the reason, the office's contact email, the date last contacted, a note, the sharing key; resume).
 
 ## 11. Store requirements
 
@@ -359,6 +359,7 @@ The phone's own backups (to iCloud, Google, the phone maker's cloud or a compute
 - Settings never show the raw device ID (2026-09-29), matching the privacy policy and support page.
 - Nearby offers the meetings whose tagging window is open, from the search already made, so a meeting just left can be tagged without changing the filters (2026-10-04).
 - No paid Vercel Firewall rate-limit rules (2026-10-04). Free site-wide counts in Postgres are the backstops instead: 200 failed `/metrics` sign-ins a UTC day, and 1,000 App Attest challenges a UTC hour.
+- Restricted and bot-checked feeds are kept in `feeds` as waiting for permission, with the outreach to each office, so every feed we want is tracked in one place (2026-10-05).
 
 ## 16. Before launch (non-engineering)
 

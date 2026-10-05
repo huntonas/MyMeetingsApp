@@ -1,3 +1,4 @@
+import { waitForPermissionAction } from "@/app/metrics/actions";
 import { utcTime } from "@/app/metrics/format";
 import { readFeedsNeedingAttention, readMetrics } from "@/server/admin/metrics";
 
@@ -83,6 +84,7 @@ export default async function MetricsPage() {
       <dl className="totals">
         <Total label="Feeds" value={metrics.feeds.total} />
         <Total label="Opted out" value={metrics.feeds.optedOut} />
+        <Total label="Waiting for permission" value={metrics.feeds.waiting} />
         <Total label="Needing attention" value={metrics.feeds.needingAttention} />
       </dl>
       <h3>Feeds needing attention</h3>
@@ -96,6 +98,7 @@ export default async function MetricsPage() {
               <th>Last success</th>
               <th>Last attempt</th>
               <th>Error</th>
+              <th>Office</th>
             </tr>
           </thead>
           <tbody>
@@ -107,6 +110,22 @@ export default async function MetricsPage() {
                 <td>{utcTime(feed.lastSuccessAt)}</td>
                 <td>{utcTime(feed.lastAttemptAt)}</td>
                 <td>{feed.lastError ?? "Overdue"}</td>
+                <td>
+                  <form
+                    action={waitForPermissionAction}
+                    className="inline"
+                    aria-label={`Wait for permission: ${feed.slug}`}
+                  >
+                    <input type="hidden" name="feedId" value={feed.id} />
+                    <select name="reason" aria-label="Why">
+                      <option value="bot_check">Bot check</option>
+                      <option value="restricted">Restricted list</option>
+                    </select>
+                    <button type="submit" className="secondary">
+                      Wait for permission
+                    </button>
+                  </form>
+                </td>
               </tr>
             ))}
           </tbody>

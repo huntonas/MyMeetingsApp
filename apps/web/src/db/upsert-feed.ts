@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, type Executor } from "@/db/client";
-import { ENTITY_TYPES, type EntityType, feeds } from "@/db/schema";
+import { ENTITY_TYPES, type EntityType, feeds, WAITING_REASONS } from "@/db/schema";
 
 // Spec §3: intergroup and district feeds outrank area feeds, which often re-publish them.
 // Exported so callers that must rank entities before upserting (e.g. seed-feeds.ts, when two
@@ -24,6 +24,8 @@ export const FeedInput = z.object({
   // Sets an opt-out as part of the same insert or update. An upsert can add an opt-out but never clear
   // one: that stays a deliberate, separate change.
   optedOut: z.boolean().optional(),
+  // Only a new feed starts out waiting. Once the owner resumes one, an upsert never pauses it again.
+  waitingReason: z.enum(WAITING_REASONS).optional(),
 });
 
 export type FeedInput = z.input<typeof FeedInput>;

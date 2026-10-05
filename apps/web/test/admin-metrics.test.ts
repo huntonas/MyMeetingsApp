@@ -121,13 +121,18 @@ describe("feed health (owner decision 1)", () => {
     await feedState("brand-new", {});
     await feedState("opted-out", { optedOut: true, lastAttemptAt: new Date(), lastError: "HTTP 404" });
     await feedState("never-worked", { lastAttemptAt: new Date(), lastError: "not a JSON array" });
+    await feedState("waiting", {
+      waitingReason: "bot_check",
+      lastAttemptAt: daysAgo(2),
+      lastError: "blocked by a bot check (Cloudflare)",
+    });
 
     expect((await readFeedsNeedingAttention()).map((feed) => [feed.slug, feed.lastError])).toEqual([
       ["never-worked", "not a JSON array"],
       ["overdue", null],
       ["failing", "HTTP 503"],
     ]);
-    expect((await readMetrics()).feeds).toEqual({ total: 6, optedOut: 1, needingAttention: 3 });
+    expect((await readMetrics()).feeds).toEqual({ total: 7, optedOut: 1, waiting: 1, needingAttention: 3 });
   });
 
   // Owner decision 1: the overdue window is the weekly sync plus its one-day retry, exactly 8 days. A feed just

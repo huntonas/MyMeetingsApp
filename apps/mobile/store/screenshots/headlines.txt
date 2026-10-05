@@ -1,0 +1,7 @@
+# The App Store screenshots, in order: output name (raw/<name>.png is the capture) | headline lines. Draft copy.
+1-nearby|Find a meeting|near you, today
+2-meeting|Know what to expect|before you go
+3-tag-picker|Describe it in a few|words after you go
+4-tag-it|Tag the meeting|you just went to
+5-map|See every meeting|on one map
+6-me|Count your days. Help is|always one tap away.

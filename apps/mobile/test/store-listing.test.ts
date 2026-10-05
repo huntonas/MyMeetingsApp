@@ -4,8 +4,7 @@ import path from "node:path";
 import { BRAND } from "@mymeetingapp/shared";
 import { z } from "zod";
 
-import { WIDER_SEARCH_RADIUS_KM } from "@/location/geo";
-import { radiusMiles } from "@/meetings/units";
+import { describesTheAppAsItIs } from "./listing-claims";
 
 const read = (file: string): unknown => JSON.parse(readFileSync(path.join(__dirname, "..", file), "utf8"));
 
@@ -70,20 +69,10 @@ describe("the App Store listing", () => {
     });
   });
 
-  it("says it isn't AA's, isn't medical advice, and where help is", () => {
-    const { description } = english();
-    expect(description).toContain(
-      "not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services, Inc.",
-    );
-    expect(description).toContain("The app isn't medical advice.");
-    expect(description).toContain("the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline");
-  });
+  describesTheAppAsItIs(() => english().description);
 
-  // Nearby's "Search farther" goes as far as WIDER_SEARCH_RADIUS_KM, which the app shows as whole miles.
-  it("says how far Search farther goes, as the app does", () => {
-    expect(english().description).toContain(
-      `- If nothing is close by, search farther, up to ${String(radiusMiles(WIDER_SEARCH_RADIUS_KM))} miles.`,
-    );
+  it("names only Apple's stores and maps", () => {
+    expect(english().description).not.toMatch(/Android|Google/);
   });
 
   it("names the publisher and is released by hand, after the seller check (owner decision needed 1)", () => {

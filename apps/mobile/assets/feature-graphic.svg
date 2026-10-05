@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <!-- Google Play's feature graphic: the app mark on the accent blue, with the name and subtitle. render-icons.sh renders
+       it to store/google-play/feature-graphic.png with Atkinson Hyperlegible, the app's font. -->
+  <rect width="1024" height="500" fill="#1f5f8b"/>
+  <image href="mark.svg" x="0" y="50" width="400" height="400"/>
+  <g fill="#fbfaf7" font-family="Atkinson Hyperlegible">
+    <text x="372" y="236" font-size="72" font-weight="700">My Meeting App</text>
+    <text x="374" y="300" font-size="38">Recovery meetings near you</text>
+  </g>
+</svg>

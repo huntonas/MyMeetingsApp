@@ -120,7 +120,7 @@ Full detail: `docs/superpowers/plans/2026-09-30-staging-and-testflight.md`.
 
 - The `testflight` profile in `apps/mobile/eas.json` builds against staging (`EXPO_PUBLIC_SERVER_URL=https://mymeetingapp-staging.vercel.app`), so a TestFlight tester's phone never reaches production. The `production` profile is the same build pointed at `https://mymeetings.app`, for later store submissions.
 - Build numbers come from EAS, not the repo: `appVersionSource: "remote"` and `autoIncrement: true` mean each build gets the next number automatically, and no `buildNumber` is tracked in `app.config.ts`. The version shown in TestFlight and on the device is `app.config.ts`'s `version`.
-- The icon, adaptive icon and splash all render from one file. After editing `apps/mobile/assets/mark.svg`, re-render the PNGs with `pnpm --filter mobile icons` and commit them along with the SVG.
+- The icon, adaptive icon and splash all render from one file, as do Google Play's 512 px icon and feature graphic (`assets/feature-graphic.svg`, which places the mark; see `docs/google-play.md`). After editing `apps/mobile/assets/mark.svg` or `feature-graphic.svg`, re-render the PNGs with `pnpm --filter mobile icons` and commit them along with the SVG.
 
 ### Building and submitting a TestFlight build (Owner)
 

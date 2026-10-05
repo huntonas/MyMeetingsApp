@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1320" height="2868" viewBox="0 0 1320 2868">
+  <!-- One App Store screenshot (6.9", 1320 x 2868): a headline over a raw capture in a plain phone frame, on the accent
+       blue. scripts/render-store-shots.sh fills in @HEADLINE@ and @RAW@ from headlines.txt; no Apple device art. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a6d9b"/>
+      <stop offset="1" stop-color="#1f5f8b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="28"/>
+      <feOffset dy="24"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="screen">
+      <rect x="155" y="518" width="1010" height="2195" rx="140"/>
+    </clipPath>
+  </defs>
+  <rect width="1320" height="2868" fill="url(#bg)"/>
+  <text x="660" fill="#ffffff" font-family="Atkinson Hyperlegible" font-weight="700" font-size="@SIZE@" text-anchor="middle">@HEADLINE@</text>
+  <rect x="137" y="500" width="1046" height="2231" rx="158" fill="#eef3f7" filter="url(#shadow)"/>
+  <rect x="137.5" y="500.5" width="1045" height="2230" rx="157.5" fill="none" stroke="#ffffff" stroke-opacity="0.7"/>
+  <image x="155" y="518" width="1010" height="2195" preserveAspectRatio="xMidYMid slice" clip-path="url(#screen)" xlink:href="@RAW@"/>
+</svg>

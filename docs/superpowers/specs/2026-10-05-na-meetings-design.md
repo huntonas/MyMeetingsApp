@@ -24,22 +24,25 @@ Owner decisions, 2026-10-05. The app becomes a meeting finder across fellowships
 
 ### The BMLT feed type
 
-- Each NA region's root server (for example `https://natennessee.org/main_server/`) is one feed of type `bmlt`. Its URL is the server's `client_interface/json/?switcher=GetSearchResults` with the data fields the app needs, so the sync reads it with `politeFetch` like any other feed: weekly, throttled per host, the shrink guard, opt-outs and waiting all unchanged.
-- Only the server's own meetings are applied: rows whose `root_server_uri` isn't this server (an aggregator answering) are skipped.
+- Each NA region's root server (for example `https://natennessee.org/main_server/`) is one feed. Its URL is the server's `client_interface/json/?switcher=GetSearchResults&get_used_formats=1&data_field_key=…`, so the sync reads it with `politeFetch` like any other feed: weekly, throttled per host, the shrink guard, opt-outs and waiting all unchanged. (BMLT 4.x no longer serves the Meeting Guide format, `client_interface/tsml/`, that Phase 2's plan assumed: it answers 422.)
+- `feeds.format` says how a feed's answer is read: `meeting_guide` (TSML, Meeting Guide JSON, Google Sheets, as today) or `bmlt`. Registry entries with `feed_type: bmlt` seed as `bmlt`.
+- NA's service bodies are regions and zones, so `region` joins the entity types, with the intergroups' priority (10).
+- Only the server's own meetings are applied: rows whose `root_server_uri` isn't this server (ignoring a trailing slash) are skipped.
 - `normalizeBmlt` in `server/feeds/` maps a BMLT row to `FeedMeeting`:
   - `weekday_tinyint` 1–7 (Sunday = 1) to the app's 0–6 (Sunday = 0);
-  - `start_time` `HH:MM:SS` to `HH:MM`; `duration_time` to the end time;
-  - `venue_type` 1 / 2 / 3 to `in_person` / `online` / `hybrid`;
-  - the address from `location_street`, `location_municipality`, `location_province`, `location_postal_code_1`, and the place name from `location_text`;
-  - `time_zone`, or, when blank (Nashville's server leaves some blank), the zone from the coordinates as for other feeds;
+  - `start_time` `HH:MM:SS` to `HH:MM`, and `start_time` plus `duration_time` to the end time (past midnight wraps);
+  - `venue_type` 1 / 2 / 3 (in person / virtual / hybrid): a virtual meeting keeps no address or pin, as TSML online meetings don't;
+  - the address from `location_street`, `location_municipality`, `location_province`, `location_postal_code_1`; the place name from `location_text`, its notes from `location_info`, the meeting's notes from `comments`;
+  - `time_zone`, or, when blank (Tennessee's server leaves every one blank), the zone from the coordinates as for other feeds;
   - `virtual_meeting_link` and `phone_meeting_number` to the conference fields, through the same allowlist;
   - `id_bigint` to the source slug, so a renamed meeting keeps its id.
-- Format codes: a fixed map from BMLT's NA codes (O, C, Spe, St, D, BT, JT, IW, SWG, and the rest of the NAWS list) to meeting types. NA-only formats join `MEETING_TYPE_CODES`: Basic Text, Just for Today, It Works: How and Why, Step Working Guide. Unknown codes are dropped, as unknown Meeting Guide types are today.
+- Formats: a format's letters differ from server to server, but each carries NAWS's standard `world_id`, which `get_used_formats=1` returns alongside the meetings. A fixed map from `world_id` to meeting types: OPEN O, CLOSED C, DISC D, SPK SP, STEP ST, BEG BE, W W, M M, Y Y, GL LGBTQ, MED MED, WCHR X, CW CF, LIT LIT, TRAD TR, CAN CAN, and NA's own literature formats, which join the type codes: BT (Basic Text), JFT (Just for Today), IW (It Works: How and Why), SWG (Step Working Guide). TC (temporarily closed) keeps a meeting from being in person, as in TSML; VM and HYBR are already `venue_type`; anything else is dropped.
 
 ### Discovery
 
-- `tools/feed-discovery` reads the aggregator's public list of root servers, keeps the U.S. ones, checks each answers `GetSearchResults` with a meeting array, and records it as `feed_type: bmlt`, `fellowship: na`, with its meeting count and states covered.
-- The coverage report counts meetings per fellowship.
+- NA servers don't come from aa.org's directory, so they get their own command, `pnpm --filter feed-discovery discover:na`. It reads the aggregator's public list of root servers (`github.com/bmlt-enabled/aggregator`, `serverList.json`), reads each server's meetings, keeps servers whose meetings are mostly in U.S. states, and writes each as a registry entry: `feed_type: bmlt`, `fellowship: na`, `entity_type: region`, its most common state, the states and cities it covers, and its meeting count. It keeps every other entry as it is, and an NA entry's `opted_out` across runs.
+- The aa.org run (`discover`) keeps every NA entry as it is.
+- The coverage report counts feeds and meetings per fellowship.
 - Seeding works as today.
 
 ### Privacy
@@ -66,10 +69,10 @@ Nothing new reaches the server about people. A search sends the same rounded poi
 
 ### Rollout
 
-The 1.0 app parses meeting types against a fixed enum, so a response containing an NA type would make its whole search fail.
+The 1.0 app parses meeting types against a fixed enum, so a response holding an NA type would make its whole search fail. It also sends nothing on reads that says which version it is (reads carry no device headers, spec §7), and meeting details and online meetings are cached at the CDN by URL. So, as the vocabulary did (`/api/v2/vocabulary`):
 
-1. Server: the fellowship columns, the BMLT parser, matching by fellowship, discovery and seeding. The search, meeting and tag endpoints send NA meetings and NA type codes only to apps whose `X-App-Version` is 1.1.0 or later; 1.0 gets exactly what it gets today.
-2. App 1.1: labels, the Fellowship filter, NA format names, the Help line.
+1. Server: `/api/v2/meetings/search`, `/api/v2/meetings/{id}` and `/api/v2/meetings/online` serve every fellowship's meetings, with open-ended `types` and `fellowship` (a server can add a type or a fellowship without breaking the apps that read v2). The `/api/v1` routes keep serving exactly what they do today: AA meetings only (filtered in SQL, so the 1,000-meeting cap still counts AA meetings), with the frozen contract. They're removed once the minimum supported version reads v2. Then the fellowship columns, the BMLT parser, matching by fellowship, discovery and seeding.
+2. App 1.1: reads v2, labels, the Fellowship filter, NA format names, the Help line. A saved copy from 1.0, with no fellowship, reads as AA.
 3. Store copy and screenshots with 1.1.
 
 `/metrics` shows feed and meeting counts by fellowship.
@@ -86,7 +89,7 @@ Test first, as always.
 - **Matching:** an AA and an NA meeting at the same place, day and time stay two meetings; two NA listings of one meeting still merge.
 - **Sync:** a BMLT feed served by `@mymeetingapp/test-server` syncs, honors opt-outs and waiting, and applies the shrink guard.
 - **Discovery:** reads a served root-server list, keeps U.S. servers, records `bmlt` / `na`.
-- **API:** 1.0 never receives an NA meeting or type code; 1.1 does.
+- **API:** `/api/v1` never returns an NA meeting, and finds no NA meeting by id; `/api/v2` returns both, each with its fellowship.
 - **App:** the Fellowship filter (with the others, with Clear filters, never saved), labels on rows, the map and the meeting page, NA format names, the Help line.
 - **Copy:** the store and website tests cover NA's name and the new disclaimer.
 

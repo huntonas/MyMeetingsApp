@@ -428,6 +428,9 @@ importers:
       '@mymeetingapp/feed-kit':
         specifier: workspace:*
         version: link:../../packages/feed-kit
+      '@mymeetingapp/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       node-html-parser:
         specifier: ^6.1.13
         version: 6.1.13
@@ -437,6 +440,9 @@ importers:
       yaml:
         specifier: ^2.8.1
         version: 2.9.1
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@mymeetingapp/test-server':
         specifier: workspace:*

@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createCrawler } from "./crawler";
 import { detectFeed, type Detection } from "./detect";
 import { parseDirectoryPage, type DirectoryEntity } from "./directory";
+import { runNa } from "./na-run";
 import { readRegistry, writeRegistry } from "./registry-file";
 import { buildRegistry, computeChanges, computeOverlaps, renderCoverage } from "./report";
 import { US_STATES } from "./states";
@@ -157,8 +158,22 @@ function parseCliOptions(argv: string[]): RunOptions {
   };
 }
 
+// `discover --na` (pnpm discover:na) reads NA's root servers instead of aa.org's directory.
 async function main(): Promise<void> {
-  const { entities, verified } = await run(parseCliOptions(process.argv.slice(2)));
+  const argv = process.argv.slice(2);
+  if (argv.includes("--na")) {
+    const { values } = parseArgs({
+      args: argv.filter((arg) => arg !== "--na"),
+      options: { "server-list-url": { type: "string" }, "out-dir": { type: "string" } },
+    });
+    const { servers, meetings } = await runNa({
+      serverListUrl: values["server-list-url"],
+      outDir: values["out-dir"] ?? TOOL_DIR,
+    });
+    console.log(`${String(servers)} NA servers, ${String(meetings)} meetings`);
+    return;
+  }
+  const { entities, verified } = await run(parseCliOptions(argv));
   console.log(`${String(entities)} entities, ${String(verified)} verified`);
 }
 

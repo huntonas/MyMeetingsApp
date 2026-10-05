@@ -151,6 +151,20 @@ describe("buildRegistry", () => {
     expect(entry?.opted_out).toBe(true);
   });
 
+  it("keeps every NA entry as it is: discover:na writes those, not the aa.org run", () => {
+    const naRegion = registryEntry({
+      id: "volunteer-region-na",
+      entity_type: "region",
+      fellowship: "na",
+      feed_type: "bmlt",
+      checked_at: "2026-08-25",
+    });
+    expect(buildRegistry([], [naRegion], "2026-09-25")).toEqual([naRegion]);
+    expect(buildRegistry([], [{ ...naRegion, opted_out: true }], "2026-09-25")).toEqual([
+      { ...naRegion, opted_out: true },
+    ]);
+  });
+
   it("carries forward an opted-out entry the directory no longer lists, but drops other missing entries", () => {
     const optedOut = registryEntry({ id: "opted-out-office", checked_at: "2026-08-25", opted_out: true });
     const gone = registryEntry({ id: "gone-office", checked_at: "2026-08-25" });
@@ -303,6 +317,13 @@ Checked 2026-09-27. 3 entities, 1 verified feed, 612 meetings.
 | TN    | 2        | 1              | 612      | 1          | 0       |
 | VT    | 1        | 0              | 0        | 0          | 1       |
 
+## By fellowship
+
+| Fellowship | Verified feeds | Meetings |
+| ---------- | -------------- | -------- |
+| AA         | 1              | 612      |
+| NA         | 0              | 0        |
+
 ## Verified feeds (open to us)
 
 | State | Site                | Feed | Meetings | States | Cities | Listed by              |
@@ -328,6 +349,29 @@ None.
 ## Changes since the last run
 
 None.`);
+  });
+
+  it("counts verified feeds and meetings per fellowship", () => {
+    const markdown = renderCoverage(
+      [
+        registryEntry({ id: "aa-office", feed_url: "https://aa.example.org/feed", meeting_count: 120 }),
+        registryEntry({
+          id: "volunteer-region-na",
+          entity_type: "region",
+          fellowship: "na",
+          feed_type: "bmlt",
+          feed_url: "https://na.example.org/main_server/client_interface/json/",
+          meeting_count: 462,
+        }),
+      ],
+      [],
+      { stoppedResponding: [], removedFromDirectory: [], newEntities: [], countDrops: [] },
+    );
+    expect(markdown.split("## By fellowship\n\n")[1]?.split("\n\n")[0])
+      .toBe(`| Fellowship | Verified feeds | Meetings |
+| ---------- | -------------- | -------- |
+| AA         | 1              | 120      |
+| NA         | 1              | 462      |`);
   });
 
   it("counts a feed shared by several entities once, in the totals and the feed list", () => {

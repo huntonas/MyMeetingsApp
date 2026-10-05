@@ -45,6 +45,10 @@ export default async function MetricsPage() {
           label="Meetings with tags"
           value={`${String(tagging.meetingsWithTags)} of ${String(tagging.meetings)}`}
         />
+        <Total
+          label="AA / NA meetings"
+          value={`${String(tagging.meetingsByFellowship.aa)} / ${String(tagging.meetingsByFellowship.na)}`}
+        />
         <Total label="Suggestions waiting" value={metrics.pendingSuggestions} />
         <Total label="Open swing flags" value={metrics.openSwings} />
         <Total
@@ -83,6 +87,10 @@ export default async function MetricsPage() {
       <h2>Feeds</h2>
       <dl className="totals">
         <Total label="Feeds" value={metrics.feeds.total} />
+        <Total
+          label="AA / NA feeds"
+          value={`${String(metrics.feeds.byFellowship.aa)} / ${String(metrics.feeds.byFellowship.na)}`}
+        />
         <Total label="Opted out" value={metrics.feeds.optedOut} />
         <Total label="Waiting for permission" value={metrics.feeds.waiting} />
         <Total label="Needing attention" value={metrics.feeds.needingAttention} />

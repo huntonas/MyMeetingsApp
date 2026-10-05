@@ -76,7 +76,7 @@ Thank you for reviewing My Meeting App.
 
 Nothing to sign into: the app has no accounts, so there is no demo account. Everything works from the first launch.
 
-Finding meetings: type "Maryville, TN" in the search box and choose Search, or tap "Use my location". The app never asks for location when it opens.
+Finding meetings: type "Maryville, TN" in the search box and choose Search, or tap "Use my location". The app never asks for location when it opens. It lists AA and NA meetings; Filters → Fellowship narrows to one.
 
 How the app uses location:
 - Nearby meetings: the phone rounds its location to about 1 km (two decimal places) and sends only that rounded point to our server, in the body of the search request. The server uses it for that one search and doesn't keep it.
@@ -90,7 +90,7 @@ Trying tags: tags can be added from a meeting's start until 36 hours after it, b
 
 User content: tags are chosen from a fixed list of neutral words (35 at launch). People can suggest a new word; we screen and review each suggestion before anyone else sees it. There is no free text, profile, messaging or rating.
 
-Health and safety: this is a meeting finder, not a medical or treatment app, and it gives no medical advice. Every screen has a Help button with the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline. My Meeting App is not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services; meeting listings come from public lists that local service offices publish in the open Meeting Guide format.
+Health and safety: this is a meeting finder, not a medical or treatment app, and it gives no medical advice. Every screen has a Help button with the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline. My Meeting App is not affiliated with or endorsed by Alcoholics Anonymous, A.A. World Services, Narcotics Anonymous or NA World Services; meeting listings come from public lists that local service offices publish (AA's in the open Meeting Guide format, NA's from their regions' BMLT servers).
 
 Publisher: Gooder Software LLC. Contact: admin@goodersoftwarellc.com.
 ```

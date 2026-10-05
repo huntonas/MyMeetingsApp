@@ -45,8 +45,8 @@ export default function HomePage() {
       <div className="features">
         <Feature id="near-you" title="Meetings near you" media={<PhoneScreenshot shot="map" />}>
           <p>
-            In-person, hybrid and online recovery meetings across the United States, from the lists local
-            service offices publish. Search a city or zip code, or use your location.
+            In-person, hybrid and online recovery meetings across the United States, AA and NA meetings, from
+            the lists local service offices publish. Search a city or zip code, or use your location.
           </p>
           <p>
             See what&apos;s on today, from now on, in a list or on a map, and filter by day, time, meeting

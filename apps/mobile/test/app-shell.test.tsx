@@ -290,9 +290,9 @@ describe("the app config", () => {
     expect(Config.parse(appConfig(CONTEXT)).ios.appleTeamId).toBe("PVCZBLDJ73");
   });
 
-  it("is version 1.0.0, the first store release, parseable as the semantic version installedVersion() expects (owner ruling M3)", () => {
+  it("is version 1.1.0, the NA meetings release, parseable as the semantic version installedVersion() expects (owner ruling M3)", () => {
     const config = Config.parse(appConfig(CONTEXT));
-    expect(config.version).toBe("1.0.0");
+    expect(config.version).toBe("1.1.0");
     expect(SemVer.safeParse(config.version).success).toBe(true);
   });
 });

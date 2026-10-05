@@ -1,8 +1,9 @@
-import { V1MeetingDetailResponse } from "@mymeetingapp/shared";
+import { MeetingDetailResponse, V1MeetingDetailResponse } from "@mymeetingapp/shared";
 import { eq, isNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/api/v1/meetings/[id]/route";
+import { GET as getV2 } from "@/app/api/v2/meetings/[id]/route";
 import { db, pool } from "@/db/client";
 import { feedMeetings, meetingAliases, meetings, tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
@@ -24,6 +25,23 @@ async function onlyMeetingId() {
   const [row] = await db.select({ id: meetings.id }).from(meetings).where(isNull(meetings.archivedAt));
   return row?.id ?? "";
 }
+
+describe("an NA meeting", () => {
+  it("is found only through v2, with its fellowship and NA's types", async () => {
+    await applyFeedSnapshot(await seedFeed("na", "region", "na"), [feedMeeting({ types: ["O", "BT"] })]);
+    const id = await onlyMeetingId();
+    expect((await get(id)).status).toBe(404);
+    const res = await getV2(new Request(`http://test/api/v2/meetings/${id}`), {
+      params: Promise.resolve({ id }),
+    });
+    expect(res.headers.get("cache-control")).toBe("public, s-maxage=300, stale-while-revalidate=600");
+    expect(MeetingDetailResponse.parse(await res.json()).meeting).toMatchObject({
+      id,
+      fellowship: "na",
+      types: ["O", "BT"],
+    });
+  });
+});
 
 describe("GET /api/v1/meetings/:id", () => {
   it("returns the meeting from its primary source, cacheable for five minutes", async () => {

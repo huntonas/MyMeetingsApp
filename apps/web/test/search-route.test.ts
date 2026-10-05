@@ -1,9 +1,10 @@
-import { V1MeetingSearchResponse } from "@mymeetingapp/shared";
+import { MeetingSearchResponse, V1MeetingSearchResponse } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { format } from "node:util";
 
 import { POST } from "@/app/api/v1/meetings/search/route";
+import { POST as searchV2 } from "@/app/api/v2/meetings/search/route";
 import { db, pool } from "@/db/client";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
@@ -15,6 +16,41 @@ import { insertSubmission } from "./tag-fixtures";
 
 beforeEach(resetDb);
 afterAll(() => pool.end());
+
+function searchWith(handler: typeof POST, body: unknown) {
+  return handler(new Request("http://test/meetings/search", { method: "POST", body: JSON.stringify(body) }));
+}
+
+// An AA and an NA meeting at one church, day and time: two meetings (spec §3).
+async function seedChurch() {
+  const aa = await seedFeed("aa");
+  const na = await seedFeed("na", "region", "na");
+  const church = { addressKey: "church", latitude: 36.17, longitude: -86.78 };
+  await applyFeedSnapshot(aa, [feedMeeting({ ...church, sourceSlug: "aa-1" })]);
+  await applyFeedSnapshot(na, [feedMeeting({ ...church, sourceSlug: "na-1", types: ["O", "JFT"] })]);
+}
+
+describe("the fellowships", () => {
+  // Review Focus 3: builds before 1.1 get exactly today's answer.
+  it("v1 returns only AA meetings, in its frozen contract", async () => {
+    await seedChurch();
+    const res = await searchWith(POST, { lat: 36.16, lng: -86.78, radiusKm: 25 });
+    const body: unknown = await res.json();
+    expect(V1MeetingSearchResponse.parse(body).meetings).toHaveLength(1);
+    expect(JSON.stringify(body)).not.toContain("fellowship");
+  });
+
+  it("v2 returns both, each with its fellowship and its own types, never cached", async () => {
+    await seedChurch();
+    const res = await searchWith(searchV2, { lat: 36.16, lng: -86.78, radiusKm: 25 });
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    const { meetings } = MeetingSearchResponse.parse(await res.json());
+    expect(meetings.map((meeting) => [meeting.fellowship, meeting.types]).sort()).toEqual([
+      ["aa", ["O"]],
+      ["na", ["O", "JFT"]],
+    ]);
+  });
+});
 
 function search(body: unknown) {
   return POST(

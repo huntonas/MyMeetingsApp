@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const POST = withErrors(async (req: Request) => {
   const request = await readJsonBody(req, MeetingSearchRequest);
   // For builds before 1.1 (V1MeetingSummary).
-  const meetings = (await searchMeetings(request)).map((meeting) => ({
+  const meetings = (await searchMeetings(request, "aa")).map((meeting) => ({
     ...meeting,
     types: meeting.types.filter(isV1MeetingType),
   }));

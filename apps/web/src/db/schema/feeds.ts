@@ -10,7 +10,6 @@ export type EntityType = (typeof ENTITY_TYPES)[number];
 // How a feed's answer is read: Meeting Guide JSON (TSML, Meeting Guide feeds, Google Sheets), or a BMLT server's
 // GetSearchResults with its used formats.
 export const FEED_FORMATS = ["meeting_guide", "bmlt"] as const;
-export type FeedFormat = (typeof FEED_FORMATS)[number];
 
 // Why a feed is waiting for its office's permission: its list is restricted to keyed apps, or a bot check stops our
 // server. The sync never fetches a waiting feed.

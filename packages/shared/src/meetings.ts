@@ -103,11 +103,10 @@ const WebUrl = z.url({ protocol: /^https?$/ }).nullable();
 export const FELLOWSHIPS = ["aa", "na"] as const;
 export type Fellowship = (typeof FELLOWSHIPS)[number];
 
-// NA's literature formats, which have no Meeting Guide code. BMLT names them by NAWS world_id.
-export const NA_MEETING_TYPE_CODES = ["BT", "JFT", "IW", "SWG"] as const;
-
 type V1MeetingTypeCode = (typeof MEETING_TYPE_CODES)[number];
-export type MeetingTypeCode = V1MeetingTypeCode | (typeof NA_MEETING_TYPE_CODES)[number];
+// Meeting Guide's codes, and NA's literature formats, which have none (BMLT names them by NAWS world_id): Basic Text,
+// Just for Today, It Works: How and Why, Step Working Guide.
+export type MeetingTypeCode = V1MeetingTypeCode | "BT" | "JFT" | "IW" | "SWG";
 
 export function isV1MeetingType(code: string): code is V1MeetingTypeCode {
   return MEETING_TYPE_CODES.some((known) => known === code);
@@ -177,7 +176,7 @@ export const V1MeetingDetailResponse = z.object({ meeting: V1MeetingSummary });
 export type V1MeetingDetailResponse = z.infer<typeof V1MeetingDetailResponse>;
 
 // /api/v2: types and fellowships are open-ended, so the server can add one without breaking the apps reading it.
-export const MeetingSummary = V1MeetingSummary.extend({
+const MeetingSummary = V1MeetingSummary.extend({
   types: z.array(z.string().min(1).max(20)),
   // A copy 1.0 saved has none, and every meeting 1.0 saw was AA's.
   fellowship: z
@@ -185,7 +184,6 @@ export const MeetingSummary = V1MeetingSummary.extend({
     .regex(/^[a-z0-9-]{1,20}$/)
     .default("aa"),
 });
-export type MeetingSummary = z.infer<typeof MeetingSummary>;
 
 export const MeetingSearchResponse = z.object({
   meetings: z.array(MeetingSummary.extend({ distanceKm: z.number() })),

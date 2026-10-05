@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isV1MeetingType,
   MeetingSearchRequest,
-  MeetingSummary,
-  NA_MEETING_TYPE_CODES,
+  MeetingDetailResponse,
   OnlineMeetingsQuery,
   V1MeetingSummary,
 } from "../src/index";
@@ -89,9 +88,11 @@ describe("the v1 types", () => {
   });
 });
 
-describe("MeetingSummary (/api/v2)", () => {
+describe("a meeting at /api/v2", () => {
+  const read = (meeting: object) => MeetingDetailResponse.parse({ meeting }).meeting;
+
   it("reads a type and a fellowship this build has never heard of", () => {
-    expect(MeetingSummary.parse({ ...summary, types: ["XYZ"], fellowship: "al-anon" })).toMatchObject({
+    expect(read({ ...summary, types: ["XYZ"], fellowship: "al-anon" })).toMatchObject({
       types: ["XYZ"],
       fellowship: "al-anon",
     });
@@ -99,11 +100,7 @@ describe("MeetingSummary (/api/v2)", () => {
 
   // A copy 1.0 saved has no fellowship, and every meeting 1.0 saw was AA's.
   it("reads a 1.0-era meeting, with no fellowship, as AA's", () => {
-    expect(MeetingSummary.parse(summary).fellowship).toBe("aa");
-  });
-
-  it("lists NA's literature formats", () => {
-    expect(NA_MEETING_TYPE_CODES).toEqual(["BT", "JFT", "IW", "SWG"]);
+    expect(read(summary).fellowship).toBe("aa");
   });
 });
 

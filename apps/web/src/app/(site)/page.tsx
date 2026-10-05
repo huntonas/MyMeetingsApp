@@ -8,7 +8,7 @@ import { pageMetadata, SITE_DESCRIPTION } from "@/lib/page-metadata";
 
 export const metadata = pageMetadata({
   path: "/",
-  title: "Find AA meetings, described by the people who go",
+  title: "Find recovery meetings, described by the people who go",
   description: SITE_DESCRIPTION,
 });
 
@@ -27,10 +27,10 @@ export default function HomePage() {
       <MobileAppJsonLd />
       <section className="hero" aria-labelledby="headline">
         <div className="hero-text">
-          <h1 id="headline">Find an AA meeting that fits, described by the people who go.</h1>
+          <h1 id="headline">Find a recovery meeting that fits, described by the people who go.</h1>
           <p className="lede">
-            A free app for iPhone that lists AA meetings near you and shows how the people who go describe
-            each one, in a few plain words.
+            A free app for iPhone that lists recovery meetings near you and shows how the people who go
+            describe each one, in a few plain words.
           </p>
           <p className="hero-promise">No account, no ads, no tracking.</p>
           <div className="get-app">
@@ -45,8 +45,8 @@ export default function HomePage() {
       <div className="features">
         <Feature id="near-you" title="Meetings near you" media={<PhoneScreenshot shot="map" />}>
           <p>
-            In-person, hybrid and online AA meetings across the United States, from the lists local AA offices
-            publish. Search a city or zip code, or use your location.
+            In-person, hybrid and online recovery meetings across the United States, from the lists local
+            service offices publish. Search a city or zip code, or use your location.
           </p>
           <p>
             See what&apos;s on today, from now on, in a list or on a map, and filter by day, time, meeting

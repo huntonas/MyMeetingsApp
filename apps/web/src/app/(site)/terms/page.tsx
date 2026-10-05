@@ -17,15 +17,15 @@ export default function TermsPage() {
         them, you agree to these terms.
       </p>
 
-      <h2>Not affiliated with AA</h2>
+      <h2>Not affiliated with Alcoholics Anonymous</h2>
       <p>
         {BRAND.name} is an independent app. It is not affiliated with, endorsed by or approved by Alcoholics
-        Anonymous or A.A. World Services, Inc. We use “AA” only to describe the meetings listed.
+        Anonymous or A.A. World Services, Inc.
       </p>
 
       <h2>Listings can be out of date</h2>
       <p>
-        Meeting listings come from lists that intergroups and other AA service entities publish. They change
+        Meeting listings come from lists that intergroups and other service entities publish. They change
         often, and we can&apos;t check them. A meeting may have moved, changed its time or stopped meeting.
         When it matters, check with the group or the local intergroup.
       </p>

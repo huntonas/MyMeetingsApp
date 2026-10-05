@@ -1,4 +1,4 @@
-import { BRAND, type ErrorCode, type MeetingSummary, type TagWriteResponse } from "@mymeetingapp/shared";
+import { BRAND, type ErrorCode, type V1MeetingSummary, type TagWriteResponse } from "@mymeetingapp/shared";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type Text, View } from "react-native";
@@ -30,14 +30,14 @@ export function tagNames(slugs: readonly string[], labels: ReadonlyMap<string, V
 
 // Spec §8: a new submission says whether a check on this phone found it near this occurrence (the one the tagging
 // window counts from). An online meeting has nowhere to be near; a result that can't be read counts as none.
-async function nearThisTime(meeting: MeetingSummary): Promise<boolean> {
+async function nearThisTime(meeting: V1MeetingSummary): Promise<boolean> {
   if (checkablePlace(meeting) === null || meeting.timezone === null) return false;
   const { start } = lastOccurrence({ ...meeting, timezone: meeting.timezone }, new Date());
   return wasNear(meeting.id, start).catch(() => false);
 }
 
 // The attendance check the picker offers during the meeting's time, for a place it can look at; null otherwise.
-function attendanceOffer(meeting: MeetingSummary, now: Date) {
+function attendanceOffer(meeting: V1MeetingSummary, now: Date) {
   const place = checkablePlace(meeting);
   if (place === null || meeting.timezone === null) return null;
   const occurrence = attendanceOccurrence({ ...meeting, timezone: meeting.timezone }, now);
@@ -140,7 +140,7 @@ function RemoveButton({ removal }: { removal: Removal }) {
 }
 
 interface YourTagsProps {
-  meeting: MeetingSummary;
+  meeting: V1MeetingSummary;
   // The server's answer to a write: the page shows its counts, and follows the meeting if it merged meanwhile.
   onAnswered: (response: TagWriteResponse) => void;
   // Held by the page, so what a write did still shows after the page followed a merge.

@@ -1,4 +1,4 @@
-import { OnlineMeetingsResponse } from "@mymeetingapp/shared";
+import { V1OnlineMeetingsResponse } from "@mymeetingapp/shared";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/api/v1/meetings/online/route";
@@ -56,7 +56,7 @@ describe("GET /api/v1/meetings/online", () => {
     const res = await get("?day=1");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("public, s-maxage=900, stale-while-revalidate=3600");
-    expect(OnlineMeetingsResponse.parse(await res.json()).meetings.map((m) => m.name)).toEqual([
+    expect(V1OnlineMeetingsResponse.parse(await res.json()).meetings.map((m) => m.name)).toEqual([
       "Early",
       "Hybrid",
       "Late",
@@ -67,7 +67,7 @@ describe("GET /api/v1/meetings/online", () => {
     const feedId = await seedFeed("a");
     await applyFeedSnapshot(feedId, [feedMeeting({ ...online, conferenceUrl: "https://zoom.us/j/1" })]);
     await applyFeedSnapshot(feedId, []);
-    expect(OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
+    expect(V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
   });
 
   it("includes each meeting's tag counts", async () => {
@@ -75,11 +75,11 @@ describe("GET /api/v1/meetings/online", () => {
     await applyFeedSnapshot(await seedFeed("a"), [
       feedMeeting({ ...online, sourceSlug: "early", time: "07:00", name: "Early" }),
     ]);
-    const before = OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
+    const before = V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
     const id = before[0]?.id ?? "";
     await insertSubmission(id, ["lively"]);
     await recountTags([id], db);
-    const [first] = OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
+    const [first] = V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
     expect(first?.tags).toEqual([{ slug: "lively", count: 1 }]);
   });
 

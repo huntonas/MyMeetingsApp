@@ -1,4 +1,4 @@
-import type { MeetingSearchResponse } from "@mymeetingapp/shared";
+import type { V1MeetingSearchResponse } from "@mymeetingapp/shared";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
@@ -44,7 +44,7 @@ function useMyTagRecords(): ReadonlyMap<string, MyTags> | undefined {
 
 interface WentToAMeetingProps {
   // The search's answer less what the list shows: the server sends each place's meetings whatever their time.
-  meetings: MeetingSearchResponse["meetings"];
+  meetings: V1MeetingSearchResponse["meetings"];
   from: LatLng;
   now: Date;
 }

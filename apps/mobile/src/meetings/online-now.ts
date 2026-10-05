@@ -1,10 +1,10 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { V1MeetingSummary } from "@mymeetingapp/shared";
 
 import { lastOccurrence, nextStart, occurrenceEnd } from "@/meetings/schedule";
 import { MINUTE_MS } from "@/time/civil-date";
 
 export interface TimedMeeting {
-  meeting: MeetingSummary;
+  meeting: V1MeetingSummary;
   start: Date;
 }
 
@@ -16,7 +16,7 @@ const byStart = (a: TimedMeeting, b: TimedMeeting) =>
 // Spec §8 "Online now": meetings in progress, plus those starting within two hours. A meeting without a time zone
 // can't be placed in time, so it's left out.
 export function onlineNow(
-  meetings: MeetingSummary[],
+  meetings: V1MeetingSummary[],
   now: Date,
 ): { happening: TimedMeeting[]; soon: TimedMeeting[] } {
   const happening: TimedMeeting[] = [];

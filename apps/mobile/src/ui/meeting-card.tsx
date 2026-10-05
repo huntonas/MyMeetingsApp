@@ -1,4 +1,4 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { V1MeetingSummary } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
@@ -12,7 +12,7 @@ export function MeetingCard({
   when,
   distance,
 }: {
-  meeting: MeetingSummary;
+  meeting: V1MeetingSummary;
   when: string;
   distance?: string;
 }) {

@@ -1,4 +1,4 @@
-import { MeetingDetailResponse } from "@mymeetingapp/shared";
+import { V1MeetingDetailResponse } from "@mymeetingapp/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -41,7 +41,7 @@ async function detail(meetingId: string) {
   const res = await getMeeting(new Request(`http://test/api/v1/meetings/${meetingId}`), {
     params: Promise.resolve({ id: meetingId }),
   });
-  return MeetingDetailResponse.parse(await res.json()).meeting;
+  return V1MeetingDetailResponse.parse(await res.json()).meeting;
 }
 
 describe("findMeetings", () => {

@@ -1,5 +1,5 @@
 import { addressKey } from "@mymeetingapp/feed-kit";
-import { MEETING_TYPE_CODES, type MeetingSummary } from "@mymeetingapp/shared";
+import { MEETING_TYPE_CODES, type MeetingTypeCode, type V1MeetingSummary } from "@mymeetingapp/shared";
 
 export interface FeedMeeting {
   sourceSlug: string;
@@ -8,8 +8,8 @@ export interface FeedMeeting {
   endTime: string | null;
   timezone: string | null;
   name: string;
-  types: MeetingSummary["types"];
-  attendance: MeetingSummary["attendance"];
+  types: MeetingTypeCode[];
+  attendance: V1MeetingSummary["attendance"];
   locationName: string | null;
   formattedAddress: string | null;
   addressKey: string | null;

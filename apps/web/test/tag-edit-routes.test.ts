@@ -1,4 +1,4 @@
-import { MeetingDetailResponse, TagWriteResponse } from "@mymeetingapp/shared";
+import { V1MeetingDetailResponse, TagWriteResponse } from "@mymeetingapp/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -252,7 +252,7 @@ describe("a tagged meeting the feed sync merges away", () => {
       params: Promise.resolve({ id: newer }),
     });
     expect(detail.status).toBe(200);
-    expect(MeetingDetailResponse.parse(await detail.json()).meeting.id).toBe(older);
+    expect(V1MeetingDetailResponse.parse(await detail.json()).meeting.id).toBe(older);
     const deleted = await del(newer);
     expect(deleted.status).toBe(200);
     expect(TagWriteResponse.parse(await deleted.json())).toEqual({ meetingId: older, tags: [] });

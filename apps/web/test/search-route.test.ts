@@ -1,4 +1,4 @@
-import { MeetingSearchResponse } from "@mymeetingapp/shared";
+import { V1MeetingSearchResponse } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { format } from "node:util";
@@ -53,7 +53,7 @@ describe("POST /api/v1/meetings/search", () => {
     const res = await search({ lat: 36.16, lng: -86.78, radiusKm: 25 });
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    const { meetings } = MeetingSearchResponse.parse(await res.json());
+    const { meetings } = V1MeetingSearchResponse.parse(await res.json());
     expect(meetings.map((m) => [m.attendance, m.distanceKm > 0])).toEqual([
       ["in_person", true],
       ["hybrid", true],
@@ -66,7 +66,7 @@ describe("POST /api/v1/meetings/search", () => {
     const feedId = await seedFeed("a");
     await applyFeedSnapshot(feedId, [feedMeeting()]);
     await applyFeedSnapshot(feedId, []);
-    const { meetings } = MeetingSearchResponse.parse(
+    const { meetings } = V1MeetingSearchResponse.parse(
       await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
     );
     expect(meetings).toEqual([]);
@@ -77,7 +77,7 @@ describe("POST /api/v1/meetings/search", () => {
       // A temporarily closed venue: its address and pin remain, but the meeting is on Zoom.
       feedMeeting({ attendance: "online", conferenceUrl: "https://zoom.us/j/5" }),
     ]);
-    const { meetings } = MeetingSearchResponse.parse(
+    const { meetings } = V1MeetingSearchResponse.parse(
       await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
     );
     expect(meetings).toEqual([]);
@@ -96,7 +96,7 @@ describe("POST /api/v1/meetings/search", () => {
     await db.execute(sql`
       update meetings m set primary_feed_meeting_id = fm.id from feed_meetings fm where fm.meeting_id = m.id
     `);
-    const { meetings } = MeetingSearchResponse.parse(
+    const { meetings } = V1MeetingSearchResponse.parse(
       await (await search({ lat: 36.16, lng: -86.78, radiusKm: 25 })).json(),
     );
     expect(meetings).toHaveLength(1000);
@@ -105,13 +105,13 @@ describe("POST /api/v1/meetings/search", () => {
   it("includes each meeting's tag counts", async () => {
     await seedVocabulary();
     await seedNashville();
-    const before = MeetingSearchResponse.parse(
+    const before = V1MeetingSearchResponse.parse(
       await (await search({ lat: 36.17, lng: -86.78, radiusKm: 5 })).json(),
     ).meetings;
     const nearest = before[0]?.id ?? "";
     await insertSubmission(nearest, ["welcoming"]);
     await recountTags([nearest], db);
-    const [first] = MeetingSearchResponse.parse(
+    const [first] = V1MeetingSearchResponse.parse(
       await (await search({ lat: 36.17, lng: -86.78, radiusKm: 5 })).json(),
     ).meetings;
     expect(first?.tags).toEqual([{ slug: "welcoming", count: 1 }]);

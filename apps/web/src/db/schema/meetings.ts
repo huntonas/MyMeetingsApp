@@ -1,4 +1,4 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingTypeCode } from "@mymeetingapp/shared";
 import { type SQL, sql } from "drizzle-orm";
 import {
   bigint,
@@ -95,7 +95,7 @@ export const feedMeetings = pgTable(
     endTime: text("end_time"),
     timezone: text("timezone"),
     name: text("name").notNull(),
-    types: text("types").array().notNull().$type<MeetingSummary["types"]>(),
+    types: text("types").array().notNull().$type<MeetingTypeCode[]>(),
     attendance: text("attendance", { enum: ATTENDANCE_OPTIONS }).notNull(),
     locationName: text("location_name"),
     formattedAddress: text("formatted_address"),

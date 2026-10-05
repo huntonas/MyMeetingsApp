@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { OnlineMeetingsResponse } from "@mymeetingapp/shared";
+import { V1OnlineMeetingsResponse } from "@mymeetingapp/shared";
 import { describe, expect, it } from "vitest";
 
 import PrivacyPage from "@/app/(site)/privacy/page";
@@ -16,7 +16,7 @@ import { renderText } from "./render";
 // the promises match again.
 
 function header(policy: "meetingDetail" | "onlineMeetings" | "vocabulary"): string {
-  return jsonResponse(OnlineMeetingsResponse, { meetings: [] }, policy).headers.get("cache-control") ?? "";
+  return jsonResponse(V1OnlineMeetingsResponse, { meetings: [] }, policy).headers.get("cache-control") ?? "";
 }
 
 function seconds(cacheControl: string, directive: string): number {

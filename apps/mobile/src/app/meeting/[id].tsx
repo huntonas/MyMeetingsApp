@@ -1,4 +1,4 @@
-import type { MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
+import type { V1MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { ActivityIndicator, useWindowDimensions, View } from "react-native";
@@ -52,7 +52,7 @@ const dialable = (phone: string) =>
     .replace(/\*/g, "%2A")}`;
 
 // Spec §5: every tag, with its count, in the server's order.
-function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
+function WhatPeopleSay({ meeting }: { meeting: V1MeetingSummary }) {
   const tags = useLabelledTags(meeting.tags);
   return (
     <Section title="What people say">
@@ -75,7 +75,7 @@ function MeetingInfo({
   onAnswered,
   notice,
 }: {
-  meeting: MeetingSummary;
+  meeting: V1MeetingSummary;
   onAnswered: (response: TagWriteResponse) => void;
   notice: Notice;
 }) {

@@ -17,6 +17,14 @@ import {
 } from "@/server/admin/suggestions";
 import { blockSwingDevice, BlockSwingDeviceForm, closeSwing, CloseSwingForm } from "@/server/admin/swings";
 import { setTagRetired, TagStatusForm } from "@/server/admin/vocabulary";
+import {
+  OutreachForm,
+  resumeFeed,
+  ResumeForm,
+  saveOutreach,
+  waitForPermission,
+  WaitForm,
+} from "@/server/admin/waiting";
 
 // Every admin Server Action. Each one is adminAction(page to return to, form, change).
 export const approveSuggestionAction = adminAction(
@@ -47,3 +55,6 @@ export const setMeetingTagsAction = adminAction(
 );
 export const setFeedOptOutAction = adminAction("/metrics/opt-outs", FeedOptOutForm, setFeedOptedOut);
 export const setTagRetiredAction = adminAction("/metrics/vocabulary", TagStatusForm, setTagRetired);
+export const waitForPermissionAction = adminAction("/metrics/waiting", WaitForm, waitForPermission);
+export const saveOutreachAction = adminAction("/metrics/waiting", OutreachForm, saveOutreach);
+export const resumeFeedAction = adminAction("/metrics/waiting", ResumeForm, resumeFeed);

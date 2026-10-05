@@ -20,6 +20,7 @@ export default function MetricsLayout({ children }: { children: ReactNode }) {
           <a href="/metrics/suggestions">Suggestions</a>
           <a href="/metrics/swings">Swing flags</a>
           <a href="/metrics/opt-outs">Opt-outs</a>
+          <a href="/metrics/waiting">Waiting</a>
           <a href="/metrics/vocabulary">Vocabulary</a>
         </nav>
       </header>

@@ -63,6 +63,13 @@ const REFERENCE_TABLES: Record<string, string[]> = {
     "url",
     "priority",
     "opted_out",
+    "waiting_reason",
+    // The office's own published address, typed in by the owner when asking for permission: about an
+    // organization, never copied from a feed's contact fields, which the policy says we don't keep.
+    "contact_email",
+    "contacted_on",
+    "outreach_note",
+    "access_key",
     "etag",
     "last_modified",
     "last_attempt_at",

@@ -28,6 +28,9 @@ export const ADMIN_NOTICES = {
   feed_opted_out: `Feed opted out. We stop using it at the next sync; meetings that other feeds also publish keep appearing from those feeds. The app catches up within ${String(CATCH_UP_MINUTES.feedOptOut)} minutes.`,
   feed_opted_in: "Feed opted back in. It's fetched at the next sync.",
   feed_not_found: "That feed no longer exists.",
+  feed_waiting: "Paused until its office gives permission. It's listed under Waiting.",
+  outreach_saved: "Saved.",
+  feed_resumed: "Resumed. It's fetched at the next sync.",
 } as const;
 
 export type AdminNotice = keyof typeof ADMIN_NOTICES;

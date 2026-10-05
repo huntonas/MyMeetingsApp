@@ -169,6 +169,20 @@
       "when": 1791171244862,
       "tag": "0023_attestation-site-limit",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791220699662,
+      "tag": "0024_lock-timeout-feeds-waiting",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791220700149,
+      "tag": "0025_feeds-waiting",
+      "breakpoints": true
     }
   ]
 }

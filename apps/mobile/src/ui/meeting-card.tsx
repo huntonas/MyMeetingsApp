@@ -1,26 +1,35 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 
+import { fellowshipLabel } from "@/meetings/fellowship";
 import { useColors } from "@/theme/colors";
 import { AppText } from "@/ui/app-text";
 import { TagChips, useLabelledTags } from "@/ui/tag-chips";
 
-// A card in any meeting list: name, when (and how far), place, and the top three tags.
+// A card in any meeting list: name, its fellowship and when (and how far), place, and the top three tags.
 export function MeetingCard({
   meeting,
   when,
   distance,
 }: {
-  meeting: V1MeetingSummary;
+  meeting: MeetingSummary;
   when: string;
   distance?: string;
 }) {
   const colors = useColors();
   const tags = useLabelledTags(meeting.tags).slice(0, 3);
-  const meta = distance === undefined ? when : `${when} · ${distance}`;
+  const fellowship = fellowshipLabel(meeting.fellowship);
+  const meta = [fellowship, when, distance].filter((part) => part !== undefined).join(" · ");
   // The card is one button to VoiceOver and TalkBack, so its label carries everything on it, tags included.
-  const spoken = [meeting.name, when, distance, meeting.locationName, ...tags.map((tag) => tag.spoken)]
+  const spoken = [
+    meeting.name,
+    `${fellowship} meeting`,
+    when,
+    distance,
+    meeting.locationName,
+    ...tags.map((tag) => tag.spoken),
+  ]
     .filter((part) => typeof part === "string")
     .join(", ");
   return (

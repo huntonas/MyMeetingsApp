@@ -1,12 +1,16 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { memo, useRef } from "react";
 import MapView, { Marker } from "react-native-maps";
 
 import type { MapRegion } from "@/location/geo";
+import { fellowshipLabel } from "@/meetings/fellowship";
 import { shortWhen } from "@/meetings/schedule";
 
-type MappedMeeting = Pick<V1MeetingSummary, "id" | "name" | "day" | "time" | "latitude" | "longitude">;
+type MappedMeeting = Pick<
+  MeetingSummary,
+  "id" | "name" | "day" | "time" | "latitude" | "longitude" | "fellowship"
+>;
 
 interface ResultsMapProps {
   initialRegion: MapRegion;
@@ -27,12 +31,13 @@ const MeetingMarker = memo(function MeetingMarker({
   longitude: number;
 }) {
   const when = shortWhen(meeting);
+  const fellowship = fellowshipLabel(meeting.fellowship);
   return (
     <Marker
       coordinate={{ latitude, longitude }}
       title={meeting.name}
-      description={when}
-      accessibilityLabel={`${meeting.name}, ${when}`}
+      description={`${fellowship} · ${when}`}
+      accessibilityLabel={`${meeting.name}, ${fellowship}, ${when}`}
       onCalloutPress={() => {
         router.push(`/meeting/${meeting.id}`);
       }}

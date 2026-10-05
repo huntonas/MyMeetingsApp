@@ -1,4 +1,4 @@
-import { V1MeetingSearchResponse, type V1MeetingSummary } from "@mymeetingapp/shared";
+import { MeetingSearchResponse, type MeetingSummary } from "@mymeetingapp/shared";
 import { z } from "zod";
 
 import { searchMeetings } from "@/api/reads";
@@ -16,11 +16,11 @@ export interface SearchOrigin {
   radiusKm: number;
 }
 
-export type NearbyMeeting = V1MeetingSearchResponse["meetings"][number] & { exactKm: number };
+export type NearbyMeeting = MeetingSearchResponse["meetings"][number] & { exactKm: number };
 
 // A search's answer as the phone keeps it: with where it was made (the label, the rounded point, never the exact one,
 // and the radius), so offline the last search can stand in for a search elsewhere and still say where it's from.
-const SearchResult = V1MeetingSearchResponse.extend({
+const SearchResult = MeetingSearchResponse.extend({
   origin: z.object({
     kind: z.enum(["me", "place", "map"]),
     label: z.string(),
@@ -77,7 +77,7 @@ export function describedOrigin(result: SearchResult, asked: SearchOrigin) {
   };
 }
 
-type SearchMeeting = V1MeetingSearchResponse["meetings"][number];
+type SearchMeeting = MeetingSearchResponse["meetings"][number];
 
 // The distance from the real point, which never leaves the phone; the server's, from the rounded one, for a meeting
 // with no map point.
@@ -98,11 +98,11 @@ export type NearbyOrder = "soonest" | "nearest";
 // breaking the other's ties, so meetings at one place read in time order. Each meeting's upcomingStart is worked out
 // once, for both.
 export function listNearby(
-  meetings: V1MeetingSearchResponse["meetings"],
+  meetings: MeetingSearchResponse["meetings"],
   from: LatLng,
   order: NearbyOrder,
   now: Date,
-  section: (meeting: V1MeetingSummary, upcoming: Date) => Section,
+  section: (meeting: MeetingSummary, upcoming: Date) => Section,
 ): Record<Exclude<Section, null>, NearbyMeeting[]> {
   const measured = meetings.flatMap((meeting) => {
     const upcoming = upcomingStart(meeting, now);
@@ -126,7 +126,7 @@ export function listNearby(
 // out from the answer the list already has: the server sends each place's meetings whatever their time, so nothing
 // more is asked of it.
 export function meetingsToTag(
-  meetings: V1MeetingSearchResponse["meetings"],
+  meetings: MeetingSearchResponse["meetings"],
   from: LatLng,
   now: Date,
   offered: (meeting: SearchMeeting) => boolean,

@@ -38,8 +38,8 @@ export default function SupportPage() {
       </p>
       <h3>A meeting&apos;s details are wrong</h3>
       <p>
-        Listings come from the local intergroup or service entity. Please let them know. The app picks up
-        their changes within about a week.
+        Listings come from the local intergroup, NA region or service entity. Please let them know. The app
+        picks up their changes within about a week.
       </p>
       <h3>Does the app know who I am?</h3>
       <p>
@@ -49,7 +49,7 @@ export default function SupportPage() {
       </p>
 
       <h2>Opting out</h2>
-      <h3>For intergroups and other service entities</h3>
+      <h3>For intergroups, NA regions and other service entities</h3>
       <p>
         If you publish a meeting list and don&apos;t want {BRAND.name} to use it, email {email} with your
         website or list address, and we&apos;ll act on it within a few days. Once we do, we stop using your

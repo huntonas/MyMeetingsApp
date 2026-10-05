@@ -14,7 +14,7 @@ import { launchNearby } from "./render-app";
 // the meetings nearby whose tagging window is open, the latest first, worked out on the phone from the search's answer.
 
 let api: TestApi;
-const SEARCH = "/api/v1/meetings/search";
+const SEARCH = "/api/v2/meetings/search";
 const HEADING = "Went to a meeting? Tag it";
 
 // Wednesday 7 October 2026, 10:17 PM in Chicago, the suite's zone and the fixtures'.
@@ -119,10 +119,9 @@ describe("Went to a meeting? Tag it", () => {
       "Thursday Group",
     ]);
     expect(screen.getByText("Started in the last 36 hours.")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: /^Wednesday Late Group, Wed 9:00 PM, / })).toHaveProp(
-      "accessibilityHint",
-      "Opens the meeting's details",
-    );
+    expect(
+      screen.getByRole("button", { name: /^Wednesday Late Group, AA meeting, Wed 9:00 PM, / }),
+    ).toHaveProp("accessibilityHint", "Opens the meeting's details");
     // Worked out from the search the list already made: nothing more is asked of the server.
     expect(api.requests.map((request) => request.path).sort()).toEqual([
       "/api/v1/config",
@@ -257,7 +256,7 @@ describe("Went to a meeting? Tag it", () => {
 
   it("opens the meeting's page to tag it, and leaves it out once tagged", async () => {
     const { id, ...rest } = wednesdayLate;
-    api.reply(`/api/v1/meetings/${id}`, { meeting: meeting({ ...rest, id }) });
+    api.reply(`/api/v2/meetings/${id}`, { meeting: meeting({ ...rest, id }) });
     api.reply("/api/v1/tags", { meetingId: id, tags: [{ slug: "quiet", count: 1 }] }, 201, "POST");
     await searchWith([thursday, wednesdayLate]);
     await fireEvent.press(await screen.findByRole("button", { name: /^Wednesday Late Group, / }));

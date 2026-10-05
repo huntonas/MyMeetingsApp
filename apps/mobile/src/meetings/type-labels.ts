@@ -1,9 +1,8 @@
-import type { MEETING_TYPE_CODES } from "@mymeetingapp/shared";
+import type { MeetingTypeCode } from "@mymeetingapp/shared";
 
-export type MeetingTypeCode = (typeof MEETING_TYPE_CODES)[number];
-
-// English names from the Meeting Guide spec (github.com/code4recovery/spec data/types.json, 2026-09), one per code the
-// API returns. A code added to the shared list fails typecheck here until it has a name.
+// English names from the Meeting Guide spec (github.com/code4recovery/spec data/types.json, 2026-09), and NA's
+// literature formats (BMLT world_id), one per code the API returns. A code added to the shared list fails typecheck
+// here until it has a name.
 export const TYPE_LABELS: Record<MeetingTypeCode, string> = {
   "11": "11th Step Meditation",
   "12x12": "12 Steps & 12 Traditions",
@@ -21,6 +20,7 @@ export const TYPE_LABELS: Record<MeetingTypeCode, string> = {
   BG: "Bulgarian",
   BI: "Bisexual",
   BRK: "Breakfast",
+  BT: "Basic Text",
   C: "Closed",
   CAN: "Candlelight",
   CF: "Child-Friendly",
@@ -45,7 +45,9 @@ export const TYPE_LABELS: Record<MeetingTypeCode, string> = {
   HU: "Hungarian",
   IS: "Icelandic",
   ITA: "Italian",
+  IW: "It Works: How and Why",
   JA: "Japanese",
+  JFT: "Just for Today",
   KA: "Georgian",
   KOR: "Korean",
   L: "Lesbian",
@@ -80,6 +82,7 @@ export const TYPE_LABELS: Record<MeetingTypeCode, string> = {
   SP: "Speaker",
   ST: "Step Study",
   SV: "Swedish",
+  SWG: "Step Working Guide",
   T: "Transgender",
   TH: "Thai",
   TL: "Tagalog",
@@ -109,4 +112,17 @@ export const FILTER_TYPES: readonly MeetingTypeCode[] = [
   "B",
   "ST",
   "MED",
+  "BT",
+  "JFT",
+  "IW",
+  "SWG",
 ];
+
+function isKnownType(code: string): code is MeetingTypeCode {
+  return Object.hasOwn(TYPE_LABELS, code);
+}
+
+// /api/v2's types are open-ended: a type this build has no name for isn't shown.
+export function typeLabel(code: string): string | null {
+  return isKnownType(code) ? TYPE_LABELS[code] : null;
+}

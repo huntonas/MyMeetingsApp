@@ -1,4 +1,4 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
 
@@ -24,7 +24,7 @@ afterEach(async () => {
   await api.close();
 });
 
-const online = (id: string, change: Partial<V1MeetingSummary>) =>
+const online = (id: string, change: Partial<MeetingSummary>) =>
   meeting({ id, attendance: "online", conferenceUrl: "https://zoom.us/j/1", locationName: null, ...change });
 
 // Every fixture meeting carries the fixture's one tag, which its card reads out after its name and time.
@@ -43,12 +43,12 @@ const NIGHT_OWLS = online("33333333-3333-4333-8333-333333333333", {
   endTime: null,
 });
 
-function replyDay(day: number, meetings: V1MeetingSummary[]) {
-  api.reply(`/api/v1/meetings/online?day=${String(day)}`, { meetings });
+function replyDay(day: number, meetings: MeetingSummary[]) {
+  api.reply(`/api/v2/meetings/online?day=${String(day)}`, { meetings });
 }
 
 // The phone's yesterday, today and tomorrow: a meeting's own weekday can differ from the phone's by one.
-function replyDays(monday: V1MeetingSummary[]) {
+function replyDays(monday: MeetingSummary[]) {
   replyDay(0, []);
   replyDay(1, monday);
   replyDay(2, []);
@@ -56,7 +56,7 @@ function replyDays(monday: V1MeetingSummary[]) {
 
 const card = (name: string) => screen.findByRole("button", { name });
 const header = (name: string) => screen.queryByRole("header", { name });
-const onlineRequests = () => api.requests.filter((r) => r.path.startsWith("/api/v1/meetings/online")).length;
+const onlineRequests = () => api.requests.filter((r) => r.path.startsWith("/api/v2/meetings/online")).length;
 const vocabularyRequests = () => api.requests.filter((r) => r.path === "/api/v2/vocabulary").length;
 
 // AppState is what the app hands foreground changes off to; the spy lets a test play them.
@@ -99,10 +99,10 @@ describe("the Online tab", () => {
       }),
     ]);
     await renderApp("/online");
-    expect(await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     // 7:30 PM in New York is 6:30 PM on the phone.
-    expect(await card(`East Coast Speakers, Started 6:30 PM, ${WELCOMING}`)).toBeOnTheScreen();
-    expect(await card(`Night Owls, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`East Coast Speakers, AA meeting, Started 6:30 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Night Owls, AA meeting, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(header("Happening now")).toBeOnTheScreen();
     expect(header("Starting in the next 2 hours")).toBeOnTheScreen();
     expect(screen.queryByText("Late Book Study")).toBeNull();
@@ -117,7 +117,7 @@ describe("the Online tab", () => {
       online("55555555-5555-4555-8555-555555555555", { name: "Sunday Sunrise", day: 0, time: "00:30" }),
     ]);
     await renderApp("/online");
-    expect(await card(`Sunday Sunrise, Starts 12:30 AM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Sunday Sunrise, AA meeting, Starts 12:30 AM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(header("Starting in the next 2 hours")).toBeOnTheScreen();
     expect(header("Happening now")).toBeNull();
   });
@@ -135,7 +135,7 @@ describe("the Online tab", () => {
     replyDay(0, []);
     replyDay(1, []);
     await renderApp("/online");
-    expect(await card(`Saturday Late, Started 11:30 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Saturday Late, AA meeting, Started 11:30 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(header("Happening now")).toBeOnTheScreen();
     expect(header("Starting in the next 2 hours")).toBeNull();
   });
@@ -157,7 +157,9 @@ describe("the Online tab", () => {
     // A slug the phone has no label for yet waits for the next tag-list read instead of showing raw, and doesn't
     // take one of the three places.
     expect(
-      await card("Early Evening, Started 6:00 PM, Welcoming 14 people, Quiet 1 person, Coffee 3 people"),
+      await card(
+        "Early Evening, AA meeting, Started 6:00 PM, Welcoming 14 people, Quiet 1 person, Coffee 3 people",
+      ),
     ).toBeOnTheScreen();
     // The chips are read out as part of the card, not one by one.
     expect(screen.queryByText("Welcoming 14")).toBeNull();
@@ -171,9 +173,9 @@ describe("the Online tab", () => {
 
   it("leaves the tab for the meeting's page when its card is tapped", async () => {
     replyDays([EARLY_EVENING]);
-    api.reply(`/api/v1/meetings/${EARLY_EVENING.id}`, { meeting: EARLY_EVENING });
+    api.reply(`/api/v2/meetings/${EARLY_EVENING.id}`, { meeting: EARLY_EVENING });
     const app = await renderApp("/online");
-    await fireEvent.press(await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`));
+    await fireEvent.press(await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`));
     await waitFor(() => {
       expect(app.getPathname()).toBe("/meeting/11111111-1111-4111-8111-111111111111");
     });
@@ -204,10 +206,10 @@ describe("the Online tab", () => {
     await writeCache("online:1", { meetings: [EARLY_EVENING] });
     setNow(NOW);
     replyDay(0, []);
-    api.reply("/api/v1/meetings/online?day=1", serverError, 500);
-    api.reply("/api/v1/meetings/online?day=2", serverError, 500);
+    api.reply("/api/v2/meetings/online?day=1", serverError, 500);
+    api.reply("/api/v2/meetings/online?day=2", serverError, 500);
     await renderApp("/online");
-    expect(await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(
       screen.getByText(
         "Showing the copy saved today at 3:40 PM. My Meeting App is having trouble right now, so it may be out of date.",
@@ -218,14 +220,14 @@ describe("the Online tab", () => {
   it("asks again, and moves on to the current time, each time the tab comes back into view", async () => {
     replyDays([EARLY_EVENING]);
     await renderApp("/online");
-    await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`);
+    await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`);
     // The list shows only once all three days have answered, so nothing else is on its way.
     expect(onlineRequests()).toBe(3);
     replyDays([EARLY_EVENING, NIGHT_OWLS]);
     await fireEvent.press(screen.getByLabelText("Me"));
     setNow("2026-10-06T00:15:00Z"); // 7:15 PM: Early Evening is over
     await fireEvent.press(await screen.findByLabelText("Online"));
-    expect(await card(`Night Owls, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Night Owls, AA meeting, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(screen.queryByText("Early Evening")).toBeNull();
     await waitFor(() => {
       expect(onlineRequests()).toBe(6);
@@ -236,7 +238,7 @@ describe("the Online tab", () => {
     const tell = spyOnAppState();
     replyDays([EARLY_EVENING, NIGHT_OWLS]);
     await renderApp("/online");
-    expect(await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     await tell("background");
     setNow("2026-10-06T00:30:00Z"); // 7:30 PM: Early Evening is over
     await tell("active");
@@ -246,14 +248,14 @@ describe("the Online tab", () => {
     await waitFor(() => {
       expect(screen.queryByText("Early Evening")).toBeNull();
     });
-    expect(await card(`Night Owls, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Night Owls, AA meeting, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(header("Happening now")).toBeNull();
   });
 
   it("moves on each minute while the tab is in view", async () => {
     replyDays([{ ...EARLY_EVENING, endTime: "18:31" }]);
     await renderApp("/online");
-    await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`);
+    await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`);
     await fireEvent.press(screen.getByLabelText("Me"));
     // The tick starts each time the tab comes into view, so it's brought back into view on a clock whose intervals
     // are fake too. RNTL's waits poll with setInterval, so nothing waits until the clock is back to CLOCK_ONLY.
@@ -267,7 +269,7 @@ describe("the Online tab", () => {
     expect(screen.queryByText("Early Evening")).toBeNull();
     // Let the read that coming into view started land before the test ends.
     setNow(new Date(Date.now()).toISOString());
-    expect(await card(`Night Owls, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
+    expect(await card(`Night Owls, AA meeting, Starts 8:00 PM, ${WELCOMING}`)).toBeOnTheScreen();
     expect(screen.queryByText("Early Evening")).toBeNull();
   });
 
@@ -275,7 +277,7 @@ describe("the Online tab", () => {
     const tell = spyOnAppState();
     replyDays([EARLY_EVENING]);
     await renderApp("/online");
-    await card(`Early Evening, Started 6:00 PM, ${WELCOMING}`);
+    await card(`Early Evening, AA meeting, Started 6:00 PM, ${WELCOMING}`);
     expect(vocabularyRequests()).toBe(1);
     api.reply("/api/v2/vocabulary", {
       tags: VOCABULARY.tags.map((tag) =>
@@ -287,7 +289,9 @@ describe("the Online tab", () => {
     await tell("active");
     await tell("background");
     await tell("active");
-    expect(await card("Early Evening, Started 6:00 PM, Warm welcome 14 people")).toBeOnTheScreen();
+    expect(
+      await card("Early Evening, AA meeting, Started 6:00 PM, Warm welcome 14 people"),
+    ).toBeOnTheScreen();
     expect(vocabularyRequests()).toBe(2);
   });
 });

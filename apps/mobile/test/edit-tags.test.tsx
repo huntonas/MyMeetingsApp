@@ -12,7 +12,7 @@ import { launchReadsLanded, renderApp } from "./render-app";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const SURVIVOR = "9b2e4c1a-5d6f-4a7b-8c9d-0e1f2a3b4c5d";
-const PATH = `/api/v1/meetings/${ID}`;
+const PATH = `/api/v2/meetings/${ID}`;
 const TAG_PATH = `/api/v1/tags/${ID}`;
 // Nooners (fixtures.ts) meets Mondays 12:00–1:00 PM in Chicago: Monday 5 October 2026 at noon is 17:00 UTC.
 const STARTED = "2026-10-05T17:00:00Z";
@@ -365,7 +365,7 @@ describe("a meeting this phone tagged", () => {
   // The page's id still names the meeting the phone tagged; the server answered for the one it merged into.
   it("keeps the first date when the meeting merged before an edit landed", async () => {
     api.reply(TAG_PATH, { meetingId: SURVIVOR, tags: COUNTS }, 200, "PUT");
-    api.reply(`/api/v1/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) });
+    api.reply(`/api/v2/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) });
     await openTagged();
     await fireEvent.press(screen.getByRole("button", { name: "Edit my tags" }));
     await choose("Quiet");
@@ -416,7 +416,7 @@ describe("a phone whose record is missing or moved", () => {
 
   it("follows a meeting that merged before the write landed", async () => {
     api.reply("/api/v1/tags", { meetingId: SURVIVOR, tags: COUNTS }, 201, "POST");
-    api.reply(`/api/v1/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) });
+    api.reply(`/api/v2/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) });
     setNow(STARTED);
     const app = await renderApp(`/meeting/${ID}`);
     await screen.findByLabelText("Welcoming 14 people");
@@ -440,7 +440,7 @@ describe("a phone whose record is missing or moved", () => {
 
   it("stays on the merged meeting when the new counts can't be saved", async () => {
     api.reply("/api/v1/tags", { meetingId: SURVIVOR, tags: COUNTS }, 201, "POST");
-    api.reply(`/api/v1/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) });
+    api.reply(`/api/v2/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR, tags: COUNTS }) });
     await failStatements("runAsync", "update cache_entries");
     setNow(STARTED);
     const app = await renderApp(`/meeting/${ID}`);
@@ -458,7 +458,7 @@ describe("a phone whose record is missing or moved", () => {
 });
 
 describe("a write that finds the meeting merged", () => {
-  const SURVIVOR_PATH = `/api/v1/meetings/${SURVIVOR}`;
+  const SURVIVOR_PATH = `/api/v2/meetings/${SURVIVOR}`;
   const survivor = meeting({ id: SURVIVOR, name: "Nooners (merged)", tags: COUNTS });
 
   it("keeps the survivor's own saved copy rather than the old meeting's details", async () => {

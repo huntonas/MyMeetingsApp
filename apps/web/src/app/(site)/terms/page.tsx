@@ -17,17 +17,17 @@ export default function TermsPage() {
         them, you agree to these terms.
       </p>
 
-      <h2>Not affiliated with Alcoholics Anonymous</h2>
+      <h2>Not affiliated with Alcoholics Anonymous or Narcotics Anonymous</h2>
       <p>
         {BRAND.name} is an independent app. It is not affiliated with, endorsed by or approved by Alcoholics
-        Anonymous or A.A. World Services, Inc.
+        Anonymous, A.A. World Services, Inc., Narcotics Anonymous or NA World Services, Inc.
       </p>
 
       <h2>Listings can be out of date</h2>
       <p>
-        Meeting listings come from lists that intergroups and other service entities publish. They change
-        often, and we can&apos;t check them. A meeting may have moved, changed its time or stopped meeting.
-        When it matters, check with the group or the local intergroup.
+        Meeting listings come from lists that intergroups, NA regions and other service entities publish. They
+        change often, and we can&apos;t check them. A meeting may have moved, changed its time or stopped
+        meeting. When it matters, check with the group or the local intergroup.
       </p>
 
       <h2>Not medical advice</h2>
@@ -60,7 +60,7 @@ export default function TermsPage() {
         We&apos;ll post any change here with a new date. Questions go to{" "}
         <a href={`mailto:${BRAND.contactEmail}`}>{BRAND.contactEmail}</a>.
       </p>
-      <p className="fine-print">Updated 2 October 2026.</p>
+      <p className="fine-print">Updated 5 October 2026.</p>
     </>
   );
 }

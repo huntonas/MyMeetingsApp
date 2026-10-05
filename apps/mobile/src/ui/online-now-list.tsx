@@ -1,4 +1,4 @@
-import { V1OnlineMeetingsResponse } from "@mymeetingapp/shared";
+import { OnlineMeetingsResponse } from "@mymeetingapp/shared";
 import { useCallback, useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -16,7 +16,7 @@ const onlineRead = (day: number) =>
   ({
     kind: "onlineMeetings",
     key: `online:${String(day)}`,
-    schema: V1OnlineMeetingsResponse,
+    schema: OnlineMeetingsResponse,
     fetch: () => fetchOnlineMeetings(day),
   }) as const;
 

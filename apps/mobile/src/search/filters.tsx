@@ -1,8 +1,8 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import { FELLOWSHIPS, type MeetingSummary } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
 import { phoneClockTime, tomorrowOnPhoneClock } from "@/meetings/schedule";
-import type { MeetingTypeCode } from "@/meetings/type-labels";
+import { FILTER_TYPES } from "@/meetings/type-labels";
 
 // On the meeting's listed time. Night runs past midnight.
 export const TIMES_OF_DAY = {
@@ -17,24 +17,26 @@ export const TIME_ORDER: readonly TimeOfDay[] = ["morning", "afternoon", "evenin
 export interface MeetingFilters {
   days: readonly number[];
   times: readonly TimeOfDay[];
-  types: readonly MeetingTypeCode[];
+  types: readonly string[];
   tags: readonly string[];
+  fellowships: readonly string[];
 }
 
-export const NO_FILTERS: MeetingFilters = { days: [], times: [], types: [], tags: [] };
+export const NO_FILTERS: MeetingFilters = { days: [], times: [], types: [], tags: [], fellowships: [] };
 
 function inTime(time: string, { from, to }: { from: string; to: string }): boolean {
   return from < to ? time >= from && time < to : time >= from || time < to;
 }
 
-// Spec §7: filtering by day, time, type and tag happens on the phone. Days and times match any chosen; types and tags
-// must all be present.
-function matchesFilters(meeting: V1MeetingSummary, filters: MeetingFilters): boolean {
+// Spec §7: filtering by day, time, type, tag and fellowship happens on the phone. Days, times and fellowships match any
+// chosen; types and tags must all be present.
+function matchesFilters(meeting: MeetingSummary, filters: MeetingFilters): boolean {
   return (
     (filters.days.length === 0 || filters.days.includes(meeting.day)) &&
     (filters.times.length === 0 || filters.times.some((time) => inTime(meeting.time, TIMES_OF_DAY[time]))) &&
     filters.types.every((type) => meeting.types.includes(type)) &&
-    filters.tags.every((slug) => meeting.tags.some((tag) => tag.slug === slug))
+    filters.tags.every((slug) => meeting.tags.some((tag) => tag.slug === slug)) &&
+    (filters.fellowships.length === 0 || filters.fellowships.includes(meeting.fellowship))
   );
 }
 
@@ -56,22 +58,48 @@ function startingFilters(now: Date): MeetingFilters {
 // The groups the person has changed, each replacing its starting value; a group they haven't changed is absent.
 type Chosen = Partial<MeetingFilters>;
 
-const Filters = createContext<{ chosen: Chosen; choose: (groups: Chosen) => void }>({
-  chosen: {},
-  choose: () => undefined,
-});
+// What the latest answer holds, so the filter sheet offers only the types and fellowships that can match (spec §8).
+export interface Offered {
+  types: readonly string[];
+  fellowships: readonly string[];
+}
+const NOTHING_OFFERED: Offered = { types: [], fellowships: [] };
 
-// Held in memory only; filters are never saved (decision 9).
+// In the filter sheet's order: its types, then the known fellowships, then any this build doesn't know.
+export function offeredBy(meetings: readonly MeetingSummary[]): Offered {
+  const types = new Set(meetings.flatMap((meeting) => meeting.types));
+  const fellowships = new Set(meetings.map((meeting) => meeting.fellowship));
+  const known: readonly string[] = FELLOWSHIPS;
+  return {
+    types: FILTER_TYPES.filter((type) => types.has(type)),
+    fellowships: [
+      ...known.filter((slug) => fellowships.has(slug)),
+      ...[...fellowships].filter((slug) => !known.includes(slug)),
+    ],
+  };
+}
+
+const Filters = createContext<{
+  chosen: Chosen;
+  choose: (groups: Chosen) => void;
+  offered: Offered;
+  offer: (offered: Offered) => void;
+}>({ chosen: {}, choose: () => undefined, offered: NOTHING_OFFERED, offer: () => undefined });
+
+// Held in memory only, as what's offered is; filters are never saved (decision 9).
 export function FiltersProvider({ children }: { children: ReactNode }) {
   const [chosen, setChosen] = useState<Chosen>({});
+  const [offered, offer] = useState<Offered>(NOTHING_OFFERED);
   const value = useMemo(
     () => ({
       chosen,
       choose: (groups: Chosen) => {
         setChosen((before) => ({ ...before, ...groups }));
       },
+      offered,
+      offer,
     }),
-    [chosen],
+    [chosen, offered],
   );
   return <Filters.Provider value={value}>{children}</Filters.Provider>;
 }
@@ -98,25 +126,32 @@ export function filtering(chosen: Chosen, now: Date) {
   const starting = chosen.days === undefined && chosen.times === undefined;
   const todayEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, now);
   const tomorrowEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, todayEnds).getTime();
-  const section = (meeting: V1MeetingSummary, upcoming: Date): Section => {
+  const section = (meeting: MeetingSummary, upcoming: Date): Section => {
     if (!starting) return matchesFilters(meeting, filters) ? "listed" : null;
     if (!matchesFilters(meeting, { ...filters, days: [], times: [] })) return null;
     if (upcoming.getTime() < todayEnds.getTime()) return "listed";
     return upcoming.getTime() < tomorrowEnds ? "tomorrow" : null;
   };
   // Nothing chosen at all: the starting filters as they are.
-  const untouched = starting && filters.types.length === 0 && filters.tags.length === 0;
+  const untouched =
+    starting && filters.types.length === 0 && filters.tags.length === 0 && filters.fellowships.length === 0;
   return { filters, starting, untouched, section };
 }
 
 // The person's choices so far, for filtering() with the screen's own clock. setFilters changes only the groups it's
-// given: Clear filters gives all four, empty.
+// given: Clear filters gives all five, empty.
 export function useFilters() {
   const { chosen, choose } = useContext(Filters);
   return { chosen, setFilters: choose };
 }
 
+// Nearby offers its latest answer; the filter sheet reads it.
+export function useOffered() {
+  const { offered, offer } = useContext(Filters);
+  return { offered, offer };
+}
+
 // The groups with something chosen. The starting Day and Time count: they read as chosen pills.
-export function chosenGroups({ days, times, types, tags }: MeetingFilters): number {
-  return [days, times, types, tags].filter((group) => group.length > 0).length;
+export function chosenGroups({ days, times, types, tags, fellowships }: MeetingFilters): number {
+  return [days, times, types, tags, fellowships].filter((group) => group.length > 0).length;
 }

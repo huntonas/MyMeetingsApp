@@ -17,7 +17,7 @@ import { renderApp } from "./render-app";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const SURVIVOR = "9b2e4c1a-5d6f-4a7b-8c9d-0e1f2a3b4c5d";
-const PATH = `/api/v1/meetings/${ID}`;
+const PATH = `/api/v2/meetings/${ID}`;
 const WHEN = "Mondays, 12:00 PM to 1:00 PM";
 
 let api: TestApi;
@@ -34,7 +34,7 @@ afterEach(async () => {
   await api.close();
 });
 
-const meetingRequests = () => api.requests.filter((r) => r.path.startsWith("/api/v1/meetings/"));
+const meetingRequests = () => api.requests.filter((r) => r.path.startsWith("/api/v2/meetings/"));
 
 // AppState is what the app hands foreground changes off to; the spy lets a test play them.
 function spyOnAppState() {
@@ -113,7 +113,7 @@ describe("the meeting page", () => {
     expect(screen.getByText("St. Luke's")).toBeOnTheScreen();
     expect(screen.getByText("1 Main St, Nashville, TN 37203, USA")).toBeOnTheScreen();
     expect(screen.getByText("Side door, upstairs")).toBeOnTheScreen();
-    expect(screen.getByText("Open · Big Book")).toBeOnTheScreen();
+    expect(screen.getByText("AA · Open · Big Book")).toBeOnTheScreen();
     expect(screen.getByText("Nooners Group")).toBeOnTheScreen();
     // Owner decision, 2026-10-05: the app names AA only to say it isn't affiliated.
     expect(
@@ -144,6 +144,12 @@ describe("the meeting page", () => {
 
   // iOS titles the back button with the screen underneath, which here is the tab group, "(tabs)". The native header
   // isn't rendered in tests, so this reads what the header is told: the arrow alone (VoiceOver still says "Back").
+  it("labels an NA meeting, names NA's formats and leaves out a type this build doesn't know", async () => {
+    api.reply(PATH, { meeting: meeting({ fellowship: "na", types: ["O", "JFT", "ZZZ"] }) });
+    await renderApp(`/meeting/${ID}`);
+    expect(await screen.findByText("NA · Open · Just for Today")).toBeOnTheScreen();
+  });
+
   it("shows only the back arrow, never the tab group's name", async () => {
     // react-navigation passes the display mode to iOS 14 and later only.
     jest.spyOn(Platform, "Version", "get").mockReturnValue("26.5");
@@ -327,7 +333,7 @@ describe("the meeting page", () => {
     const db = await appDatabase();
     jest.spyOn(db, "withTransactionAsync").mockRejectedValueOnce(new Error("disk full"));
     api.reply(PATH, { meeting: meeting({ id: SURVIVOR, name: "Nooners (merged)" }) });
-    api.reply(`/api/v1/meetings/${SURVIVOR}`, {
+    api.reply(`/api/v2/meetings/${SURVIVOR}`, {
       meeting: meeting({ id: SURVIVOR, name: "Nooners (merged)" }),
     });
     const app = await renderApp(`/meeting/${ID}`);

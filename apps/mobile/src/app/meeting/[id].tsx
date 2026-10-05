@@ -1,4 +1,4 @@
-import type { V1MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
+import type { MeetingSummary, TagWriteResponse } from "@mymeetingapp/shared";
 import { router, useLocalSearchParams } from "expo-router";
 import { type ReactNode, useCallback, useEffect } from "react";
 import { ActivityIndicator, useWindowDimensions, View } from "react-native";
@@ -11,7 +11,8 @@ import { detailRead } from "@/meetings/detail-read";
 import { directionsUrl } from "@/meetings/directions";
 import { meetingMoved } from "@/meetings/merged";
 import { listedTime, WEEKDAYS, yourTime, zoneName } from "@/meetings/schedule";
-import { TYPE_LABELS } from "@/meetings/type-labels";
+import { fellowshipLabel } from "@/meetings/fellowship";
+import { typeLabel } from "@/meetings/type-labels";
 import { saveNewCounts } from "@/tagging/new-counts";
 import { useAttendanceCheck } from "@/tagging/use-attendance-check";
 import { AppText } from "@/ui/app-text";
@@ -52,7 +53,7 @@ const dialable = (phone: string) =>
     .replace(/\*/g, "%2A")}`;
 
 // Spec §5: every tag, with its count, in the server's order.
-function WhatPeopleSay({ meeting }: { meeting: V1MeetingSummary }) {
+function WhatPeopleSay({ meeting }: { meeting: MeetingSummary }) {
   const tags = useLabelledTags(meeting.tags);
   return (
     <Section title="What people say">
@@ -75,7 +76,7 @@ function MeetingInfo({
   onAnswered,
   notice,
 }: {
-  meeting: V1MeetingSummary;
+  meeting: MeetingSummary;
   onAnswered: (response: TagWriteResponse) => void;
   notice: Notice;
 }) {
@@ -138,11 +139,14 @@ function MeetingInfo({
           )}
         </Section>
       )}
-      {meeting.types.length > 0 && (
-        <Section title="Meeting type">
-          <AppText>{meeting.types.map((type) => TYPE_LABELS[type]).join(" · ")}</AppText>
-        </Section>
-      )}
+      <Section title="Meeting type">
+        <AppText>
+          {[
+            fellowshipLabel(meeting.fellowship),
+            ...meeting.types.map(typeLabel).filter((label) => label !== null),
+          ].join(" · ")}
+        </AppText>
+      </Section>
       <WhatPeopleSay meeting={meeting} />
       <YourTags meeting={meeting} onAnswered={onAnswered} notice={notice} />
       {(meeting.notes !== null || meeting.groupName !== null) && (

@@ -10,7 +10,7 @@ describe("the public site", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain(
-      "My Meeting App<!-- --> is not affiliated with or endorsed by Alcoholics Anonymous",
+      "My Meeting App<!-- --> is not affiliated with or endorsed by Alcoholics Anonymous, A.A. World Services, Inc., Narcotics Anonymous or NA World Services, Inc.",
     );
     expect(html).toContain('<meta name="application-name" content="My Meeting App"/>');
     expect(html).toContain('<a class="wordmark" href="/">My Meeting App</a>');

@@ -1,4 +1,4 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
@@ -12,7 +12,7 @@ import { attendanceOccurrence, checkablePlace } from "@/tagging/window";
 // tagging would, skips a group that opted out, tagging switched off and an app below the minimum version (offline
 // with no config it still checks, as writes still go). Keyed on the meeting's own fields rather than the object, so
 // new tag counts on the page never start a second look.
-export function useAttendanceCheck(meeting: V1MeetingSummary): void {
+export function useAttendanceCheck(meeting: MeetingSummary): void {
   const known = useFeaturesKnown();
   const { tagging } = useFeatures();
   const upgradeRequired = useUpgradeRequired();

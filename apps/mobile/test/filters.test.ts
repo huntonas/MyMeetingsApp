@@ -1,5 +1,5 @@
 import { milesLabel, radiusMiles } from "@/meetings/units";
-import { filtering, type MeetingFilters, NO_FILTERS } from "@/search/filters";
+import { filtering, type MeetingFilters, NO_FILTERS, offeredBy } from "@/search/filters";
 import { listNearby, type NearbyOrder } from "@/search/nearby";
 
 import { meeting, nearbyMeeting } from "./fixtures";
@@ -8,6 +8,23 @@ import { meeting, nearbyMeeting } from "./fixtures";
 const matchesFilters = (summary: ReturnType<typeof meeting>, filters: MeetingFilters) =>
   filtering(filters, new Date("2026-10-05T17:30:00Z")).section(summary, new Date("2026-10-12T17:30:00Z")) ===
   "listed";
+
+describe("offeredBy", () => {
+  it("offers each type and fellowship the answer holds, in the filter sheet's order", () => {
+    expect(
+      offeredBy([
+        meeting({ types: ["JFT", "O"], fellowship: "na" }),
+        meeting({ types: ["W"], fellowship: "aa" }),
+      ]),
+    ).toEqual({ types: ["O", "W", "JFT"], fellowships: ["aa", "na"] });
+  });
+
+  it("offers a fellowship this build doesn't know after the ones it does", () => {
+    expect(
+      offeredBy([meeting({ fellowship: "al-anon" }), meeting({ fellowship: "na" })]).fellowships,
+    ).toEqual(["na", "al-anon"]);
+  });
+});
 
 describe("filters the person has chosen", () => {
   const evening = meeting({
@@ -30,6 +47,9 @@ describe("filters the person has chosen", () => {
     [{ types: ["O", "W"] }, false],
     [{ tags: ["welcoming"] }, true],
     [{ tags: ["welcoming", "quiet"] }, false],
+    [{ fellowships: ["aa"] }, true],
+    [{ fellowships: ["na"] }, false],
+    [{ fellowships: ["aa", "na"] }, true],
   ] as const)("%j keeps it: %s", (change, kept) => {
     expect(matchesFilters(evening, { ...NO_FILTERS, ...change })).toBe(kept);
   });

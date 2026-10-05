@@ -1,3 +1,4 @@
+import { V1MeetingSummary } from "@mymeetingapp/shared";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react-native";
 
 import { pruneCache } from "@/cache/prune";
@@ -15,8 +16,8 @@ import { launchReadsLanded, renderApp } from "./render-app";
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const SURVIVOR = "9b2e4c1a-5d6f-4a7b-8c9d-0e1f2a3b4c5d";
 const OTHER = "22222222-2222-4222-8222-222222222222";
-const PATH = `/api/v1/meetings/${ID}`;
-const CARD = "Nooners, Mon 12:00 PM, St. Luke's, Welcoming 14 people";
+const PATH = `/api/v2/meetings/${ID}`;
+const CARD = "Nooners, AA meeting, Mon 12:00 PM, St. Luke's, Welcoming 14 people";
 const EMPTY = "Meetings you save appear here.";
 const GONE = {
   error: {
@@ -38,7 +39,7 @@ afterEach(async () => {
 });
 
 const meetingRequests = () =>
-  api.requests.filter((r) => r.path.startsWith("/api/v1/meetings/")).map((r) => r.path);
+  api.requests.filter((r) => r.path.startsWith("/api/v2/meetings/")).map((r) => r.path);
 
 describe("favoriteIds", () => {
   it("lists the newest saved first, and saving again doesn't move a meeting", async () => {
@@ -154,13 +155,13 @@ describe("the Saved tab", () => {
     setNow("2026-10-05T12:01:00Z");
     await setFavorite(OTHER, true);
     api.reply(PATH, { meeting: meeting() });
-    api.reply(`/api/v1/meetings/${OTHER}`, {
+    api.reply(`/api/v2/meetings/${OTHER}`, {
       meeting: meeting({ id: OTHER, name: "Early Birds", day: 2, time: "07:00" }),
     });
     await renderApp("/saved");
     expect(await screen.findByRole("button", { name: CARD })).toBeOnTheScreen();
     const earlyBirds = await screen.findByRole("button", {
-      name: "Early Birds, Tue 7:00 AM, St. Luke's, Welcoming 14 people",
+      name: "Early Birds, AA meeting, Tue 7:00 AM, St. Luke's, Welcoming 14 people",
     });
     expect(screen.getAllByRole("button", { name: /Welcoming 14 people$/ })).toEqual([
       earlyBirds,
@@ -175,11 +176,28 @@ describe("the Saved tab", () => {
     setNow("2026-10-06T20:00:00Z");
     await api.close();
     await renderApp("/saved");
-    expect(await screen.findByRole("button", { name: /^Nooners, Mon 12:00 PM/ })).toBeOnTheScreen();
+    expect(
+      await screen.findByRole("button", { name: /^Nooners, AA meeting, Mon 12:00 PM/ }),
+    ).toBeOnTheScreen();
     expect(
       screen.getByText(
         "Showing the copy saved yesterday at 3:00 PM. We couldn't reach My Meeting App, so it may be out of date.",
       ),
+    ).toBeOnTheScreen();
+    api = await startApi();
+  });
+
+  // Review Focus 4: a copy 1.0 saved has no fellowship, and every meeting 1.0 saw was AA's.
+  it("shows a meeting from a copy 1.0 saved, with no fellowship, as AA's", async () => {
+    setNow("2026-10-05T20:00:00Z");
+    await setFavorite(ID, true);
+    // 1.0 read /api/v1, whose contract has no fellowship.
+    await writeCache(`meeting:${ID}`, { meeting: V1MeetingSummary.parse(meeting()) });
+    setNow("2026-10-06T20:00:00Z");
+    await api.close();
+    await renderApp("/saved");
+    expect(
+      await screen.findByRole("button", { name: /^Nooners, AA meeting, Mon 12:00 PM/ }),
     ).toBeOnTheScreen();
     api = await startApi();
   });
@@ -227,8 +245,8 @@ describe("the Saved tab", () => {
     setNow("2026-10-05T12:02:00Z");
     await setFavorite(SURVIVOR, true);
     api.reply(PATH, { meeting: meeting({ id: SURVIVOR }) });
-    api.reply(`/api/v1/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR }) });
-    api.reply(`/api/v1/meetings/${OTHER}`, { meeting: meeting({ id: OTHER, name: "Early Birds" }) });
+    api.reply(`/api/v2/meetings/${SURVIVOR}`, { meeting: meeting({ id: SURVIVOR }) });
+    api.reply(`/api/v2/meetings/${OTHER}`, { meeting: meeting({ id: OTHER, name: "Early Birds" }) });
     await renderApp("/saved");
     await waitFor(async () => {
       expect(await favoriteIds()).toEqual([SURVIVOR, OTHER]);

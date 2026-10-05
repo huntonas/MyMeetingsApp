@@ -1,5 +1,5 @@
 import { BRAND } from "@mymeetingapp/shared";
-import type { V1MeetingSearchResponse } from "@mymeetingapp/shared";
+import type { MeetingSearchResponse } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
@@ -24,8 +24,10 @@ import {
   filtering,
   type MeetingFilters,
   NO_FILTERS,
+  offeredBy,
   tonight,
   useFilters,
+  useOffered,
 } from "@/search/filters";
 import {
   describedOrigin,
@@ -65,6 +67,7 @@ const ignoreRecentPlaceFailure = () => undefined;
 
 function FilterPills({ filters }: { filters: MeetingFilters }) {
   const pills = [
+    { name: "Fellowship", spoken: "Fellowship", count: filters.fellowships.length },
     { name: "Day", spoken: "Day", count: filters.days.length },
     { name: "Time", spoken: "Time", count: filters.times.length },
     { name: "Type", spoken: "Type", count: filters.types.length },
@@ -119,7 +122,7 @@ const counted = (count: number, one: string) => `${String(count)} ${one}${count 
 // neither Day nor Time is the person's own, the list is today from now on, whatever the pills say. Soonest, the
 // default, goes without saying, to keep the line short (owner decision, 2026-09-30).
 function summaryLine(count: number, filters: MeetingFilters, starting: boolean, order: NearbyOrder): string {
-  const more = [filters.types, filters.tags].filter((group) => group.length > 0).length;
+  const more = [filters.types, filters.tags, filters.fellowships].filter((group) => group.length > 0).length;
   const groups = chosenGroups(filters);
   const on = starting
     ? ["today from now", ...(more > 0 ? [counted(more, "more filter")] : [])]
@@ -209,8 +212,13 @@ function Results({
   const [nearPerson] = useState(asked.kind === "me");
   // The last meetings found, kept on the map while a pan's search loads so the markers don't flash off and on. Updated
   // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
-  const [lastFound, setLastFound] = useState<V1MeetingSearchResponse["meetings"]>([]);
+  const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
   if (state.status === "ready" && state.data.meetings !== lastFound) setLastFound(state.data.meetings);
+  // The filter sheet offers only what this answer holds (spec §8).
+  const { offer } = useOffered();
+  useEffect(() => {
+    offer(offeredBy(lastFound));
+  }, [lastFound, offer]);
   // What the filters keep, in order, and under the starting Day and Time tomorrow's after today's: worked out again only
   // when one of these changes, not on every render. The map shows the same meetings, both days' (their order means
   // nothing there), so late at night it isn't empty either; each marker says its day.

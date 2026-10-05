@@ -1,4 +1,4 @@
-import { V1MeetingDetailResponse } from "@mymeetingapp/shared";
+import { MeetingDetailResponse } from "@mymeetingapp/shared";
 
 import { fetchMeeting } from "@/api/reads";
 
@@ -7,6 +7,6 @@ export const detailRead = (id: string) =>
   ({
     kind: "meetingDetail",
     key: `meeting:${id}`,
-    schema: V1MeetingDetailResponse,
+    schema: MeetingDetailResponse,
     fetch: () => fetchMeeting(id),
   }) as const;

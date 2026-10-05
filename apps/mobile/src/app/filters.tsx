@@ -2,10 +2,19 @@ import { router } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
+import { fellowshipLabel } from "@/meetings/fellowship";
 import { FILTER_TYPES, TYPE_LABELS } from "@/meetings/type-labels";
 import { WEEKDAYS } from "@/meetings/schedule";
 import { groupByCategory, useVocabularyTags } from "@/meetings/vocabulary";
-import { filtering, NO_FILTERS, TIME_ORDER, TIMES_OF_DAY, toggled, useFilters } from "@/search/filters";
+import {
+  filtering,
+  NO_FILTERS,
+  TIME_ORDER,
+  TIMES_OF_DAY,
+  toggled,
+  useFilters,
+  useOffered,
+} from "@/search/filters";
 import { useNow } from "@/time/use-now";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
@@ -27,8 +36,26 @@ export default function FiltersScreen() {
   const { chosen, setFilters } = useFilters();
   const { filters } = filtering(chosen, useNow());
   const groups = groupByCategory(useVocabularyTags().values());
+  // Only what the latest answer holds; a chosen pill always shows, so it can be unchosen.
+  const { offered } = useOffered();
+  const fellowships = [...new Set([...offered.fellowships, ...filters.fellowships])];
+  const types = FILTER_TYPES.filter((type) => offered.types.includes(type) || filters.types.includes(type));
   return (
     <Screen>
+      {fellowships.length > 0 && (
+        <Group title="Fellowship">
+          {fellowships.map((fellowship) => (
+            <Pill
+              key={fellowship}
+              label={fellowshipLabel(fellowship)}
+              selected={filters.fellowships.includes(fellowship)}
+              onPress={() => {
+                setFilters({ fellowships: toggled(filters.fellowships, fellowship) });
+              }}
+            />
+          ))}
+        </Group>
+      )}
       <Group title="Day">
         {WEEKDAYS.map((name, day) => (
           <Pill
@@ -53,18 +80,20 @@ export default function FiltersScreen() {
           />
         ))}
       </Group>
-      <Group title="Meeting type">
-        {FILTER_TYPES.map((type) => (
-          <Pill
-            key={type}
-            label={TYPE_LABELS[type]}
-            selected={filters.types.includes(type)}
-            onPress={() => {
-              setFilters({ types: toggled(filters.types, type) });
-            }}
-          />
-        ))}
-      </Group>
+      {types.length > 0 && (
+        <Group title="Meeting type">
+          {types.map((type) => (
+            <Pill
+              key={type}
+              label={TYPE_LABELS[type]}
+              selected={filters.types.includes(type)}
+              onPress={() => {
+                setFilters({ types: toggled(filters.types, type) });
+              }}
+            />
+          ))}
+        </Group>
+      )}
       <AppText tone="muted">What people say</AppText>
       {groups.map((group) => (
         <Group key={group.category} title={group.title}>

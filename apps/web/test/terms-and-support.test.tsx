@@ -10,8 +10,8 @@ describe("the terms of use", () => {
   const text = renderText(<TermsPage />);
 
   it.each([
-    "Updated 2 October 2026.",
-    "not affiliated with, endorsed by or approved by Alcoholics Anonymous or A.A. World Services, Inc.",
+    "Updated 5 October 2026.",
+    "not affiliated with, endorsed by or approved by Alcoholics Anonymous, A.A. World Services, Inc., Narcotics Anonymous or NA World Services, Inc.",
     "Listings can be out of date",
     "isn't medical advice",
     "governed by the laws of the State of Tennessee",
@@ -46,7 +46,7 @@ describe("the support page", () => {
 
   // catch-up.test.tsx checks how long each takes to reach the app.
   it("explains how an intergroup or other service entity stops the app using its list", () => {
-    expect(text).toContain("For intergroups and other service entities");
+    expect(text).toContain("For intergroups, NA regions and other service entities");
     expect(text).toContain("we'll act on it within a few days");
   });
 

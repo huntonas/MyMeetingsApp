@@ -11,25 +11,24 @@ const HOUR_MS = 60 * 60 * 1000;
 // tab's button (delete-all-my-tags.tsx).
 const APP_LABELS = ["Went to a meeting? Tag it", "Delete all my tags"];
 
+const DISCLAIMER =
+  "not affiliated with or endorsed by Alcoholics Anonymous, A.A. World Services, Inc., Narcotics Anonymous or NA World Services, Inc.";
+
 // What every store's description must say, and say as the app does. Each store's listing test calls this inside its
 // own describe block.
 export function describesTheAppAsItIs(description: () => string): void {
-  it("says it isn't AA's, isn't medical advice, and where help is", () => {
-    expect(description()).toContain(
-      "not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services, Inc.",
-    );
+  it("says it isn't AA's or NA's, isn't medical advice, and where help is", () => {
+    expect(description()).toContain(DISCLAIMER);
     expect(description()).toContain("The app isn't medical advice.");
     expect(description()).toContain("the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline");
   });
 
-  // Owner decision, 2026-10-05: "recovery meetings", not "AA meetings". The AA name is AA World Services' mark and
-  // the Sixth Tradition keeps AA from lending it to an outside enterprise, so only the disclaimer names AA.
-  it("names AA only to say it isn't affiliated", () => {
-    const rest = description().replace(
-      "not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services, Inc.",
-      "",
-    );
-    expect(rest).not.toMatch(/\bA\.?A\b|Alcoholics Anonymous/);
+  // Owner decision, 2026-10-05: "recovery meetings", not "AA meetings". The AA and NA names are their World Services'
+  // marks, and their Sixth Traditions keep them from lending them to an outside enterprise, so the names appear only in
+  // the disclaimer and where the listing says which meetings it lists.
+  it("names AA and NA only to say it isn't affiliated, and which meetings it lists", () => {
+    const rest = description().replace(DISCLAIMER, "").replace("AA and NA meetings", "");
+    expect(rest).not.toMatch(/\bA\.?A\b|Alcoholics Anonymous|\bN\.?A\b|Narcotics Anonymous/);
   });
 
   // Nearby's "Search farther" goes as far as WIDER_SEARCH_RADIUS_KM, which the app shows as whole miles.

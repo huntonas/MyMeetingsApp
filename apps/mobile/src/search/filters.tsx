@@ -1,8 +1,7 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 
 import { phoneClockTime, tomorrowOnPhoneClock } from "@/meetings/schedule";
-import type { MeetingTypeCode } from "@/meetings/type-labels";
 
 // On the meeting's listed time. Night runs past midnight.
 export const TIMES_OF_DAY = {
@@ -17,7 +16,7 @@ export const TIME_ORDER: readonly TimeOfDay[] = ["morning", "afternoon", "evenin
 export interface MeetingFilters {
   days: readonly number[];
   times: readonly TimeOfDay[];
-  types: readonly MeetingTypeCode[];
+  types: readonly string[];
   tags: readonly string[];
 }
 
@@ -29,7 +28,7 @@ function inTime(time: string, { from, to }: { from: string; to: string }): boole
 
 // Spec §7: filtering by day, time, type and tag happens on the phone. Days and times match any chosen; types and tags
 // must all be present.
-function matchesFilters(meeting: V1MeetingSummary, filters: MeetingFilters): boolean {
+function matchesFilters(meeting: MeetingSummary, filters: MeetingFilters): boolean {
   return (
     (filters.days.length === 0 || filters.days.includes(meeting.day)) &&
     (filters.times.length === 0 || filters.times.some((time) => inTime(meeting.time, TIMES_OF_DAY[time]))) &&
@@ -98,7 +97,7 @@ export function filtering(chosen: Chosen, now: Date) {
   const starting = chosen.days === undefined && chosen.times === undefined;
   const todayEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, now);
   const tomorrowEnds = tomorrowOnPhoneClock(TIMES_OF_DAY.night.to, todayEnds).getTime();
-  const section = (meeting: V1MeetingSummary, upcoming: Date): Section => {
+  const section = (meeting: MeetingSummary, upcoming: Date): Section => {
     if (!starting) return matchesFilters(meeting, filters) ? "listed" : null;
     if (!matchesFilters(meeting, { ...filters, days: [], times: [] })) return null;
     if (upcoming.getTime() < todayEnds.getTime()) return "listed";

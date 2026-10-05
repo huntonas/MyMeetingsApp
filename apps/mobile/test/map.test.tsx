@@ -19,7 +19,7 @@ import { setPlace } from "./native/native-location";
 import { launchNearby } from "./render-app";
 
 let api: TestApi;
-const SEARCH = "/api/v1/meetings/search";
+const SEARCH = "/api/v2/meetings/search";
 const searchBodies = () =>
   api.requests
     .filter((request) => request.path === SEARCH)
@@ -184,8 +184,8 @@ describe("the results map", () => {
     expect(initialRegion.longitude).toBe(-83.9705);
     expect(initialRegion.latitudeDelta).toBeCloseTo(0.4492, 4);
     expect(initialRegion.longitudeDelta).toBeCloseTo(0.5535, 4);
-    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Near Group, Mon 8:00 AM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Near Group, AA, Mon 8:00 AM" })).toBeOnTheScreen();
     expect(screen.queryByText("Unplaced Group")).toBeNull();
     expect(screen.queryByText("Half Placed Group")).toBeNull();
     expect(screen.getByRole("button", { name: "Map" })).toBeSelected();
@@ -197,9 +197,9 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(screen.getByText("Near this map area")).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeNull();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
     for (const body of searchBodies()) expect(JSON.stringify(body)).not.toMatch(/35\.801|83\.902/);
     // The same map, never remounted by the search, and never handed a region (which would move it): the person's
@@ -212,7 +212,7 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     await moveTo(map, { latitude: 35.8049, longitude: -83.9049, latitudeDelta: 0.2, longitudeDelta: 0.3 });
     await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
@@ -239,11 +239,11 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     await fireEvent(map, "regionChangeComplete", { ...PAN, latitudeDelta: 0.17 });
     await waitForSearchesToSettle();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
-    expect(screen.getByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
   });
 
   // MapKit can report a region while the fingers are still down, when a pinch or drag pauses; the report as they lift
@@ -253,11 +253,11 @@ describe("the results map", () => {
     api.reply(SEARCH, { meetings: [hill] });
     await fireEvent(map, "touchStart");
     await fireEvent(map, "regionChangeComplete", PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     api.reply(SEARCH, { meetings: [ridge] });
     await fireEvent(map, "touchMove");
     await fireEvent(map, "regionChangeComplete", RIDGE);
-    expect(await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Ridge Group, AA, Mon 12:00 PM" })).toBeOnTheScreen();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY, RIDGE_BODY]);
   });
 
@@ -326,10 +326,10 @@ describe("the results map", () => {
     const answerPan = api.answerLater(SEARCH);
     await moveTo(map, PAN);
     expect(await screen.findByLabelText("Searching")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     answerPan({ meetings: [hill] });
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeNull();
   });
 
   it("says plainly when a map area has no in-person meetings", async () => {
@@ -367,9 +367,9 @@ describe("the results map", () => {
     await fireEvent.press(screen.getByRole("checkbox", { name: "Tuesday" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     expect(await screen.findByText("No meetings match your filters.")).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
-    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.queryByText("No meetings match your filters.")).toBeNull();
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
@@ -386,7 +386,7 @@ describe("the results map", () => {
     // The list's link to the Online tab isn't laid over the map.
     expect(screen.queryByRole("button", { name: /^Online now/ })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Clear" }));
-    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.queryByText(/^No more meetings/)).toBeNull();
   });
 
@@ -399,9 +399,9 @@ describe("the results map", () => {
     await fireEvent.changeText(await screen.findByLabelText("Search for a place"), "Maryville, TN");
     await fireEvent.press(screen.getByRole("button", { name: "Search" }));
     await fireEvent.press(await screen.findByRole("button", { name: "Map" }));
-    expect(await screen.findByRole("button", { name: "Tuesday Group, Tue 7:00 AM" })).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Wednesday Group, Wed 7:00 AM" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Tuesday Group, AA, Tue 7:00 AM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Wednesday Group, AA, Wed 7:00 AM" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeNull();
     expect(screen.queryByText(/^No /)).toBeNull();
   });
 
@@ -416,7 +416,7 @@ describe("the results map", () => {
     });
     api.reply(SEARCH, { meetings: [ridge] });
     await moveTo(map, { latitude: 35.9, longitude: -84.1, latitudeDelta: 0.2, longitudeDelta: 0.3 });
-    expect(await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Ridge Group, AA, Mon 12:00 PM" })).toBeOnTheScreen();
     answerFirstPan({ meetings: [hill] });
     // The first pan's answer has arrived and been saved on the phone; it must not take the screen.
     await waitFor(async () => {
@@ -431,12 +431,12 @@ describe("the results map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     await fireEvent.press(screen.getByRole("button", { name: "List" }));
     expect(await screen.findByText("Hill Group")).toBeOnTheScreen();
     expect(screen.queryByTestId("results-map")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(mapProps().initialRegion).toEqual(PAN);
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY]);
   });
@@ -448,9 +448,9 @@ describe("the results map", () => {
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Morning" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Near Group, Mon 8:00 AM" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Near Group, AA, Mon 8:00 AM" })).toBeNull();
     });
-    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.getByTestId("results-map")).toBeOnTheScreen();
   });
 
@@ -477,25 +477,27 @@ describe("the results map", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Search" }));
     await screen.findByText("Late Group");
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
-    expect(await screen.findByRole("button", { name: "Late Group, Mon 11:00 PM" })).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Late Group, AA, Mon 11:00 PM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Small Hours Group, AA, Mon 12:30 AM" })).toBeNull();
     await openFilters();
     await fireEvent.press(screen.getByRole("button", { name: "Type filters" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Open" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
     expect(await screen.findByRole("button", { name: "Type filters, 1 chosen" })).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Late Group, Mon 11:00 PM" })).toBeOnTheScreen();
-    expect(screen.queryByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Late Group, AA, Mon 11:00 PM" })).toBeOnTheScreen();
+    expect(screen.queryByRole("button", { name: "Small Hours Group, AA, Mon 12:30 AM" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Day filters, 1 chosen" }));
     await fireEvent.press(await screen.findByRole("checkbox", { name: "Tuesday" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show meetings" }));
-    expect(await screen.findByRole("button", { name: "Small Hours Group, Mon 12:30 AM" })).toBeOnTheScreen();
+    expect(
+      await screen.findByRole("button", { name: "Small Hours Group, AA, Mon 12:30 AM" }),
+    ).toBeOnTheScreen();
   });
 
   it("opens a meeting from its marker", async () => {
-    api.reply(`/api/v1/meetings/${far.id}`, { meeting: far });
+    api.reply(`/api/v2/meetings/${far.id}`, { meeting: far });
     const { app } = await openMap();
-    await fireEvent.press(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Far Group, AA, Mon 7:00 PM" }));
     await waitFor(() => {
       expect(app.getPathname()).toBe("/meeting/11111111-1111-4111-8111-111111111111");
     });
@@ -512,12 +514,12 @@ describe("going back after moving the map", () => {
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
     // The pan's answer replaces the place's saved copy (only the last search is kept), so going back asks again.
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(screen.getByText("Near this map area")).toBeOnTheScreen();
     expect(backTo("Maryville, TN")).toHaveProp("accessibilityHint", "Searches near Maryville, TN again");
     api.reply(SEARCH, { meetings: [far, near] });
     await fireEvent.press(backTo("Maryville, TN"));
-    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: /^Back to/ })).toBeNull();
     expect(searchBodies()).toEqual([FIRST_BODY, PAN_BODY, FIRST_BODY]);
@@ -536,13 +538,13 @@ describe("going back after moving the map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     api.reply(SEARCH, { meetings: [ridge] });
     await moveTo(map, { latitude: 35.9, longitude: -84.1, latitudeDelta: 0.2, longitudeDelta: 0.3 });
-    await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" });
+    await screen.findByRole("button", { name: "Ridge Group, AA, Mon 12:00 PM" });
     api.reply(SEARCH, { meetings: [far] });
     await fireEvent.press(backTo("Maryville, TN"));
-    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
     expect(searchBodies().at(-1)).toEqual(FIRST_BODY);
   });
@@ -551,7 +553,7 @@ describe("going back after moving the map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     await fireEvent.press(screen.getByRole("button", { name: "List" }));
     expect(await screen.findByText("Hill Group")).toBeOnTheScreen();
     api.reply(SEARCH, { meetings: [far] });
@@ -579,10 +581,12 @@ describe("going back after moving the map", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     const buttons = screen.getAllByRole("button").map((button) => String(button.props.accessibilityLabel));
     expect(buttons.indexOf("Back to Maryville, TN")).toBeGreaterThan(-1);
-    expect(buttons.indexOf("Back to Maryville, TN")).toBeLessThan(buttons.indexOf("Hill Group, Mon 6:30 PM"));
+    expect(buttons.indexOf("Back to Maryville, TN")).toBeLessThan(
+      buttons.indexOf("Hill Group, AA, Mon 6:30 PM"),
+    );
     let layer = backTo("Maryville, TN");
     while (layer.parent !== null && layer.parent !== map.parent) layer = layer.parent;
     expect(layer).toHaveStyle({ position: "absolute", zIndex: 1 });
@@ -612,14 +616,14 @@ describe("going back after moving the map", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(await screen.findByTestId("results-map"), PAN);
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
     expect(backTo("near you")).toHaveProp("accessibilityHint", "Searches near you again");
     // The person has since moved, from Nashville to Murfreesboro: near them means where they are now.
     setDevicePosition({ latitude: 35.8456, longitude: -86.3903 });
     api.reply(SEARCH, { meetings: [far] });
     await fireEvent.press(backTo("near you"));
     expect(await screen.findByText("Near you")).toBeOnTheScreen();
-    expect(await screen.findByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(searchBodies()).toEqual([
       { lat: 36.16, lng: -86.78, radiusKm: 25 },
       PAN_BODY,
@@ -641,7 +645,7 @@ describe("going back near the person while the phone is slow to find itself", ()
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(await screen.findByTestId("results-map"), PAN);
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
     const slow = later<{ latitude: number; longitude: number }>();
     setDevicePosition(slow.promise);
     await fireEvent.press(screen.getByRole("button", { name: "Back to near you" }));
@@ -660,11 +664,11 @@ describe("going back near the person while the phone is slow to find itself", ()
     const slow = await goBackSlowly();
     api.reply(SEARCH, { meetings: [ridge] });
     await moveTo(screen.getByTestId("results-map"), RIDGE);
-    expect(await screen.findByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Ridge Group, AA, Mon 12:00 PM" })).toBeOnTheScreen();
     await deliver(slow);
     await waitForSearchesToSettle();
     expect(screen.getByText("Near this map area")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Ridge Group, Mon 12:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Ridge Group, AA, Mon 12:00 PM" })).toBeOnTheScreen();
     expect(searchBodies()).toEqual([NEAR_YOU_BODY, PAN_BODY, RIDGE_BODY]);
   });
 
@@ -689,7 +693,7 @@ describe("going back near the person when the phone can't find itself", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Map" }));
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(await screen.findByTestId("results-map"), PAN);
-    expect(await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
     setDevicePosition("fails");
   }
 
@@ -760,7 +764,7 @@ describe("the map's notices", () => {
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     expect(screen.getByTestId("results-map")).toBe(map);
   });
 
@@ -769,7 +773,7 @@ describe("the map's notices", () => {
     const { map } = await openMap();
     api.reply(SEARCH, { meetings: [hill] });
     await moveTo(map, PAN);
-    await screen.findByRole("button", { name: "Hill Group, Mon 6:30 PM" });
+    await screen.findByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" });
     api.reply(SEARCH, { problem: "not the API's error envelope" }, 500);
     await moveTo(map, { latitude: 35.91, longitude: -84.11, latitudeDelta: 0.2, longitudeDelta: 0.3 });
     expect(
@@ -778,7 +782,7 @@ describe("the map's notices", () => {
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near the map area you searched")).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Hill Group, Mon 6:30 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Hill Group, AA, Mon 6:30 PM" })).toBeOnTheScreen();
   });
 
   it("says so when a pan's search fails with the server in trouble, and keeps the map", async () => {
@@ -788,7 +792,7 @@ describe("the map's notices", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong on our end.");
     expect(screen.getByTestId("results-map")).toBe(map);
     // The earlier area's markers would read as this area's meetings.
-    expect(screen.queryByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeNull();
   });
 
   it("labels a saved copy shown offline", async () => {
@@ -803,7 +807,7 @@ describe("the map's notices", () => {
         "Showing the copy saved today at 3:00 PM. We couldn't reach My Meeting App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
-    expect(screen.getByRole("button", { name: "Far Group, Mon 7:00 PM" })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: "Far Group, AA, Mon 7:00 PM" })).toBeOnTheScreen();
     api = await startApi();
   });
 });

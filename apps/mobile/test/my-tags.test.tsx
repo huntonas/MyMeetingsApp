@@ -46,7 +46,7 @@ describe("Meetings I've tagged", () => {
       new Date("2026-10-05T17:00:00Z"),
     );
     await recordSubmission({ id: OTHER, name: "Early Birds" }, ["quiet"], new Date("2026-10-06T12:00:00Z"));
-    api.reply(`/api/v1/meetings/${ID}`, { meeting: meeting() });
+    api.reply(`/api/v2/meetings/${ID}`, { meeting: meeting() });
     const app = await openMe();
     expect(screen.getByRole("header", { name: "Meetings I've tagged" })).toBeOnTheScreen();
     expect(await screen.findByRole("button", { name: "Nooners" })).toHaveProp(

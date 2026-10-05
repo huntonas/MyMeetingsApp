@@ -1,9 +1,9 @@
-import type { V1MeetingSummary } from "@mymeetingapp/shared";
+import type { MeetingSummary } from "@mymeetingapp/shared";
 
 import { type CivilDate, DAY_MS, MINUTE_MS, shiftDays } from "@/time/civil-date";
 import { clockLabel, phoneClockLabel } from "@/time/clock";
 
-export type Scheduled = Pick<V1MeetingSummary, "day" | "time" | "endTime"> & { timezone: string };
+export type Scheduled = Pick<MeetingSummary, "day" | "time" | "endTime"> & { timezone: string };
 export interface Occurrence {
   date: CivilDate;
   start: Date;
@@ -91,7 +91,7 @@ const phoneZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 // just started stays at the top instead of dropping to next week, and the next one after that. A meeting the feed gave
 // no zone is read on the phone's clock: nearby meetings are almost always in the phone's own zone.
 export function upcomingStart(
-  meeting: Pick<V1MeetingSummary, "day" | "time" | "endTime" | "timezone">,
+  meeting: Pick<MeetingSummary, "day" | "time" | "endTime" | "timezone">,
   now: Date,
 ): Date {
   const scheduled = { ...meeting, timezone: meeting.timezone ?? phoneZone() };
@@ -131,7 +131,7 @@ export function listedTime(time: string): string {
   return clockLabel(hourOf(time), minuteOf(time));
 }
 
-// A meeting's own weekday, as listed; Sunday first, as V1MeetingSummary.day counts.
+// A meeting's own weekday, as listed; Sunday first, as MeetingSummary.day counts.
 export const WEEKDAYS = [
   "Sunday",
   "Monday",
@@ -144,7 +144,7 @@ export const WEEKDAYS = [
 const WEEKDAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 // "Mon 7:00 PM": the listed day and time on a card in any meeting list.
-export function shortWhen(meeting: Pick<V1MeetingSummary, "day" | "time">): string {
+export function shortWhen(meeting: Pick<MeetingSummary, "day" | "time">): string {
   return `${WEEKDAYS_SHORT[meeting.day] ?? ""} ${listedTime(meeting.time)}`;
 }
 

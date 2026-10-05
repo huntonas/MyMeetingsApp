@@ -1,5 +1,5 @@
 import { BRAND } from "@mymeetingapp/shared";
-import type { V1MeetingSearchResponse } from "@mymeetingapp/shared";
+import type { MeetingSearchResponse } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, View } from "react-native";
@@ -209,7 +209,7 @@ function Results({
   const [nearPerson] = useState(asked.kind === "me");
   // The last meetings found, kept on the map while a pan's search loads so the markers don't flash off and on. Updated
   // during render (React's pattern for state that follows a changing value), so a new answer shows in the same render.
-  const [lastFound, setLastFound] = useState<V1MeetingSearchResponse["meetings"]>([]);
+  const [lastFound, setLastFound] = useState<MeetingSearchResponse["meetings"]>([]);
   if (state.status === "ready" && state.data.meetings !== lastFound) setLastFound(state.data.meetings);
   // What the filters keep, in order, and under the starting Day and Time tomorrow's after today's: worked out again only
   // when one of these changes, not on every render. The map shows the same meetings, both days' (their order means

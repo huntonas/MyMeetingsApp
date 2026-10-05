@@ -29,23 +29,23 @@ describe("reads", () => {
   });
 
   it("drops fields the contract doesn't name", async () => {
-    api.reply(`/api/v1/meetings/${ID}`, { meeting: { ...meeting(), internalNote: "x" } });
+    api.reply(`/api/v2/meetings/${ID}`, { meeting: { ...meeting(), internalNote: "x" } });
     expect(await fetchMeeting(ID)).toEqual({ meeting: meeting() });
   });
 
   it("reads one weekday of online meetings", async () => {
-    api.reply("/api/v1/meetings/online?day=3", { meetings: [] });
+    api.reply("/api/v2/meetings/online?day=3", { meetings: [] });
     expect(await fetchOnlineMeetings(3)).toEqual({ meetings: [] });
   });
 });
 
 describe("search", () => {
   it("sends only the rounded point and radius, in the POST body and never the URL", async () => {
-    api.reply("/api/v1/meetings/search", { meetings: [] });
+    api.reply("/api/v2/meetings/search", { meetings: [] });
     await searchMeetings({ lat: 36.16, lng: -86.78, radiusKm: 25 });
     const [request] = api.requests;
     expect(request?.method).toBe("POST");
-    expect(request?.path).toBe("/api/v1/meetings/search");
+    expect(request?.path).toBe("/api/v2/meetings/search");
     expect(JSON.parse(request?.body ?? "")).toEqual({ lat: 36.16, lng: -86.78, radiusKm: 25 });
   });
 
@@ -64,7 +64,7 @@ describe("cookies", () => {
   ] as const)("%s asks fetch to omit them", async (_name, call) => {
     const spy = jest.spyOn(globalThis, "fetch");
     api.reply("/api/v2/vocabulary", VOCABULARY);
-    api.reply("/api/v1/meetings/search", { meetings: [] });
+    api.reply("/api/v2/meetings/search", { meetings: [] });
     await call();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]?.[1]?.credentials).toBe("omit");
@@ -74,14 +74,14 @@ describe("cookies", () => {
 describe("failures", () => {
   it("turns the server's error envelope into its code and plain-language message", async () => {
     const message = "We couldn't find that meeting. It may have been removed from the meeting list.";
-    api.reply(`/api/v1/meetings/${ID}`, { error: { code: "meeting_not_found", message } }, 404);
+    api.reply(`/api/v2/meetings/${ID}`, { error: { code: "meeting_not_found", message } }, 404);
     const error: unknown = await fetchMeeting(ID).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ code: "meeting_not_found", message });
   });
 
   it("treats a reply that breaks the contract as unreachable", async () => {
-    api.reply(`/api/v1/meetings/${ID}`, { meeting: { ...meeting(), day: 9 } });
+    api.reply(`/api/v2/meetings/${ID}`, { meeting: { ...meeting(), day: 9 } });
     await expect(fetchMeeting(ID)).rejects.toBeInstanceOf(Unreachable);
   });
 

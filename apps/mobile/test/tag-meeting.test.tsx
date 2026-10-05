@@ -15,7 +15,7 @@ import { launchReadsLanded, renderApp } from "./render-app";
 
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
 const SURVIVOR = "9b2e4c1a-5d6f-4a7b-8c9d-0e1f2a3b4c5d";
-const PATH = `/api/v1/meetings/${ID}`;
+const PATH = `/api/v2/meetings/${ID}`;
 // Nooners (fixtures.ts) meets Mondays 12:00–1:00 PM in Chicago: Monday 5 October 2026 at noon is 17:00 UTC.
 const STARTED = "2026-10-05T17:00:00Z";
 const COUNTS = [

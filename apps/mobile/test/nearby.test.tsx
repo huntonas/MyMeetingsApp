@@ -23,7 +23,7 @@ import { answered, lookups, setPlace } from "./native/native-location";
 import { launchNearby, renderApp } from "./render-app";
 
 let api: TestApi;
-const SEARCH = "/api/v1/meetings/search";
+const SEARCH = "/api/v2/meetings/search";
 const searches = () => api.requests.filter((request) => request.path === SEARCH);
 const searchBodies = () =>
   searches().map((request) => {
@@ -151,12 +151,14 @@ describe("Nearby without location", () => {
     await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByText("Near Maryville, TN")).toBeOnTheScreen();
-    const cards = await screen.findAllByRole("button", { name: /Group, Mon/ });
+    const cards = await screen.findAllByRole("button", { name: /Group, AA meeting, Mon/ });
     expect(cards).toHaveLength(2);
     expect(cards[0]).toHaveAccessibleName(
-      "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
+      "Near Group, AA meeting, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
     );
-    expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.4 mi, St. Luke's, Welcoming 14 people");
+    expect(cards[1]).toHaveAccessibleName(
+      "Far Group, AA meeting, Mon 7:00 PM, 1.4 mi, St. Luke's, Welcoming 14 people",
+    );
     expect(screen.getByText("2 meetings · today from now")).toBeOnTheScreen();
     expect(lookups).toEqual(["Maryville, TN"]);
     expect(searchBodies()).toEqual([{ lat: 35.76, lng: -83.97, radiusKm: 25 }]);
@@ -419,11 +421,19 @@ describe("Nearby with location", () => {
 });
 
 describe("results", () => {
+  it("labels each meeting in the list with its fellowship", async () => {
+    api.reply(SEARCH, { meetings: [far, { ...near, fellowship: "na" }] });
+    await launchNearby();
+    await searchFor("Maryville, TN");
+    expect(await screen.findByRole("button", { name: /^Near Group, NA meeting,/ })).toBeOnTheScreen();
+    expect(screen.getByRole("button", { name: /^Far Group, AA meeting,/ })).toBeOnTheScreen();
+  });
+
   it("says plainly when there are no in-person meetings, and shows online ones instead", async () => {
     setNow("2026-10-05T23:30:00Z");
     api.reply(SEARCH, { meetings: [] });
-    api.reply("/api/v1/meetings/online?day=0", { meetings: [] });
-    api.reply("/api/v1/meetings/online?day=1", {
+    api.reply("/api/v2/meetings/online?day=0", { meetings: [] });
+    api.reply("/api/v2/meetings/online?day=1", {
       meetings: [
         meeting({
           name: "Zoom Early Evening",
@@ -435,7 +445,7 @@ describe("results", () => {
         }),
       ],
     });
-    api.reply("/api/v1/meetings/online?day=2", { meetings: [] });
+    api.reply("/api/v2/meetings/online?day=2", { meetings: [] });
     await launchNearby();
     await searchFor("Maryville, TN");
     expect(
@@ -848,9 +858,9 @@ describe("results", () => {
       async function searchLate(meetings: (typeof wednesday)[]) {
         setNow(WEDNESDAY_LATE);
         api.reply(SEARCH, { meetings });
-        api.reply("/api/v1/meetings/online?day=2", { meetings: [] });
-        api.reply("/api/v1/meetings/online?day=3", { meetings: [zoomNightOwls] });
-        api.reply("/api/v1/meetings/online?day=4", { meetings: [] });
+        api.reply("/api/v2/meetings/online?day=2", { meetings: [] });
+        api.reply("/api/v2/meetings/online?day=3", { meetings: [zoomNightOwls] });
+        api.reply("/api/v2/meetings/online?day=4", { meetings: [] });
         const app = await launchNearby();
         await searchFor("Maryville, TN");
         return app;
@@ -867,7 +877,9 @@ describe("results", () => {
           "Happy Destiny",
           "Thursday Noon",
         ]);
-        expect(screen.getByRole("button", { name: /^Happy Destiny, Thu 7:00 AM, / })).toBeOnTheScreen();
+        expect(
+          screen.getByRole("button", { name: /^Happy Destiny, AA meeting, Thu 7:00 AM, / }),
+        ).toBeOnTheScreen();
         // The way out is in view with the Filters panel closed, and no online meetings: there's tomorrow.
         expect(filtersToggle()).toHaveProp("accessibilityState", { expanded: false });
         expect(screen.getByRole("button", { name: "Clear" })).toBeOnTheScreen();
@@ -892,9 +904,9 @@ describe("results", () => {
       it("leaves the count out when the online meetings can't be read, rather than guessing", async () => {
         setNow(WEDNESDAY_LATE);
         api.reply(SEARCH, { meetings: [wednesday] });
-        api.reply("/api/v1/meetings/online?day=2", { meetings: [] });
-        api.reply("/api/v1/meetings/online?day=3", { problem: "down" }, 500);
-        api.reply("/api/v1/meetings/online?day=4", { meetings: [] });
+        api.reply("/api/v2/meetings/online?day=2", { meetings: [] });
+        api.reply("/api/v2/meetings/online?day=3", { problem: "down" }, 500);
+        api.reply("/api/v2/meetings/online?day=4", { meetings: [] });
         await launchNearby();
         await searchFor("Maryville, TN");
         expect(await screen.findByRole("button", { name: "Online now" })).toHaveProp(
@@ -965,8 +977,8 @@ describe("results", () => {
       at("One Here", "5", "13:00", "here"),
     ];
     const listed = async () =>
-      (await screen.findAllByRole("button", { name: /(Here|Away), Mon/ })).map((card) =>
-        String(card.props.accessibilityLabel).replace(/, Mon.*/, ""),
+      (await screen.findAllByRole("button", { name: /(Here|Away), AA meeting, Mon/ })).map((card) =>
+        String(card.props.accessibilityLabel).replace(/, AA meeting, Mon.*/, ""),
       );
 
     async function searchAtLunchtime() {
@@ -1239,9 +1251,13 @@ describe("results", () => {
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
     expect(screen.queryByText("Near you")).toBeNull();
     // Measured from the last search's rounded point (35.76, -83.97), not from where the phone is now.
-    const cards = screen.getAllByRole("button", { name: /Group, Mon/ });
-    expect(cards[0]).toHaveAccessibleName("Near Group, Mon 8:00 AM, 0.2 mi, St. Luke's, Quiet 2 people");
-    expect(cards[1]).toHaveAccessibleName("Far Group, Mon 7:00 PM, 1.3 mi, St. Luke's, Welcoming 14 people");
+    const cards = screen.getAllByRole("button", { name: /Group, AA meeting, Mon/ });
+    expect(cards[0]).toHaveAccessibleName(
+      "Near Group, AA meeting, Mon 8:00 AM, 0.2 mi, St. Luke's, Quiet 2 people",
+    );
+    expect(cards[1]).toHaveAccessibleName(
+      "Far Group, AA meeting, Mon 7:00 PM, 1.3 mi, St. Luke's, Welcoming 14 people",
+    );
     api = await startApi();
   });
 
@@ -1287,14 +1303,16 @@ describe("results", () => {
     await renderApp("/");
     await searchFor("Maryville, TN");
     expect(
-      await screen.findByRole("button", { name: "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's" }),
+      await screen.findByRole("button", {
+        name: "Near Group, AA meeting, Mon 8:00 AM, under 0.1 mi, St. Luke's",
+      }),
     ).toBeOnTheScreen();
     api.reply("/api/v2/vocabulary", VOCABULARY);
     await fireEvent.press(screen.getByLabelText("Me"));
     await fireEvent.press(await screen.findByLabelText("Nearby"));
     expect(
       await screen.findByRole("button", {
-        name: "Near Group, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
+        name: "Near Group, AA meeting, Mon 8:00 AM, under 0.1 mi, St. Luke's, Quiet 2 people",
       }),
     ).toBeOnTheScreen();
   });
@@ -1333,7 +1351,7 @@ describe("Search farther", () => {
     await fireEvent.press(await farther());
     expect(await screen.findByText("Far Group")).toBeOnTheScreen();
     // The distance shows as for any search, from the place itself.
-    expect(screen.getByText("Mon 7:00 PM · 1.4 mi")).toBeOnTheScreen();
+    expect(screen.getByText("AA · Mon 7:00 PM · 1.4 mi")).toBeOnTheScreen();
     expect(searchBodies()).toEqual([
       { lat: 35.76, lng: -83.97, radiusKm: 25 },
       { lat: 35.76, lng: -83.97, radiusKm: 97 },

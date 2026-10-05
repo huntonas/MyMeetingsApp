@@ -176,7 +176,7 @@ export const V1MeetingDetailResponse = z.object({ meeting: V1MeetingSummary });
 export type V1MeetingDetailResponse = z.infer<typeof V1MeetingDetailResponse>;
 
 // /api/v2: types and fellowships are open-ended, so the server can add one without breaking the apps reading it.
-const MeetingSummary = V1MeetingSummary.extend({
+export const MeetingSummary = V1MeetingSummary.extend({
   types: z.array(z.string().min(1).max(20)),
   // A copy 1.0 saved has none, and every meeting 1.0 saw was AA's.
   fellowship: z
@@ -184,6 +184,8 @@ const MeetingSummary = V1MeetingSummary.extend({
     .regex(/^[a-z0-9-]{1,20}$/)
     .default("aa"),
 });
+
+export type MeetingSummary = z.infer<typeof MeetingSummary>;
 
 export const MeetingSearchResponse = z.object({
   meetings: z.array(MeetingSummary.extend({ distanceKm: z.number() })),

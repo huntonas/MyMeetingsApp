@@ -8,10 +8,13 @@ import { useCachedRead } from "@/cache/use-cached-read";
 import { startApi, type TestApi } from "./api-server";
 import { resetAppData } from "./app-data";
 import { CONFIG, VOCABULARY } from "./fixtures";
+import { setAppleTrouble, setIntegrity } from "./native/app-integrity";
 import { setKeychainTrouble } from "./native/expo-secure-store";
 import { launchReadsLanded, renderApp } from "./render-app";
 
 const DELETE_MINE = "/api/v1/tags/delete-mine";
+const CHALLENGE = { challenge: "q3Jw0F2nYc5yQ0d1Gk7mR8sT9uV0wX1yZ2aB3cD4eF5" };
+const REFUSED = { error: { code: "attestation_failed", message: ERROR_MESSAGES.attestation_failed } };
 
 let api: TestApi;
 beforeEach(async () => {
@@ -49,6 +52,27 @@ const FAILURES: [string, () => void, string][] = [
       );
     },
     "Tagging isn't available from this device.",
+  ],
+  [
+    "the server refuses the app's proof",
+    () => {
+      setIntegrity("appAttest");
+      api.reply("/api/v1/attest/challenge", CHALLENGE, 201);
+      api.reply("/api/v1/attest/register", { registered: true }, 201);
+      api.reply(DELETE_MINE, REFUSED, 401, "POST");
+    },
+    "We couldn't confirm this request came from the app. Please update the app and try again.",
+  ],
+  // The phone sent no proof because Apple couldn't make one, so updating the app wouldn't help: waiting might.
+  [
+    "Apple can't be reached and the server wants a proof",
+    () => {
+      setIntegrity("appAttest");
+      setAppleTrouble("unavailable");
+      api.reply("/api/v1/attest/challenge", CHALLENGE, 201);
+      api.reply(DELETE_MINE, REFUSED, 401, "POST");
+    },
+    "We couldn't reach Apple to confirm this request. Try again in a moment.",
   ],
   [
     "the phone fails",

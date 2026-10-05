@@ -262,6 +262,14 @@ describe("where App Attest isn't offered", () => {
     expect(proofOf(0)).toBeUndefined();
   });
 
+  it("says Apple was out of reach when the server then refuses the write for want of a token", async () => {
+    setIntegrity("deviceCheck");
+    setAppleTrouble("unavailable");
+    api.reply("/api/v1/tags", REFUSED, 401, "POST");
+    await expect(tagIt()).rejects.toMatchObject({ name: "AppleUnreachable" });
+    expect(sent()).toEqual(["POST /api/v1/tags"]);
+  });
+
   it("shows the server's words when it refuses a DeviceCheck token, and sends no other", async () => {
     setIntegrity("deviceCheck");
     api.reply("/api/v1/tags", REFUSED, 401, "POST");

@@ -14,6 +14,7 @@ import type { z } from "zod";
 
 import { serverUrl } from "@/config/server-url";
 import {
+  AppleUnreachable,
   assertion,
   attestNewKey,
   deviceCheckToken,
@@ -128,35 +129,36 @@ async function signed(keyId: string, clientData: string, timestamp: number): Pro
   return appAttestHeader(keyId, timestamp, await assertion(keyId, clientData));
 }
 
-// Spec §6: the proof for one write. Whatever stops the phone making one (a simulator, Apple out of reach, a refused
-// registration) sends the write without it, and the server decides whether it needs one. The exception is a
-// registration refused because the phone is blocked: for a write that refusal is the answer, so the person sees it;
-// a deletion is sent without a proof, which the server takes from a blocked phone (spec §6).
+// Spec §6: the proof for one write, or why there's none. Whatever stops the phone making one (a simulator, Apple out of
+// reach, a refused registration) sends the write without it, and the server decides whether it needs one; Apple out
+// of reach is remembered, so a refusal then says to try again rather than to update. The exception is a registration
+// refused because the phone is blocked: for a write that refusal is the answer, so the person sees it; a deletion is
+// sent without a proof, which the server takes from a blocked phone (spec §6).
 async function attestation(
   method: WriteMethod,
   path: string,
   body: string,
   deletion: boolean,
-): Promise<string | undefined> {
+): Promise<{ proof?: string; appleUnreachable?: AppleUnreachable }> {
   try {
     const support = integritySupport();
-    if (support === "none") return undefined;
-    if (support === "deviceCheck") return deviceCheckHeader(await deviceCheckToken());
+    if (support === "none") return {};
+    if (support === "deviceCheck") return { proof: deviceCheckHeader(await deviceCheckToken()) };
     const timestamp = Date.now();
     const clientData = assertionClientData({ method, path, timestamp, body });
     const saved = await savedAttestKey();
     if (saved !== null) {
       try {
-        return await signed(saved, clientData, timestamp);
+        return { proof: await signed(saved, clientData, timestamp) };
       } catch (error) {
         if (!(error instanceof StaleAttestKey)) throw error;
         await forgetAttestKey();
       }
     }
-    return await signed(await registerAttestKey(), clientData, timestamp);
+    return { proof: await signed(await registerAttestKey(), clientData, timestamp) };
   } catch (error) {
     if (error instanceof ApiError && error.code === "device_blocked" && !deletion) throw error;
-    return undefined;
+    return error instanceof AppleUnreachable ? { appleUnreachable: error } : {};
   }
 }
 
@@ -191,10 +193,13 @@ async function attested<S extends z.ZodType>(
 ): Promise<z.output<S>> {
   // A write with no body signs an empty one, as the server reads it.
   const signedBody = text ?? "";
-  const proof = await attestation(method, path, signedBody, deletion);
+  const { proof, appleUnreachable } = await attestation(method, path, signedBody, deletion);
   try {
     return await attempt(schema, method, path, text, proof);
   } catch (error) {
+    // The server wanted the proof Apple couldn't help make: that, not the app, is why it was refused.
+    if (error instanceof ApiError && error.code === "attestation_failed" && appleUnreachable !== undefined)
+      throw appleUnreachable;
     const keyRefused =
       error instanceof ApiError &&
       error.code === "attestation_failed" &&
@@ -202,7 +207,7 @@ async function attested<S extends z.ZodType>(
       parseAttestation(proof)?.kind === "appAttest";
     if (!keyRefused) throw error;
     await forgetAttestKey();
-    return attempt(schema, method, path, text, await attestation(method, path, signedBody, deletion));
+    return attempt(schema, method, path, text, (await attestation(method, path, signedBody, deletion)).proof);
   }
 }
 

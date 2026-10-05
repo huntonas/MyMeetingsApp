@@ -211,6 +211,35 @@ describe("applyFeedSnapshot", () => {
     expect(await activeMeetings()).toHaveLength(2);
   });
 
+  // Review Focus 3.
+  it("keeps an AA and an NA meeting at one church, day and time apart", async () => {
+    const aa = await seedFeed("aa-intergroup");
+    const na = await seedFeed("na-region", "region", "na");
+    const church = listing(
+      "Recovery Is Possible",
+      "34 Oak Tree Dr, McMinnville, TN 37110",
+      35.7064,
+      -85.8471,
+    );
+    await applyFeedSnapshot(aa, [feedMeeting(church)]);
+    await applyFeedSnapshot(na, [feedMeeting({ ...church, sourceSlug: "1525" })]);
+    expect((await activeMeetings()).map((meeting) => meeting.fellowship).sort()).toEqual(["aa", "na"]);
+  });
+
+  it("still joins two NA feeds' listings of one meeting", async () => {
+    const a = await seedFeed("na-region", "region", "na");
+    const b = await seedFeed("na-zone", "region", "na");
+    const church = listing(
+      "Gift of Desperation",
+      "4001 Rossville Blvd, Chattanooga, TN 37407",
+      34.9974,
+      -85.2917,
+    );
+    await applyFeedSnapshot(a, [feedMeeting(church)]);
+    await applyFeedSnapshot(b, [feedMeeting({ ...church, sourceSlug: "1481" })]);
+    expect(await activeMeetings()).toEqual([expect.objectContaining({ fellowship: "na" })]);
+  });
+
   it("keeps a men's and a women's meeting at one address and time apart", async () => {
     const a = await seedFeed("a");
     const b = await seedFeed("b");
@@ -628,6 +657,34 @@ describe("applyFeedSnapshot merging stored duplicates", () => {
       .where(eq(feedMeetings.meetingId, meetingId));
     return rows.map((row) => row.sourceSlug).sort();
   }
+
+  it("never merges a stored AA meeting and a stored NA meeting", async () => {
+    const aa = await seedFeed("a");
+    const na = await seedFeed("n", "region", "na");
+    await storedMeeting(aa, feedMeeting({ ...heritage, sourceSlug: "heritage-aa" }), "2026-01-01T00:00:00Z");
+    await storedMeeting(na, feedMeeting({ ...heritageNearby, sourceSlug: "heritage-na" }));
+    await applyFeedSnapshot(na, [feedMeeting({ ...heritageNearby, sourceSlug: "heritage-na" })]);
+    expect((await activeMeetings()).map((meeting) => meeting.fellowship).sort()).toEqual(["aa", "na"]);
+  });
+
+  it("splits a stored NA meeting into two NA meetings", async () => {
+    const a = await seedFeed("na-a", "region", "na");
+    const b = await seedFeed("na-b", "region", "na");
+    const church = listing(
+      "Gift of Desperation",
+      "4001 Rossville Blvd, Chattanooga, TN 37407",
+      34.9974,
+      -85.2917,
+    );
+    const men = feedMeeting({ ...church, sourceSlug: "mens", types: ["M"] });
+    const women = feedMeeting({ ...church, sourceSlug: "womens", name: "Women in Recovery", types: ["W"] });
+    await storedMeetingWith([
+      { feedId: a, row: men },
+      { feedId: b, row: women },
+    ]);
+    await applyFeedSnapshot(a, [men]);
+    expect((await activeMeetings()).map((meeting) => meeting.fellowship)).toEqual(["na", "na"]);
+  });
 
   it("merges two stored meetings into the older one when one of their feeds next syncs", async () => {
     const a = await seedFeed("a");

@@ -16,7 +16,7 @@ export async function splitUnmatchedListings(meetingIds: string[], executor: Exe
   if (meetingIds.length === 0) return [];
   const result = await executor.execute<{ id: string; from_meeting: string }>(sql`
     with detached as (
-      select listing.id, listing.meeting_id from_meeting, listing.day, listing.time,
+      select listing.id, listing.meeting_id from_meeting, listing.day, listing.time, m.fellowship,
         gen_random_uuid() meeting_id
       from meetings m
       join feed_meetings listing on listing.meeting_id = m.id
@@ -28,7 +28,9 @@ export async function splitUnmatchedListings(meetingIds: string[], executor: Exe
             and ${sidesMatch(listingSide("listing"), listingSide("other"))}
         )
     ),
-    created as (insert into meetings (id, day, time) select meeting_id, day, time from detached),
+    created as (
+      insert into meetings (id, day, time, fellowship) select meeting_id, day, time, fellowship from detached
+    ),
     moved as (
       update feed_meetings set meeting_id = detached.meeting_id from detached
       where feed_meetings.id = detached.id

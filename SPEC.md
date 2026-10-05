@@ -132,13 +132,18 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 
 **Fixed vocabulary, grouped by category.** Stored in the database so it can grow. Tags can be retired (hidden, counts kept) but never hard-deleted.
 
-| Category  | Starter tags                                                                           |
-| --------- | -------------------------------------------------------------------------------------- |
-| Format    | By the book, Laid back, Speaker-heavy, Lots of sharing, Step study, Literature focused |
-| Sharing   | Crosstalk, No crosstalk, Round robin, Raise your hand                                  |
-| Crowd     | Newcomer heavy, Old-timers, Young crowd, Older crowd, Mixed ages                       |
-| Feel      | Welcoming, Quiet, Lively, Lots of humor, Serious tone                                  |
-| Practical | Starts on time, Runs long, Coffee, Fellowship after, Easy parking, Accessible entrance |
+| Category  | Tags                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------ |
+| Format    | By the book, Laid back, Speaker-heavy, Lots of sharing, Step study, Literature focused, Check-in             |
+| Sharing   | Crosstalk, No crosstalk, Round robin, Raise your hand, Timed shares                                          |
+| Crowd     | Newcomer heavy, Old-timers, Young crowd, Older crowd, Mixed ages                                             |
+| Size      | Small (under 15), Medium (15–30), Large (30–100), Very large (100+)                                          |
+| Feel      | Welcoming, Good for newcomers, Quiet, Lively, Lots of humor, Serious tone                                    |
+| Practical | Starts on time, Runs long, Coffee, Snacks, Fellowship after, Easy parking, Accessible entrance, Kids welcome |
+
+Size, Check-in, Timed shares, Good for newcomers, Snacks and Kids welcome were added on 2026-10-03 (owner). Not added, by owner decision: "Structured" (overlaps By the book), "Mostly female/male" and "LGBTQ+" (official meeting types cover them), and literature tags (official types cover them).
+
+**New categories:** the app reads the vocabulary from `/api/v2/vocabulary`, whose categories are open-ended, and shows a category it doesn't know under a heading made from its name. Builds before that list (TestFlight build 12 and earlier) read `/api/v1/vocabulary` with a fixed list of five categories and refuse the whole response over any other, so `/api/v1/vocabulary` serves only Format, Sharing, Crowd, Feel and Practical.
 
 **Data model:** one row per device per meeting in `tag_submissions`:
 `(meeting_id, submitter_id, tag_ids[], near_meeting, confirmed_at, updated_at, excluded)`, primary key `(meeting_id, submitter_id)`.
@@ -149,6 +154,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 **Submission rules (enforced server-side):**
 
 - 1 to 6 tags per submission, all from the active vocabulary.
+- At most one Size tag per submission or edit (owner decision, 2026-10-04); more is refused with `one_size` ("Choose one size."). In the app the sizes are radio buttons: choosing one unselects the other, so it never counts twice toward the 6. Builds before `/api/v2/vocabulary` never see sizes, so never meet the rule; existing rows and the nightly recount are unaffected.
 - **New submissions and re-confirmations** are allowed only inside the tagging window: from meeting start until 36 hours later, computed in the meeting's own time zone (DST-aware) for the most recent occurrence. Meetings without a day/time (e.g. "by appointment") can't be tagged. Online and hybrid meetings can be tagged. `nearMeeting` is always false for online attendance.
 - **One confirmation per meeting per device per 7 days.** A second new submission within 7 days returns `already_tagged` (the app should offer to edit instead).
 - **Edits are allowed at any time**, even after the window closes. They keep the original `confirmed_at` and `near_meeting`, and don't count toward the daily cap.
@@ -183,7 +189,7 @@ Goal: a verified registry of every US A.A. service entity with a usable meeting 
 - **Pattern check (flag for review, never auto-block):** sudden one-sided tag swings on a meeting (e.g. one tag gaining 5+ new devices within 48 hours on a meeting that had fewer than 10 in total). No cross-meeting or device-cluster analysis.
 - **Blocking:** the admin marks a device `blocked`, which also clears its App Attest key. Its future writes are rejected with `device_blocked`, before any proof is checked (its ID is a secret only the phone holds). Its deletions (`DELETE /api/v1/tags/:meetingId`, `delete-mine`) still work and need no proof, since its rows are already excluded; the block is read again under the device lock. The server sets `excluded = true` on its past rows by computing its `submitter_id` for every meeting (about 60k HMACs, which is fast), then recomputes counts for affected meetings. A blocked device's row is exempt from the 13-month inactivity purge: blocking is a standing decision, not undone by inactivity or by delete-mine.
 
-## 7. API (`/api/v1`)
+## 7. API (`/api/v1`, `/api/v2`)
 
 Versioned from day one; old app versions stay installed for months. All input is validated with zod schemas shared with the mobile app.
 
@@ -192,7 +198,8 @@ Mobile headers on write requests: `X-Device-Id`, `X-Platform` (`ios` | `android`
 | Method | Path                       | Purpose                                                                                                                                                                                                                                                              |
 | ------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/v1/config`           | Minimum supported app version per platform, latest version, feature switches (tagging, suggestions). Cacheable (5 min).                                                                                                                                              |
-| GET    | `/api/v1/vocabulary`       | Active tags (slug, label, category). Cacheable.                                                                                                                                                                                                                      |
+| GET    | `/api/v2/vocabulary`       | Active tags (slug, label, category), in display order; any slug-shaped category (§5). Cacheable.                                                                                                                                                                     |
+| GET    | `/api/v1/vocabulary`       | The same, limited to the five categories builds before `/api/v2/vocabulary` know (§5). Remove once the minimum supported version reads `/api/v2`.                                                                                                                    |
 | POST   | `/api/v1/meetings/search`  | Body: `{ lat, lng, radiusKm }` with lat/lng rounded to 2 decimals (validated). Returns in-person and hybrid meetings within the radius (max 1000), with distance from the rounded point, types, and tag counts. Filtering by day/time/type/tag happens on the phone. |
 | GET    | `/api/v1/meetings/online`  | All online meetings nationwide, deduplicated by conference key, with tag counts. Cacheable (15 min).                                                                                                                                                                 |
 | GET    | `/api/v1/meetings/:id`     | One meeting with tag counts (for favorites and detail refresh). Cacheable (5 min).                                                                                                                                                                                   |
@@ -209,7 +216,7 @@ Mobile headers on write requests: `X-Device-Id`, `X-Platform` (`ios` | `android`
 **Search caching:** the meeting list for a `(lat, lng, radiusKm)` key may be cached server-side (Runtime Cache, 15 min, invalidated on sync). Tag counts are always joined fresh from `tag_counts`. Coordinates are never in URLs, so they never appear in request logs or CDN cache keys.
 
 **Errors** return `{ error: { code, message } }` with plain-language messages the app can show directly:
-`invalid_request`, `meeting_not_found`, `window_closed`, `already_tagged`, `not_tagged`, `too_many_tags`, `unknown_tag`, `tags_disabled`, `rate_limited`, `attestation_failed`, `device_blocked`, `upgrade_required`.
+`invalid_request`, `meeting_not_found`, `window_closed`, `already_tagged`, `not_tagged`, `too_many_tags`, `one_size`, `unknown_tag`, `tags_disabled`, `rate_limited`, `attestation_failed`, `device_blocked`, `upgrade_required`.
 
 ## 8. Mobile app
 

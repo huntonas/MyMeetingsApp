@@ -21,7 +21,19 @@ Done on 2026-09-26: `seed` and `main` are migrated and hold the 26 starter tags.
 - **First deployment:** the project's first Git deployment went to Production even though it came from `phase-1-foundation`. Vercel promotes the first deployment when no production deployment exists. It ran the Phase 1 migrations on `main`, which merging would have done anyway.
 - **Running a command against a Vercel environment:** use `vercel env run -e <environment> -- <command>` from `apps/web`, for example `vercel env run -e production -- pnpm db:seed`. **Move `apps/web/.env.local` aside first**: `vercel env run` lets the local file win, so the command would otherwise hit the local Docker database.
 - **Seeding a Neon branch directly:** use `DATABASE_URL="<branch pooled URL>" pnpm db:seed`. Copy the URL from the Neon console and don't save it to a file.
-- **After seeding:** run `vercel cache purge --type cdn --yes`, because `/api/v1/vocabulary` is cached for an hour.
+- **After seeding:** run `vercel cache purge --type cdn --yes`, because `/api/v2/vocabulary` and `/api/v1/vocabulary` are cached for an hour.
+- **Adding tags:** add them to `STARTER_VOCABULARY`; a new category also goes in `TAG_CATEGORIES`, with a generated migration for the `tags_category_check` constraint. A new category never reaches `/api/v1/vocabulary` (`V1_TAG_CATEGORIES`). Then, in this order (the 2026-10-03 additions, migration `0021_tag-size-category`, as the example):
+  1. **Check each branch for clashes before seeding it.** Run this against the branch (Neon console → SQL Editor, choosing the branch):
+     ```sql
+     select slug, label, category, status from tags
+     where slug in ('check-in', 'timed-shares', 'size-small', 'size-medium', 'size-large', 'size-very-large',
+                    'good-for-newcomers', 'snacks', 'kids-welcome');
+     ```
+     It should return no rows. A row is a tag someone approved from a suggestion with the same slug: seeding would give it the new label and category and keep its status, so a retired one would stay hidden. Stop and ask the owner. If it means the same thing, seed and then restore it under `/metrics/vocabulary` if it's retired (its counts stay). If it means something else, give the new tag another slug in `STARTER_VOCABULARY`, ship that, and start again.
+  2. **`seed`, after the merge to `main`.** Not before: a preview of code from before `/api/v2/vocabulary` (main, or a branch not yet rebased onto it) restores from `seed`, and its `/api/v1/vocabulary` would answer 500 once `seed` has `size` tags (see rolling back, below). No build migrates `seed` (previews restore from it, then migrate `preview`), and `db:migrate` would bring every pending migration, device tables included, which `seed` never gets. So apply only the constraint change, in one transaction, with the `seed` branch's direct (unpooled) URL from the Neon console, from the repo root: `psql "<seed direct URL>" --single-transaction -v ON_ERROR_STOP=1 -c "set local lock_timeout = '10s'" -f apps/web/drizzle/0021_tag-size-category.sql`. Then run the clash check and `DATABASE_URL="<seed pooled URL>" pnpm --filter web db:seed`. A preview's own migration later runs `0021` again on its restored copy, which drops and re-adds the same constraint harmlessly. Seeding without the constraint change fails on the first `size` row and writes nothing.
+  3. **`staging`**, after a deploy of the change to staging (its build migrates `staging`): the clash check, then `DATABASE_URL="<staging pooled URL>" pnpm --filter web db:seed`.
+  4. **`main`**, after the production deploy: the clash check, then `DATABASE_URL="<main pooled URL>" pnpm --filter web db:seed`, then purge the CDN cache (above).
+- **Rolling back after seeding a new category:** a deployment from before `/api/v2/vocabulary` (before the `vocabulary-additions` branch) checks `/api/v1/vocabulary`'s output against the five old categories, so once the `size` tags are active it answers 500 to every build, and a first launch gets no tag names. Before rolling back past that change, retire the four `size` tags under `/metrics/vocabulary` (counts are kept; restore them after rolling forward again), then purge the CDN cache. Better still, roll forward with a fix instead.
 
 `MIN_VERSION_*`, `LATEST_VERSION_*` and `FEATURE_*` are unset on purpose: unset means "never force an upgrade" and "feature on". Add one only when it needs a different value (`vercel env add <NAME> production`).
 
@@ -47,7 +59,7 @@ On 2026-10-01 two leftover branches from the old per-deployment preview branchin
 
 Preview deployments are protected, so use `vercel curl` (or a deployment protection bypass):
 
-- `/api/v1/vocabulary` returns 200 with every starter tag, including `old-timers`, and `cache-control: public, s-maxage=3600, stale-while-revalidate=86400`.
+- `/api/v2/vocabulary` returns 200 with every tag in `STARTER_VOCABULARY`, including `old-timers` and `size-small`, and `cache-control: public, s-maxage=3600, stale-while-revalidate=86400`; `/api/v1/vocabulary` returns the same without the `size` tags.
 - `/api/v1/config` returns 200 with the configured versions and switches.
 - In the Neon console, `preview`'s parent is `seed` and its last restore is the build's time.
 - `/`, `/privacy`, `/terms` and `/support` return 200 and set no cookie.
@@ -57,7 +69,7 @@ Preview deployments are protected, so use `vercel curl` (or a deployment protect
 Staging (`https://mymeetingapp-staging.vercel.app`) is public, so plain `curl` works — no `vercel curl` bypass needed:
 
 - `/api/v1/config` returns 200 with no Vercel login page.
-- `/api/v1/vocabulary` returns the configured tags (26 on 2026-09-30).
+- `/api/v2/vocabulary` returns the configured tags (26 on 2026-09-30; 35 once seeded after the 2026-10-03 additions), and `/api/v1/vocabulary` the same less the 4 `size` tags.
 - `POST /api/v1/meetings/search` for a point near Maryville, TN returns meetings (158 on 2026-09-30).
 - `curl -sI` on `/` shows `x-robots-tag: noindex, nofollow`; the same check against production shows none.
 - `/metrics` returns 401 without credentials.

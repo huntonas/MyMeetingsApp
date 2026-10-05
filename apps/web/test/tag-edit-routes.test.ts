@@ -116,6 +116,15 @@ describe("PUT /api/v1/tags/:meetingId", () => {
     await expectError(await put(meetingId, seven), 400, "too_many_tags");
   });
 
+  it("refuses an edit to two sizes, keeping the tags already there", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    await post(meetingId, ["quiet", "size-small"]);
+    const res = await put(meetingId, ["size-small", "size-very-large"]);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: { code: "one_size", message: "Choose one size." } });
+    expect((await put(meetingId, ["size-very-large"])).status).toBe(200);
+  });
+
   it("is refused while tagging is switched off, for an opted-out meeting, and for a blocked device", async () => {
     const meetingId = await seedMeetingStarted(1);
     await post(meetingId, ["quiet"]);

@@ -1,10 +1,15 @@
-import { BRAND, ERROR_MESSAGES, MAX_TAGS_PER_SUBMISSION, TAG_CATEGORIES } from "@mymeetingapp/shared";
+import {
+  BRAND,
+  ERROR_MESSAGES,
+  MAX_TAGS_PER_SUBMISSION,
+  SINGLE_CHOICE_CATEGORIES,
+} from "@mymeetingapp/shared";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, type Text, View } from "react-native";
 
 import { ApiError } from "@/api/client";
 import { failureMessage } from "@/api/failure-message";
-import { CATEGORY_TITLES, useRefreshVocabulary, useVocabularyTags } from "@/meetings/vocabulary";
+import { groupByCategory, useRefreshVocabulary, useVocabularyTags } from "@/meetings/vocabulary";
 import { AppText } from "@/ui/app-text";
 import { Button } from "@/ui/button";
 import { moveFocus } from "@/ui/move-focus";
@@ -43,11 +48,18 @@ export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel, children }
   }, []);
   // A tag retired since it was chosen (the list was read again) is dropped rather than sent.
   const live = chosen.filter((slug) => vocabulary.has(slug));
-  const toggle = (slug: string) => {
+  // A single-choice category (one size) swaps its choice, as radio buttons do, so the count doesn't grow.
+  const toggle = (slug: string, category: string) => {
     message.tell(null);
-    if (live.includes(slug)) setChosen(live.filter((other) => other !== slug));
-    else if (live.length >= MAX_TAGS_PER_SUBMISSION) message.tell(ERROR_MESSAGES.too_many_tags);
-    else setChosen([...live, slug]);
+    if (live.includes(slug)) {
+      setChosen(live.filter((other) => other !== slug));
+      return;
+    }
+    const kept = SINGLE_CHOICE_CATEGORIES.includes(category)
+      ? live.filter((other) => vocabulary.get(other)?.category !== category)
+      : live;
+    if (kept.length >= MAX_TAGS_PER_SUBMISSION) message.tell(ERROR_MESSAGES.too_many_tags);
+    else setChosen([...kept, slug]);
   };
   const send = () => {
     if (live.length === 0) {
@@ -76,22 +88,26 @@ export function TagPanel({ mode, initial, onSubmit, onEdit, onCancel, children }
       ) : (
         <>
           <AppText tone="muted">{`Choose up to ${String(MAX_TAGS_PER_SUBMISSION)} words that describe this meeting.`}</AppText>
-          {TAG_CATEGORIES.map((category) => {
-            const inCategory = tags.filter((tag) => tag.category === category);
-            if (inCategory.length === 0) return null;
+          {groupByCategory(tags).map((group) => {
+            const single = SINGLE_CHOICE_CATEGORIES.includes(group.category);
             return (
-              <View key={category} style={{ gap: 8 }}>
+              <View key={group.category} style={{ gap: 8 }}>
                 <AppText variant="label" accessibilityRole="header">
-                  {CATEGORY_TITLES[category]}
+                  {group.title}
                 </AppText>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                  {inCategory.map((tag) => (
+                <View
+                  accessibilityRole={single ? "radiogroup" : undefined}
+                  accessibilityLabel={single ? group.title : undefined}
+                  style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+                >
+                  {group.tags.map((tag) => (
                     <Pill
                       key={tag.slug}
                       label={tag.label}
+                      role={single ? "radio" : "checkbox"}
                       selected={live.includes(tag.slug)}
                       onPress={() => {
-                        toggle(tag.slug);
+                        toggle(tag.slug, tag.category);
                       }}
                     />
                   ))}

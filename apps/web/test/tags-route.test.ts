@@ -132,6 +132,16 @@ describe("POST /api/v1/tags", () => {
     await expectError(await post({ meetingId, tags: ["quiet", "quiet"] }), 400, "invalid_request");
   });
 
+  // Owner decision, 2026-10-04: one size per tagging.
+  it("refuses two sizes in one submission, saying so, and stores nothing", async () => {
+    const meetingId = await seedMeetingStarted(1);
+    const res = await post({ meetingId, tags: ["quiet", "size-small", "size-large"] });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: { code: "one_size", message: "Choose one size." } });
+    expect(await rowsOn(meetingId)).toEqual([]);
+    expect((await post({ meetingId, tags: ["quiet", "size-small"] })).status).toBe(201);
+  });
+
   it("stores nearMeeting as false for an online meeting", async () => {
     const meetingId = await seedMeetingStarted(1, {
       attendance: "online",

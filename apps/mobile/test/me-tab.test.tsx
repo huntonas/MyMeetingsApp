@@ -24,7 +24,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   // Noon on the phone, which is in America/Chicago (package.json).
   setNow("2026-10-05T17:00:00Z");
   openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);

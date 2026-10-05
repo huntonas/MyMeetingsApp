@@ -1,0 +1,2 @@
+ALTER TABLE "tags" DROP CONSTRAINT "tags_category_check";--> statement-breakpoint
+ALTER TABLE "tags" ADD CONSTRAINT "tags_category_check" CHECK ("tags"."category" in ('format', 'sharing', 'crowd', 'size', 'feel', 'practical'));

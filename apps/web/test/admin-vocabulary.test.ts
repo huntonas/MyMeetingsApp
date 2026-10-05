@@ -1,9 +1,9 @@
-import { MeetingDetailResponse, VocabularyResponse } from "@mymeetingapp/shared";
+import { MeetingDetailResponse, STARTER_VOCABULARY, VocabularyResponse } from "@mymeetingapp/shared";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET as getMeeting } from "@/app/api/v1/meetings/[id]/route";
-import { GET as getVocabulary } from "@/app/api/v1/vocabulary/route";
+import { GET as getVocabulary } from "@/app/api/v2/vocabulary/route";
 import { db, pool } from "@/db/client";
 import { tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
@@ -26,7 +26,7 @@ async function quiet() {
 }
 
 async function vocabularySlugs(): Promise<string[]> {
-  const res = await getVocabulary(new Request("http://test/api/v1/vocabulary"));
+  const res = await getVocabulary(new Request("http://test/api/v2/vocabulary"));
   return VocabularyResponse.parse(await res.json()).tags.map((tag) => tag.slug);
 }
 
@@ -71,7 +71,7 @@ describe("listVocabulary", () => {
   it("lists every tag, retired ones included, in vocabulary order", async () => {
     await setTagRetired({ tagId: (await quiet()).id, retired: true });
     const vocabulary = await listVocabulary();
-    expect(vocabulary).toHaveLength(26);
+    expect(vocabulary).toHaveLength(STARTER_VOCABULARY.length);
     expect(vocabulary.slice(0, 2).map((tag) => tag.slug)).toEqual(["by-the-book", "laid-back"]);
     expect(vocabulary.find((tag) => tag.slug === "quiet")?.status).toBe("retired");
   });

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react-native";
 import { AccessibilityInfo, AppState, type AppStateStatus } from "react-native";
 
 import { readCache, writeCache } from "@/cache/store";
@@ -29,7 +29,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   api.reply(PATH, { meeting: meeting() });
   announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
 });
@@ -105,7 +105,7 @@ describe("Tag this meeting", () => {
     api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
     await openMeeting();
     await fireEvent.press(await tagButton());
-    for (const category of ["Format", "Sharing", "Crowd", "Feel", "Practical"]) {
+    for (const category of ["Format", "Sharing", "Crowd", "Size", "Feel", "Practical"]) {
       expect(screen.getByRole("header", { name: category })).toBeOnTheScreen();
     }
     expect(screen.getByText("Choose up to 6 words that describe this meeting.")).toBeOnTheScreen();
@@ -120,6 +120,59 @@ describe("Tag this meeting", () => {
     expect(write?.headers["x-platform"]).toBe("ios");
     expect(write?.headers["x-app-version"]).toBe("0.1.0");
     expect(write?.headers["x-device-id"]).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
+  // The server can add a category after this build ships; its tags still show, under a heading made from its name.
+  it("lists a category this app has never heard of after the others, under a heading made from its name", async () => {
+    const later = { slug: "ninety-minutes", label: "90 minutes", category: "meeting-length" };
+    api.reply("/api/v2/vocabulary", { tags: [...VOCABULARY.tags, later] });
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    const headings = screen.getAllByRole("header").map((heading) => heading.props.children as unknown);
+    expect(headings.slice(-7)).toEqual([
+      "Format",
+      "Sharing",
+      "Crowd",
+      "Size",
+      "Feel",
+      "Practical",
+      "Meeting length",
+    ]);
+    await choose("90 minutes");
+    expect(screen.getByText("1 of 6 chosen")).toBeOnTheScreen();
+  });
+
+  // Owner decision, 2026-10-04: one size per tagging. The sizes are a radio group: choosing one unselects the other.
+  it("swaps the size like radio buttons, counting it once, and sends only the last one", async () => {
+    api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    // The group isn't one focusable element (its radios are), so it's found by its label rather than its role.
+    const sizes = screen.getByLabelText("Size");
+    expect(sizes).toHaveProp("accessibilityRole", "radiogroup");
+    expect(within(sizes).getAllByRole("radio")).toHaveLength(4);
+    await choose("Welcoming");
+    await fireEvent.press(screen.getByRole("radio", { name: "Small (under 15)" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Large (30–100)" }));
+    expect(screen.getByRole("radio", { name: "Small (under 15)" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Large (30–100)" })).toBeChecked();
+    expect(screen.getByText("2 of 6 chosen")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Send my tags" }));
+    expect(await screen.findByText("Thanks. Your tags are added.")).toBeOnTheScreen();
+    expect(tagWrites()[0]?.body).toBe(
+      `{"meetingId":"${ID}","tags":["welcoming","size-large"],"nearMeeting":false}`,
+    );
+  });
+
+  it("swaps the size even with 6 tags chosen, since the count doesn't grow", async () => {
+    await openMeeting();
+    await fireEvent.press(await tagButton());
+    await choose("Welcoming", "Quiet", "Lively", "Coffee", "Snacks");
+    await fireEvent.press(screen.getByRole("radio", { name: "Medium (15–30)" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Very large (100+)" }));
+    expect(screen.getByRole("radio", { name: "Very large (100+)" })).toBeChecked();
+    expect(screen.getByText("6 of 6 chosen")).toBeOnTheScreen();
+    expect(screen.queryByText("Choose up to 6 tags.")).toBeNull();
   });
 
   it("shows the server's new counts at once, and keeps them in the saved copy without making it look newer", async () => {
@@ -356,7 +409,7 @@ describe("Tag this meeting", () => {
   it("offers no tags to choose while the tag list hasn't loaded, and nothing to send", async () => {
     // The tag list can't be read (no saved copy either), so no tag has a name to choose by.
     api.reply(
-      "/api/v1/vocabulary",
+      "/api/v2/vocabulary",
       { error: { code: "server_error", message: "Something went wrong." } },
       500,
     );
@@ -384,7 +437,7 @@ describe("Tag this meeting", () => {
       "POST",
     );
     await openMeeting();
-    api.reply("/api/v1/vocabulary", { tags: VOCABULARY.tags.filter((t) => t.slug !== "coffee") });
+    api.reply("/api/v2/vocabulary", { tags: VOCABULARY.tags.filter((t) => t.slug !== "coffee") });
     await tag("Quiet", "Coffee");
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "One of those tags isn't available anymore. Refresh the list and try again.",

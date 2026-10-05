@@ -1,4 +1,4 @@
-import { type TAG_CATEGORIES, VocabularyResponse } from "@mymeetingapp/shared";
+import { VocabularyResponse } from "@mymeetingapp/shared";
 import { usePathname } from "expo-router";
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef } from "react";
 
@@ -15,14 +15,25 @@ const VOCABULARY_READ = {
   fetch: fetchVocabulary,
 } as const;
 
-// Each category's heading, wherever tags are listed by category (Filters, the tag picker).
-export const CATEGORY_TITLES: Record<(typeof TAG_CATEGORIES)[number], string> = {
-  format: "Format",
-  sharing: "Sharing",
-  crowd: "Crowd",
-  feel: "Feel",
-  practical: "Practical",
-};
+interface CategoryGroup {
+  category: string;
+  title: string;
+  tags: VocabularyTag[];
+}
+
+// The tags grouped by category, wherever they're listed that way (Filters, the tag picker), in the order the server
+// sends them: it owns the display order. Each heading is made from the category's name ("meeting-length" reads
+// "Meeting length"), so a category added after this build shipped still shows, under a sensible heading.
+export function groupByCategory(tags: Iterable<VocabularyTag>): CategoryGroup[] {
+  const groups = new Map<string, CategoryGroup>();
+  for (const tag of tags) {
+    const title = `${tag.category.charAt(0).toUpperCase()}${tag.category.slice(1).replaceAll("-", " ")}`;
+    const group = groups.get(tag.category) ?? { category: tag.category, title, tags: [] };
+    group.tags.push(tag);
+    groups.set(tag.category, group);
+  }
+  return [...groups.values()];
+}
 
 const Tags = createContext<ReadonlyMap<string, VocabularyTag>>(new Map());
 const Refresh = createContext<() => void>(() => undefined);

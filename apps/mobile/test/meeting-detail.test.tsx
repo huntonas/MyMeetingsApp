@@ -27,7 +27,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
 });
 afterEach(async () => {
@@ -252,14 +252,14 @@ describe("the meeting page", () => {
   it("says the tag names are still to come when none have loaded", async () => {
     // The tag list can't be read (no saved copy either), so no slug has a name to show.
     api.reply(
-      "/api/v1/vocabulary",
+      "/api/v2/vocabulary",
       { error: { code: "server_error", message: "Something went wrong." } },
       500,
     );
     api.reply(PATH, { meeting: meeting() });
     await renderApp(`/meeting/${ID}`);
     await waitFor(() => {
-      expect(api.requests.some((r) => r.path === "/api/v1/vocabulary")).toBe(true);
+      expect(api.requests.some((r) => r.path === "/api/v2/vocabulary")).toBe(true);
     });
     expect(
       await screen.findByText("Tag names haven't loaded yet. They'll appear when you're back online."),

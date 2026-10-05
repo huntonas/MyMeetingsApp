@@ -131,6 +131,18 @@ describe("POST /api/v1/suggestions", () => {
     });
   });
 
+  it("shows the AI every active tag, in every category, to merge into", async () => {
+    const server = await gateway({ decision: "pending", tagSlug: null, reason: "Unclear." });
+    await suggest("Tiny group");
+    const sent = server.requests[0]?.body ?? "";
+    for (const line of [
+      "size-small: Small (under 15)",
+      "good-for-newcomers: Good for newcomers",
+      "coffee: Coffee",
+    ])
+      expect(sent).toContain(line);
+  });
+
   it("rejects a name or judgment and unlinks the device", async () => {
     await gateway({ decision: "reject", tagSlug: null, reason: "Judges the members." });
     await suggest("Boring people");

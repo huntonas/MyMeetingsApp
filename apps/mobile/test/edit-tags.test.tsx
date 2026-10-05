@@ -30,7 +30,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   api.reply(PATH, { meeting: meeting() });
   announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
 });
@@ -63,6 +63,25 @@ async function remove() {
   expect(screen.getByText("Remove your tags from this meeting? Other people's tags stay.")).toBeOnTheScreen();
   await fireEvent.press(screen.getByRole("button", { name: "Remove my tags" }));
 }
+
+describe("a meeting this phone tagged with a size", () => {
+  beforeEach(async () => {
+    await recordSubmission({ id: ID, name: "Nooners" }, ["welcoming", "size-small"], RECORDED);
+  });
+
+  it("starts the edit with that size chosen, and swaps it for another", async () => {
+    api.reply(TAG_PATH, { meetingId: ID, tags: COUNTS }, 200, "PUT");
+    await openMeeting(LATER);
+    await fireEvent.press(await screen.findByRole("button", { name: "Edit my tags" }));
+    expect(screen.getByRole("radio", { name: "Small (under 15)" })).toBeChecked();
+    await fireEvent.press(screen.getByRole("radio", { name: "Medium (15–30)" }));
+    expect(screen.getByRole("radio", { name: "Small (under 15)" })).not.toBeChecked();
+    expect(screen.getByText("2 of 6 chosen")).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole("button", { name: "Save my tags" }));
+    expect(await screen.findByText("Your tags are saved.")).toBeOnTheScreen();
+    expect(writes()[0]?.body).toBe('{"tags":["welcoming","size-medium"]}');
+  });
+});
 
 describe("a meeting this phone tagged", () => {
   beforeEach(async () => {

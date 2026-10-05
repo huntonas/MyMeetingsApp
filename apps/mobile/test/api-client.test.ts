@@ -19,7 +19,7 @@ afterEach(async () => {
 
 describe("reads", () => {
   it("reads the tag list through its contract, with no device headers", async () => {
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     expect(await fetchVocabulary()).toEqual(VOCABULARY);
     const [request] = api.requests;
     expect(request?.method).toBe("GET");
@@ -63,7 +63,7 @@ describe("cookies", () => {
     ["postJson", () => searchMeetings({ lat: 36.16, lng: -86.78, radiusKm: 25 })],
   ] as const)("%s asks fetch to omit them", async (_name, call) => {
     const spy = jest.spyOn(globalThis, "fetch");
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     api.reply("/api/v1/meetings/search", { meetings: [] });
     await call();
     expect(spy).toHaveBeenCalledTimes(1);
@@ -93,7 +93,7 @@ describe("failures", () => {
 
   it("gives up on a server that doesn't answer within 15 seconds", async () => {
     jest.useFakeTimers(TIMEOUT_ONLY);
-    api.hang("/api/v1/vocabulary");
+    api.hang("/api/v2/vocabulary");
     let settled = false;
     const pending = fetchVocabulary()
       .catch((caught: unknown) => caught)

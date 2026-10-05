@@ -105,6 +105,25 @@ describe("auditHar", () => {
     });
   });
 
+  // Builds from the 2026-10-03 vocabulary additions read /api/v2/vocabulary; older ones still read /api/v1.
+  it("passes the vocabulary read at /api/v2 as well as /api/v1", () => {
+    const report = auditHar(
+      har(
+        entry("GET", `https://${SERVER}/api/v2/vocabulary`),
+        entry("GET", `https://${SERVER}/api/v1/vocabulary`),
+        VALID_SEARCH,
+      ),
+      OPTIONS,
+    );
+    expect([report.serverRequests, report.findings]).toEqual([3, []]);
+  });
+
+  it("flags coordinates added to the /api/v2 vocabulary read", () => {
+    expect(problems(har(entry("GET", `https://${SERVER}/api/v2/vocabulary?lat=36.16&lng=-86.78`)))).toContain(
+      "isn't one of the app's requests",
+    );
+  });
+
   it("flags coordinates in a URL on the search endpoint", () => {
     expect(
       problems(

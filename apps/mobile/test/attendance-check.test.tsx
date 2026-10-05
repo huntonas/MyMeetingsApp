@@ -46,7 +46,7 @@ beforeEach(async () => {
   await resetAppData();
   api = await startApi();
   api.reply("/api/v1/config", CONFIG);
-  api.reply("/api/v1/vocabulary", VOCABULARY);
+  api.reply("/api/v2/vocabulary", VOCABULARY);
   api.reply(PATH, { meeting: meeting() });
   api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
   announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);

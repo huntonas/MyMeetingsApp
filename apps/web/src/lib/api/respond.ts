@@ -24,6 +24,7 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   attestation_failed: 401,
   device_blocked: 403,
   too_many_tags: 400,
+  one_size: 400,
   unknown_tag: 400,
   tags_disabled: 403,
   window_closed: 403,

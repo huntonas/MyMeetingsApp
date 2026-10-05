@@ -55,7 +55,8 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 // Phase 5a's app only reads. 5b adds its write paths here, with device headers allowed on them alone.
 const READS = [
   /^\/api\/v1\/config$/,
-  /^\/api\/v1\/vocabulary$/,
+  // /api/v2 from the 2026-10-03 vocabulary additions; /api/v1 for builds before them (TestFlight build 12).
+  /^\/api\/v[12]\/vocabulary$/,
   /^\/api\/v1\/meetings\/online\?day=[0-6]$/,
   new RegExp(`^/api/v1/meetings/${UUID}$`),
 ];

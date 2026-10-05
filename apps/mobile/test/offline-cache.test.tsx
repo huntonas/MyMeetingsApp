@@ -56,7 +56,7 @@ const searchRead = (key: string) =>
 
 describe("cachedRead", () => {
   it("asks the server and saves the answer when nothing is saved", async () => {
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     expect(await cachedRead(vocabularyRead)).toEqual({ data: VOCABULARY, savedAt: null });
     expect((await readCache("vocabulary"))?.body).toEqual(VOCABULARY);
   });
@@ -76,7 +76,7 @@ describe("cachedRead", () => {
     setNow(SAVED);
     await writeCache("search:36.16,-86.78,25", VOCABULARY);
     setNow(minutesAfter(SAVED, 75).toISOString());
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:36.16,-86.78,25"));
     expect(api.requests).toHaveLength(1);
   });
@@ -106,7 +106,7 @@ describe("cachedRead", () => {
       setNow(SAVED);
       await writeCache("vocabulary", VOCABULARY);
       setNow(minutesAfter(SAVED, 1).toISOString());
-      api.reply("/api/v1/vocabulary", { error: { code, message: "message" } }, 500);
+      api.reply("/api/v2/vocabulary", { error: { code, message: "message" } }, 500);
       expect(await cachedRead(vocabularyRead)).toEqual({
         data: VOCABULARY,
         savedAt: new Date(SAVED),
@@ -120,7 +120,7 @@ describe("cachedRead", () => {
     await writeCache("vocabulary", VOCABULARY);
     setNow(minutesAfter(SAVED, 1).toISOString());
     api.reply(
-      "/api/v1/vocabulary",
+      "/api/v2/vocabulary",
       { error: { code: "meeting_not_found", message: "We couldn't find that meeting." } },
       404,
     );
@@ -129,13 +129,13 @@ describe("cachedRead", () => {
 
   it("ignores a saved copy that no longer matches the contract", async () => {
     await writeCache("vocabulary", { tags: "not a list" });
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     expect(await cachedRead(vocabularyRead)).toEqual({ data: VOCABULARY, savedAt: null });
   });
 
   it("keeps only the latest search, leaving other cached kinds alone", async () => {
     await writeCache("vocabulary", VOCABULARY);
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:36.16,-86.78,25"));
     await cachedRead(searchRead("search:35.96,-83.92,25"));
     expect(await readCache("search:36.16,-86.78,25")).toBeNull();
@@ -145,7 +145,7 @@ describe("cachedRead", () => {
 
   it("offline, answers a search with no copy of its own with the last search saved", async () => {
     setNow(SAVED);
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:36.16,-86.78,25"));
     setNow(minutesAfter(SAVED, 20).toISOString());
     await api.close();
@@ -159,16 +159,16 @@ describe("cachedRead", () => {
 
   it("never answers with another search's copy when the server itself answers with trouble", async () => {
     setNow(SAVED);
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:36.16,-86.78,25"));
-    api.reply("/api/v1/vocabulary", { error: { code: "server_error", message: "message" } }, 500);
+    api.reply("/api/v2/vocabulary", { error: { code: "server_error", message: "message" } }, 500);
     await expect(cachedRead(searchRead("search:35.96,-83.92,25"))).rejects.toMatchObject({
       code: "server_error",
     });
   });
 
   it("never answers another kind of read with the last search's copy", async () => {
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:36.16,-86.78,25"));
     await api.close();
     await expect(cachedRead(vocabularyRead)).rejects.toThrow("The server couldn't be reached");
@@ -195,7 +195,7 @@ describe("cachedRead", () => {
 describe("cachedRead: two searches racing to save", () => {
   it("keeps the newer search result when an older request's fetch finishes later", async () => {
     setNow(SAVED);
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     const stalledKey = "search:1,1,25";
     const freshKey = "search:2,2,25";
 
@@ -235,7 +235,7 @@ describe("cachedRead: two searches racing to save", () => {
 
 describe("cachedRead: a phone clock moved back", () => {
   it("still saves new searches after one was stamped in what is now the future", async () => {
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     setNow(minutesAfter(SAVED, 600).toISOString());
     await cachedRead(searchRead("search:1,1,25"));
     setNow(SAVED);
@@ -248,10 +248,10 @@ describe("cachedRead: a phone clock moved back", () => {
 describe("cachedRead: a search still in flight during Clear recent places", () => {
   it("never saves a search that was asked for before Clear recent places", async () => {
     // This file's searchRead(key) is a "search"-kind read over the vocabulary path; answerLater plays a slow server.
-    const answer = api.answerLater("/api/v1/vocabulary");
+    const answer = api.answerLater("/api/v2/vocabulary");
     const reading = cachedRead(searchRead("search:35.76,-83.97,25"));
     await waitFor(() => {
-      expect(api.requests.some((r) => r.path === "/api/v1/vocabulary")).toBe(true);
+      expect(api.requests.some((r) => r.path === "/api/v2/vocabulary")).toBe(true);
     });
     await forgetRecentPlaces();
     answer(VOCABULARY);
@@ -267,14 +267,14 @@ describe("cachedRead: a search still in flight during Clear recent places", () =
       "searches_forgotten_at",
       String(Date.now() + 600_000),
     ]);
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:35.76,-83.97,25"));
     expect(await readCache("search:35.76,-83.97,25")).not.toBeNull();
   });
 
   it("still saves a fresh search started after an ordinary Clear recent places", async () => {
     await forgetRecentPlaces();
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     await cachedRead(searchRead("search:35.76,-83.97,25"));
     expect(await readCache("search:35.76,-83.97,25")).not.toBeNull();
   });
@@ -288,14 +288,14 @@ describe("cachedRead treats its own cache as best effort", () => {
       "not json",
       Date.now(),
     ]);
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     expect(await cachedRead(vocabularyRead)).toEqual({ data: VOCABULARY, savedAt: null });
   });
 
   it("still returns the freshly fetched data even when saving it fails", async () => {
     const db = await appDatabase();
     jest.spyOn(db, "runAsync").mockRejectedValueOnce(new Error("disk full"));
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     expect(await cachedRead(vocabularyRead)).toEqual({ data: VOCABULARY, savedAt: null });
   });
 });
@@ -330,7 +330,7 @@ describe("useCachedRead with SavedCopyNote", () => {
     setNow(minutesAfter(SAVED, 30).toISOString());
     await api.close();
     await render(<VocabularyCount />);
-    expect(await screen.findByText("26 tags")).toBeOnTheScreen();
+    expect(await screen.findByText(`${String(VOCABULARY.tags.length)} tags`)).toBeOnTheScreen();
     expect(
       screen.getByText(
         "Showing the copy saved today at 3:40 PM. We couldn't reach My Meeting App, so it may be out of date.",
@@ -354,9 +354,9 @@ describe("useCachedRead with SavedCopyNote", () => {
     setNow(SAVED);
     await writeCache("vocabulary", VOCABULARY);
     setNow(minutesAfter(SAVED, 30).toISOString());
-    api.reply("/api/v1/vocabulary", { error: { code: "server_error", message: "message" } }, 500);
+    api.reply("/api/v2/vocabulary", { error: { code: "server_error", message: "message" } }, 500);
     await render(<VocabularyCount />);
-    expect(await screen.findByText("26 tags")).toBeOnTheScreen();
+    expect(await screen.findByText(`${String(VOCABULARY.tags.length)} tags`)).toBeOnTheScreen();
     expect(
       screen.getByText(
         "Showing the copy saved today at 3:40 PM. My Meeting App is having trouble right now, so it may be out of date.",
@@ -393,9 +393,9 @@ function OptionalVocabularyCount({ read }: { read: CachedRead<typeof VocabularyR
 
 describe("useCachedRead when its read becomes null", () => {
   it("goes back to loading instead of leaving the previous read's result on screen", async () => {
-    api.reply("/api/v1/vocabulary", VOCABULARY);
+    api.reply("/api/v2/vocabulary", VOCABULARY);
     const { rerender } = await render(<OptionalVocabularyCount read={vocabularyRead} />);
-    expect(await screen.findByText("26 tags")).toBeOnTheScreen();
+    expect(await screen.findByText(`${String(VOCABULARY.tags.length)} tags`)).toBeOnTheScreen();
 
     await rerender(<OptionalVocabularyCount read={null} />);
     expect(screen.getByText("Loading")).toBeOnTheScreen();

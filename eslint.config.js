@@ -227,7 +227,11 @@ export default defineConfig([
   },
   {
     // The Expo config lives at the workspace root.
-    files: ["apps/mobile/test/app-shell.test.tsx", "apps/mobile/test/privacy-manifest.test.ts"],
+    files: [
+      "apps/mobile/test/app-shell.test.tsx",
+      "apps/mobile/test/privacy-manifest.test.ts",
+      "apps/mobile/test/store-listing.test.ts",
+    ],
     rules: { "no-restricted-imports": "off" },
   },
   {

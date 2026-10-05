@@ -4,6 +4,7 @@ import path from "node:path";
 import { BRAND } from "@mymeetingapp/shared";
 import { z } from "zod";
 
+import appConfig from "../app.config";
 import { describesTheAppAsItIs } from "./listing-claims";
 
 const read = (file: string): unknown => JSON.parse(readFileSync(path.join(__dirname, "..", file), "utf8"));
@@ -11,6 +12,7 @@ const read = (file: string): unknown => JSON.parse(readFileSync(path.join(__dirn
 const Listing = z.object({
   configVersion: z.literal(0),
   apple: z.object({
+    version: z.string(),
     copyright: z.string(),
     categories: z.array(z.string()),
     release: z.object({ automaticRelease: z.boolean() }),
@@ -78,5 +80,16 @@ describe("the App Store listing", () => {
   it("names the publisher and is released by hand, after the seller check (owner decision needed 1)", () => {
     expect(listing().copyright).toBe(`2026 ${BRAND.publisher}`);
     expect(listing().release).toEqual({ automaticRelease: false });
+  });
+
+  // App Store Connect names the version the listing is pushed to, and the build attached to it must carry the same.
+  it("is pushed to the version the app builds as", () => {
+    const context = {
+      projectRoot: path.join(__dirname, ".."),
+      staticConfigPath: null,
+      packageJsonPath: null,
+      config: {},
+    };
+    expect(listing().version).toBe(z.object({ version: z.string() }).parse(appConfig(context)).version);
   });
 });

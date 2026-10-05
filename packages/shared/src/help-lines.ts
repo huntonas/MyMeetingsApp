@@ -21,3 +21,6 @@ export const HELP_LINES = [
 
 // Alcoholics Anonymous's own meeting finder, offered next to the crisis lines.
 export const AA_MEETING_FINDER = "https://www.aa.org/find-aa";
+
+// Narcotics Anonymous's own meeting finder, beside AA's.
+export const NA_MEETING_FINDER = "https://na.org/meetingsearch/";

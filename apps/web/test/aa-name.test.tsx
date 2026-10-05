@@ -16,6 +16,7 @@ const DISCLAIMERS = [
   "Not affiliated with Alcoholics Anonymous",
   "not affiliated with, endorsed by or approved by Alcoholics Anonymous or A.A. World Services, Inc.",
   "Alcoholics Anonymous has its own meeting finder at aa.org",
+  "Narcotics Anonymous has its own meeting finder at na.org",
 ];
 const AA_NAME = /\bA\.?A\b|Alcoholics Anonymous/;
 

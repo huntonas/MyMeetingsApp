@@ -17282,7 +17282,8 @@
     - Wharton, TX
     - Willis, TX
   checked_at: 2026-09-28
-  notes: ""
+  notes: "Declined 2026-10-05: its groups consented to listing by AA entities only; each group may consent itself."
+  opted_out: true
 - id: intergroup-central-office-el-paso-tx
   name: Intergroup Central Office
   entity_type: intergroup

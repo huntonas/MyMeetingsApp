@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import type { IncomingHttpHeaders } from "node:http";
+import path from "node:path";
 import { format } from "node:util";
 
 import { eq, isNull, sql } from "drizzle-orm";
@@ -106,6 +108,34 @@ describe("runSync", () => {
       .where(eq(feeds.id, keyed.id));
     expect(await runSync(60_000)).toMatchObject({ synced: 1 });
     expect(keyed.server.requests[0]?.path).toBe("/admin-ajax.php?action=meetings&key=s3cr3t%26x");
+  });
+
+  it("reads a BMLT feed as an NA feed's meetings", async () => {
+    const fixture = readFileSync(path.resolve(import.meta.dirname, "fixtures/bmlt-tennessee.json"), "utf8");
+    // The fixture's rows name natennessee.org's root; served here, they must name this server's for the feed to
+    // count them as its own.
+    let body = "";
+    const server = await startServer(() => ({
+      status: 200,
+      body,
+      headers: { "Content-Type": "application/json" },
+    }));
+    servers.push(server);
+    body = fixture.replaceAll("https://natennessee.org/main_server", `${server.baseUrl}/main_server`);
+    const id = await upsertFeed({
+      slug: "na-volunteer-region",
+      name: "Volunteer Region",
+      entityType: "region",
+      state: "TN",
+      url: `${server.baseUrl}/main_server/client_interface/json/?switcher=GetSearchResults&get_used_formats=1`,
+      fellowship: "na",
+      format: "bmlt",
+    });
+
+    expect(await runSync(60_000)).toMatchObject({ synced: 1, failed: 0 });
+    expect(await feed(id)).toMatchObject({ meetingCount: 3, lastError: null });
+    const stored = await db.select().from(meetings).where(isNull(meetings.archivedAt));
+    expect(stored.map((meeting) => meeting.fellowship)).toEqual(["na", "na", "na"]);
   });
 
   it("doesn't sync a feed that succeeded within the last week", async () => {

@@ -63,6 +63,8 @@ const REFERENCE_TABLES: Record<string, string[]> = {
     "url",
     "priority",
     "opted_out",
+    "fellowship",
+    "format",
     "waiting_reason",
     // The office's own published address, typed in by the owner when asking for permission: about an
     // organization, never copied from a feed's contact fields, which the policy says we don't keep.
@@ -86,6 +88,7 @@ const REFERENCE_TABLES: Record<string, string[]> = {
     "latitude",
     "longitude",
     "timezone",
+    "fellowship",
     "tags_disabled",
     "archived_at",
     "created_at",

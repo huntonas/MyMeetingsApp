@@ -26,6 +26,7 @@ function orderedKeys(entry: RegistryEntry): Record<string, unknown> {
     id: entry.id,
     name: entry.name,
     entity_type: entry.entity_type,
+    ...(entry.fellowship !== undefined && { fellowship: entry.fellowship }),
     state: entry.state,
     website: entry.website,
     feed_type: entry.feed_type,

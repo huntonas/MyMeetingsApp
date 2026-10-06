@@ -156,6 +156,8 @@ describe("Help now", () => {
     expect(openURL).toHaveBeenCalledWith("tel:18006624357");
     await fireEvent.press(screen.getByRole("button", { name: "Open aa.org's meeting finder" }));
     expect(openURL).toHaveBeenCalledWith("https://www.aa.org/find-aa");
+    await fireEvent.press(screen.getByRole("button", { name: "Open na.org's meeting finder" }));
+    expect(openURL).toHaveBeenCalledWith("https://na.org/meetingsearch/");
   });
 
   // Swiping the sheet down is the only other way out, and VoiceOver users need a button.

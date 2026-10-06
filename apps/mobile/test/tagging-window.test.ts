@@ -1,4 +1,4 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { V1MeetingSummary } from "@mymeetingapp/shared";
 
 import { whyNoNewTags } from "@/tagging/window";
 
@@ -8,7 +8,7 @@ import { meeting as listed } from "./fixtures";
 const NOONERS = { day: 1, time: "12:00", endTime: "13:00", timezone: "America/Chicago" };
 
 // Whether the phone offers a new tagging at `at`, with tagging on, the app current and no record on this phone.
-const taggingOpen = (meeting: Partial<MeetingSummary>, at: Date) =>
+const taggingOpen = (meeting: Partial<V1MeetingSummary>, at: Date) =>
   whyNoNewTags(listed(meeting), null, at, true, false) === null;
 
 // Whether a record confirmed at `confirmedAt` stops a new tagging at `at`, on a meeting whose window is open then

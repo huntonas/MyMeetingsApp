@@ -118,6 +118,27 @@ describe("auditHar", () => {
     expect([report.serverRequests, report.findings]).toEqual([3, []]);
   });
 
+  // Builds from 1.1 read every fellowship's meetings at /api/v2; older ones still read /api/v1.
+  it("passes the meeting reads and the search at /api/v2 as well as /api/v1", () => {
+    const report = auditHar(
+      har(
+        entry("POST", `https://${SERVER}/api/v2/meetings/search`, {
+          body: '{"lat":36.16,"lng":-86.78,"radiusKm":25}',
+        }),
+        entry("GET", `https://${SERVER}/api/v2/meetings/online?day=3`),
+        entry("GET", `https://${SERVER}/api/v2/meetings/${ID}`),
+      ),
+      OPTIONS,
+    );
+    expect([report.serverRequests, report.findings]).toEqual([3, []]);
+  });
+
+  it("flags a day out of range on the /api/v2 online read", () => {
+    expect(
+      problems(har(entry("GET", `https://${SERVER}/api/v2/meetings/online?day=7`), VALID_SEARCH)),
+    ).toContain("isn't one of the app's requests");
+  });
+
   it("flags coordinates added to the /api/v2 vocabulary read", () => {
     expect(problems(har(entry("GET", `https://${SERVER}/api/v2/vocabulary?lat=36.16&lng=-86.78`)))).toContain(
       "isn't one of the app's requests",

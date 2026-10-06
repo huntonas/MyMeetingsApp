@@ -1,8 +1,9 @@
+import { FELLOWSHIPS } from "@mymeetingapp/shared";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, type Executor } from "@/db/client";
-import { ENTITY_TYPES, type EntityType, feeds, WAITING_REASONS } from "@/db/schema";
+import { ENTITY_TYPES, type EntityType, FEED_FORMATS, feeds, WAITING_REASONS } from "@/db/schema";
 
 // Spec §3: intergroup and district feeds outrank area feeds, which often re-publish them.
 // Exported so callers that must rank entities before upserting (e.g. seed-feeds.ts, when two
@@ -11,6 +12,8 @@ export const DEFAULT_PRIORITY: Record<EntityType, number> = {
   intergroup: 10,
   district: 10,
   central_office: 10,
+  // NA's regions and zones publish their own meetings, as intergroups do.
+  region: 10,
   area: 20,
 };
 
@@ -26,6 +29,9 @@ export const FeedInput = z.object({
   optedOut: z.boolean().optional(),
   // Only a new feed starts out waiting. Once the owner resumes one, an upsert never pauses it again.
   waitingReason: z.enum(WAITING_REASONS).optional(),
+  // Set only when a feed is first made: its meetings took it then and keep it (spec §3).
+  fellowship: z.enum(FELLOWSHIPS).optional(),
+  format: z.enum(FEED_FORMATS).optional(),
 });
 
 export type FeedInput = z.input<typeof FeedInput>;
@@ -37,7 +43,12 @@ const URL_OR_PRIORITY_CHANGED = sql`(${URL_CHANGED} or feeds.priority <> exclude
 // validators are dropped and the feed made due. A new URL also resets the shrink guard's baseline.
 export async function upsertFeed(input: FeedInput, executor: Executor = db): Promise<number> {
   const feed = FeedInput.parse(input);
-  const values = { ...feed, priority: feed.priority ?? DEFAULT_PRIORITY[feed.entityType] };
+  const values = {
+    ...feed,
+    priority: feed.priority ?? DEFAULT_PRIORITY[feed.entityType],
+    fellowship: feed.fellowship ?? "aa",
+    format: feed.format ?? "meeting_guide",
+  };
   const [row] = await executor
     .insert(feeds)
     .values(values)
@@ -48,6 +59,7 @@ export async function upsertFeed(input: FeedInput, executor: Executor = db): Pro
         entityType: sql`excluded.entity_type`,
         state: sql`excluded.state`,
         url: sql`excluded.url`,
+        format: sql`excluded.format`,
         priority: sql`excluded.priority`,
         optedOut: sql`feeds.opted_out or excluded.opted_out`,
         etag: sql`case when ${URL_OR_PRIORITY_CHANGED} then null else feeds.etag end`,

@@ -7,10 +7,11 @@ import { devices, feeds, suggestions, tagSwings, tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { utcToday } from "@/db/sql";
 import { readFeedsNeedingAttention, readMetrics } from "@/server/admin/metrics";
+import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { recountTags } from "@/server/tags/counts";
 
 import { resetDb } from "./db";
-import { seedFeed } from "./feed-fixtures";
+import { feedMeeting, seedFeed } from "./feed-fixtures";
 import { elsewhere, insertSubmission, seedMeetingStarted } from "./tag-fixtures";
 
 beforeEach(async () => {
@@ -76,6 +77,7 @@ describe("readMetrics (spec §10: totals only)", () => {
       nearMeetingThisWeek: 1,
       meetings: 2,
       meetingsWithTags: 1,
+      meetingsByFellowship: { aa: 2, na: 0 },
     });
     expect(metrics.topTags).toEqual([
       { label: "Quiet", submissions: 3 },
@@ -121,6 +123,7 @@ describe("feed health (owner decision 1)", () => {
     await feedState("brand-new", {});
     await feedState("opted-out", { optedOut: true, lastAttemptAt: new Date(), lastError: "HTTP 404" });
     await feedState("never-worked", { lastAttemptAt: new Date(), lastError: "not a JSON array" });
+    await seedFeed("na-region", "region", "na");
     await feedState("waiting", {
       waitingReason: "bot_check",
       lastAttemptAt: daysAgo(2),
@@ -132,7 +135,13 @@ describe("feed health (owner decision 1)", () => {
       ["overdue", null],
       ["failing", "HTTP 503"],
     ]);
-    expect((await readMetrics()).feeds).toEqual({ total: 7, optedOut: 1, waiting: 1, needingAttention: 3 });
+    expect((await readMetrics()).feeds).toEqual({
+      total: 8,
+      optedOut: 1,
+      waiting: 1,
+      needingAttention: 3,
+      byFellowship: { aa: 7, na: 1 },
+    });
   });
 
   // Owner decision 1: the overdue window is the weekly sync plus its one-day retry, exactly 8 days. A feed just
@@ -140,6 +149,15 @@ describe("feed health (owner decision 1)", () => {
   it("does not list a feed that succeeded 7 days ago with no error", async () => {
     await feedState("on-schedule", { lastAttemptAt: daysAgo(1), lastSuccessAt: daysAgo(7) });
     expect(await readFeedsNeedingAttention()).toEqual([]);
+  });
+
+  it("counts active meetings by fellowship", async () => {
+    await applyFeedSnapshot(await seedFeed("aa"), [feedMeeting({ sourceSlug: "aa-1" })]);
+    await applyFeedSnapshot(await seedFeed("na", "region", "na"), [
+      feedMeeting({ sourceSlug: "na-1", addressKey: "elsewhere", latitude: 36.3 }),
+      feedMeeting({ sourceSlug: "na-2", addressKey: "farther", latitude: 36.5 }),
+    ]);
+    expect((await readMetrics()).tagging.meetingsByFellowship).toEqual({ aa: 1, na: 2 });
   });
 
   it("cuts a long error to 300 characters", async () => {

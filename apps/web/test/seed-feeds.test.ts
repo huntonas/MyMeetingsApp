@@ -81,7 +81,40 @@ const optedOutArea: RegistryEntry = {
   opted_out: true,
 };
 
+const naRegion: RegistryEntry = {
+  id: "volunteer-region-na",
+  name: "Volunteer Region",
+  entity_type: "region",
+  fellowship: "na",
+  state: "TN",
+  website: "https://natennessee.org",
+  feed_type: "bmlt",
+  feed_url:
+    "https://natennessee.org/main_server/client_interface/json/?switcher=GetSearchResults&get_used_formats=1",
+  verified: true,
+  meeting_count: 462,
+  states_covered: ["TN"],
+  cities_covered: [],
+  checked_at: "2026-10-05",
+  notes: "",
+};
+
 describe("seedFeedsFromRegistry", () => {
+  it("seeds a BMLT entry as an NA feed read as BMLT, and every other feed as AA's Meeting Guide", async () => {
+    expect(await seedFeedsFromRegistry([verifiedTsml, naRegion])).toEqual({
+      upserted: 2,
+      optedOut: 0,
+      skipped: 0,
+    });
+    expect(await feedRow("volunteer-region-na")).toMatchObject({
+      fellowship: "na",
+      format: "bmlt",
+      entityType: "region",
+      priority: 10,
+    });
+    expect(await feedRow("tn-intergroup")).toMatchObject({ fellowship: "aa", format: "meeting_guide" });
+  });
+
   it("upserts verified entries, opts out flagged ones, and skips the rest", async () => {
     const entries = [verifiedTsml, restricted, noneFound, optedOutArea];
 

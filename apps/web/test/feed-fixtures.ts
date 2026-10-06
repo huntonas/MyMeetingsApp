@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
+
 import { db } from "@/db/client";
-import { feedMeetings, meetings } from "@/db/schema";
+import { feedMeetings, feeds, meetings } from "@/db/schema";
 import { upsertFeed } from "@/db/upsert-feed";
 import type { FeedMeeting } from "@/server/feeds/normalize";
 
@@ -30,17 +32,37 @@ export function feedMeeting(overrides: Partial<FeedMeeting> = {}): FeedMeeting {
   };
 }
 
-export async function seedFeed(slug: string, entityType: "intergroup" | "area" = "intergroup") {
-  return upsertFeed({ slug, name: slug, entityType, state: "TN", url: `https://${slug}.example.org/feed` });
+export async function seedFeed(
+  slug: string,
+  entityType: "intergroup" | "area" | "region" = "intergroup",
+  fellowship: "aa" | "na" = "aa",
+) {
+  return upsertFeed({
+    slug,
+    name: slug,
+    entityType,
+    state: "TN",
+    url: `https://${slug}.example.org/feed`,
+    fellowship,
+  });
 }
 
 // Inserts one meeting with the given sources directly, for tests of code that runs after matching.
 export async function insertMeetingWithSources(
   sources: { feedId: number; row: FeedMeeting; archived?: boolean }[],
 ) {
+  // The meeting is its first source's feed's fellowship, as applyFeedSnapshot makes it.
+  const [feed] = await db
+    .select({ fellowship: feeds.fellowship })
+    .from(feeds)
+    .where(eq(feeds.id, sources[0]?.feedId ?? 0));
   const [meeting] = await db
     .insert(meetings)
-    .values({ day: sources[0]?.row.day ?? 1, time: sources[0]?.row.time ?? "12:00" })
+    .values({
+      day: sources[0]?.row.day ?? 1,
+      time: sources[0]?.row.time ?? "12:00",
+      fellowship: feed?.fellowship ?? "aa",
+    })
     .returning();
   if (meeting === undefined) throw new Error("no meeting");
   for (const { feedId, row, archived } of sources) {

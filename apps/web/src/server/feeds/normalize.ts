@@ -1,5 +1,5 @@
 import { addressKey } from "@mymeetingapp/feed-kit";
-import { MEETING_TYPE_CODES, type MeetingSummary } from "@mymeetingapp/shared";
+import { MEETING_TYPE_CODES, type MeetingTypeCode, type V1MeetingSummary } from "@mymeetingapp/shared";
 
 export interface FeedMeeting {
   sourceSlug: string;
@@ -8,8 +8,8 @@ export interface FeedMeeting {
   endTime: string | null;
   timezone: string | null;
   name: string;
-  types: MeetingSummary["types"];
-  attendance: MeetingSummary["attendance"];
+  types: MeetingTypeCode[];
+  attendance: V1MeetingSummary["attendance"];
   locationName: string | null;
   formattedAddress: string | null;
   addressKey: string | null;
@@ -35,14 +35,14 @@ const TEXT_LIMIT = 1000;
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const TYPE_BY_UPPER = new Map(MEETING_TYPE_CODES.map((code) => [code.toUpperCase(), code]));
 
-function text(value: unknown): string | null {
+export function text(value: unknown): string | null {
   const candidate = typeof value === "number" ? String(value) : value;
   if (typeof candidate !== "string") return null;
   const trimmed = candidate.trim();
   return trimmed === "" ? null : trimmed.slice(0, TEXT_LIMIT);
 }
 
-function webUrl(value: unknown): string | null {
+export function webUrl(value: unknown): string | null {
   const candidate = text(value);
   if (candidate === null || !/^https?:\/\//i.test(candidate)) return null;
   try {
@@ -67,7 +67,7 @@ function days(value: unknown): number[] {
   return [...found];
 }
 
-function clockTime(value: unknown): string | null {
+export function clockTime(value: unknown): string | null {
   const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(text(value) ?? "");
   if (match === null) return null;
   const [, hours = "", minutes = ""] = match;
@@ -75,7 +75,7 @@ function clockTime(value: unknown): string | null {
   return `${hours.padStart(2, "0")}:${minutes}`;
 }
 
-function timeZone(value: unknown): string | null {
+export function timeZone(value: unknown): string | null {
   const zone = text(value);
   if (!zone?.includes("/")) return null;
   try {
@@ -96,7 +96,7 @@ function coordinate(value: unknown, limit: number): number | null {
   return Number.isFinite(number) && Math.abs(number) <= limit ? number : null;
 }
 
-function point(raw: Raw): { latitude: number; longitude: number } | null {
+export function point(raw: Raw): { latitude: number; longitude: number } | null {
   let latitude = coordinate(raw.latitude, 90);
   let longitude = coordinate(raw.longitude, 180);
   if ((latitude === null || longitude === null) && typeof raw.coordinates === "string") {

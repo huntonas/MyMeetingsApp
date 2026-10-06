@@ -1,4 +1,4 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { V1MeetingSummary } from "@mymeetingapp/shared";
 import { router } from "expo-router";
 import { memo, useRef } from "react";
 import MapView, { Marker } from "react-native-maps";
@@ -6,7 +6,7 @@ import MapView, { Marker } from "react-native-maps";
 import type { MapRegion } from "@/location/geo";
 import { shortWhen } from "@/meetings/schedule";
 
-type MappedMeeting = Pick<MeetingSummary, "id" | "name" | "day" | "time" | "latitude" | "longitude">;
+type MappedMeeting = Pick<V1MeetingSummary, "id" | "name" | "day" | "time" | "latitude" | "longitude">;
 
 interface ResultsMapProps {
   initialRegion: MapRegion;

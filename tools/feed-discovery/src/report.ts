@@ -1,4 +1,5 @@
 import type { RegistryEntry } from "@mymeetingapp/feed-kit";
+import { FELLOWSHIPS } from "@mymeetingapp/shared";
 
 import { hasSharingKey, type Detection } from "./detect";
 import type { DirectoryEntity } from "./directory";
@@ -43,7 +44,11 @@ export function buildRegistry(
   const previousById = new Map(previous.map((entry) => [entry.id, entry]));
 
   const foundIds = new Set(found.map(({ entity }) => entity.id));
-  const carriedOptOuts = previous.filter((entry) => entry.opted_out === true && !foundIds.has(entry.id));
+  const carriedOptOuts = previous.filter(
+    (entry) => entry.opted_out === true && entry.fellowship !== "na" && !foundIds.has(entry.id),
+  );
+  // NA entries come from discover:na, not aa.org's directory, so this run keeps them as they are.
+  const naEntries = previous.filter((entry) => entry.fellowship === "na");
 
   const entries = found.map(({ entity, detection, verification }) => {
     const rawFeedUrl = detectionFeedUrl(detection);
@@ -69,7 +74,7 @@ export function buildRegistry(
 
     return previousById.get(entity.id)?.opted_out === true ? { ...entry, opted_out: true } : entry;
   });
-  return [...entries, ...carriedOptOuts];
+  return [...entries, ...carriedOptOuts, ...naEntries];
 }
 
 // Pairs of feeds that cover at least one of the same meetings, highest overlap first - a sign the two
@@ -192,6 +197,11 @@ export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], ch
     ];
   });
 
+  const byFellowship = FELLOWSHIPS.map((fellowship) => {
+    const ofFellowship = feeds.filter((feed) => (feed.entry.fellowship ?? "aa") === fellowship);
+    return [fellowship.toUpperCase(), String(ofFellowship.length), String(sumMeetings(ofFellowship))];
+  });
+
   const botBlocked = entries.filter((entry) => entry.feed_type === "bot_blocked");
   const restricted = entries.filter((entry) => entry.feed_type === "restricted");
   const noFeed = entries.filter((entry) => entry.feed_type === "none_found");
@@ -213,6 +223,7 @@ export function renderCoverage(entries: RegistryEntry[], overlaps: Overlap[], ch
       feeds.length === 1 ? "" : "s"
     }, ${String(totalMeetings)} meetings.`,
     renderTable(["State", "Entities", "Verified feeds", "Meetings", "Restricted", "No feed"], rows),
+    `## By fellowship\n\n${renderTable(["Fellowship", "Verified feeds", "Meetings"], byFellowship)}`,
     `## Verified feeds (open to us)\n\n${
       feeds.length === 0
         ? "None."

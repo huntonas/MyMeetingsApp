@@ -1,4 +1,4 @@
-import { AA_MEETING_FINDER, HELP_LINES } from "@mymeetingapp/shared";
+import { AA_MEETING_FINDER, HELP_LINES, NA_MEETING_FINDER } from "@mymeetingapp/shared";
 import { View } from "react-native";
 
 import { AppText } from "@/ui/app-text";
@@ -25,6 +25,8 @@ export function HelpResources() {
       ))}
       <AppText>Alcoholics Anonymous has its own meeting finder at aa.org.</AppText>
       <HandOffButton to="web" kind="secondary" label="Open aa.org's meeting finder" url={AA_MEETING_FINDER} />
+      <AppText>Narcotics Anonymous has its own meeting finder at na.org.</AppText>
+      <HandOffButton to="web" kind="secondary" label="Open na.org's meeting finder" url={NA_MEETING_FINDER} />
     </View>
   );
 }

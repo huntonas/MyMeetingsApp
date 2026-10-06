@@ -9,8 +9,9 @@ const MIN_NAME_SIMILARITY = 0.5;
 
 // One side of a match: a canonical meeting, or a feed row about to become or join one. `listings` is a
 // subquery of the listings that describe it, with the columns address_key, attendance, conference_key, name,
-// types, feed_id, source_slug and archived_at.
+// types, feed_id, source_slug and archived_at. `fellowship` is the fellowship of the meeting or feed it comes from.
 export interface MatchSide {
+  fellowship: SQL;
   day: SQL;
   time: SQL;
   location: SQL;
@@ -21,6 +22,7 @@ export interface MatchSide {
 export function meetingSide(alias: string): MatchSide {
   const meeting = sql.raw(alias);
   return {
+    fellowship: sql`${meeting}.fellowship`,
     day: sql`${meeting}.day`,
     time: sql`${meeting}.time`,
     location: sql`${meeting}.location`,
@@ -75,6 +77,7 @@ const GENDER_VALUES = sql`array[${sqlStringList(GENDER_ENTRIES.map(([, gender]) 
 export function listingSide(alias: string): MatchSide {
   const listing = sql.raw(alias);
   return {
+    fellowship: sql`(select feed.fellowship from feeds feed where feed.id = ${listing}.feed_id)`,
     day: sql`${listing}.day`,
     time: sql`${listing}.time`,
     location: sql`coalesce(
@@ -145,9 +148,9 @@ function sharedConference(a: MatchSide, b: MatchSide, aListing: SQL, bListing: S
 // or, unless both sides name a gender and they differ, coordinates within 50 m, the same normalized
 // address, or coordinates within 150 m and names that clearly match (every word of one is in the other, or
 // they are trigram-similar). A side whose own listings name different genders never matches. Callers first
-// narrow the meetings to check with matchCandidates.
+// narrow the meetings to check with matchCandidates. Meetings of different fellowships never match, however alike.
 export function sidesMatch(a: MatchSide, b: MatchSide): SQL {
-  return sql`(${a.day} = ${b.day} and ${a.time} = ${b.time}
+  return sql`(${a.fellowship} = ${b.fellowship} and ${a.day} = ${b.day} and ${a.time} = ${b.time}
     and not ${mixedGenders(a)} and not ${mixedGenders(b)} and (
     exists (
       select 1 from ${a.listings} a_listing, ${b.listings} b_listing

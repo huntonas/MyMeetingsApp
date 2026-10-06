@@ -1,8 +1,9 @@
-import { MeetingDetailResponse } from "@mymeetingapp/shared";
+import { MeetingDetailResponse, V1MeetingDetailResponse } from "@mymeetingapp/shared";
 import { eq, isNull } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/api/v1/meetings/[id]/route";
+import { GET as getV2 } from "@/app/api/v2/meetings/[id]/route";
 import { db, pool } from "@/db/client";
 import { feedMeetings, meetingAliases, meetings, tags } from "@/db/schema";
 import { seedVocabulary } from "@/db/seed-vocabulary";
@@ -25,6 +26,23 @@ async function onlyMeetingId() {
   return row?.id ?? "";
 }
 
+describe("an NA meeting", () => {
+  it("is found only through v2, with its fellowship and NA's types", async () => {
+    await applyFeedSnapshot(await seedFeed("na", "region", "na"), [feedMeeting({ types: ["O", "BT"] })]);
+    const id = await onlyMeetingId();
+    expect((await get(id)).status).toBe(404);
+    const res = await getV2(new Request(`http://test/api/v2/meetings/${id}`), {
+      params: Promise.resolve({ id }),
+    });
+    expect(res.headers.get("cache-control")).toBe("public, s-maxage=300, stale-while-revalidate=600");
+    expect(MeetingDetailResponse.parse(await res.json()).meeting).toMatchObject({
+      id,
+      fellowship: "na",
+      types: ["O", "BT"],
+    });
+  });
+});
+
 describe("GET /api/v1/meetings/:id", () => {
   it("returns the meeting from its primary source, cacheable for five minutes", async () => {
     await applyFeedSnapshot(await seedFeed("a"), [
@@ -34,7 +52,7 @@ describe("GET /api/v1/meetings/:id", () => {
     const res = await get(id);
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("public, s-maxage=300, stale-while-revalidate=600");
-    expect(MeetingDetailResponse.parse(await res.json()).meeting).toEqual({
+    expect(V1MeetingDetailResponse.parse(await res.json()).meeting).toEqual({
       id,
       name: "Nooners",
       day: 1,
@@ -85,7 +103,7 @@ describe("GET /api/v1/meetings/:id", () => {
     await insertSubmission(id, ["coffee", "lively", "runs-long"]);
     await db.update(tags).set({ status: "retired" }).where(eq(tags.slug, "runs-long"));
     await recountTags([id], db);
-    const { meeting } = MeetingDetailResponse.parse(await (await get(id)).json());
+    const { meeting } = V1MeetingDetailResponse.parse(await (await get(id)).json());
     expect(meeting.tags).toEqual([
       { slug: "welcoming", count: 2 },
       { slug: "coffee", count: 2 },
@@ -101,7 +119,7 @@ describe("GET /api/v1/meetings/:id", () => {
     await insertSubmission(id, ["welcoming"]);
     await recountTags([id], db);
     await db.update(meetings).set({ tagsDisabled: true });
-    const { meeting } = MeetingDetailResponse.parse(await (await get(id)).json());
+    const { meeting } = V1MeetingDetailResponse.parse(await (await get(id)).json());
     expect([meeting.tagsDisabled, meeting.tags]).toEqual([true, []]);
   });
 
@@ -113,6 +131,6 @@ describe("GET /api/v1/meetings/:id", () => {
       .values({ oldMeetingId: "0f8fad5b-d9cb-469f-a165-70867728950e", meetingId: id });
     const res = await get("0f8fad5b-d9cb-469f-a165-70867728950e");
     expect(res.status).toBe(200);
-    expect(MeetingDetailResponse.parse(await res.json()).meeting.id).toBe(id);
+    expect(V1MeetingDetailResponse.parse(await res.json()).meeting.id).toBe(id);
   });
 });

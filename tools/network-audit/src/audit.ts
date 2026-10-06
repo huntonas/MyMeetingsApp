@@ -57,10 +57,11 @@ const READS = [
   /^\/api\/v1\/config$/,
   // /api/v2 from the 2026-10-03 vocabulary additions; /api/v1 for builds before them (TestFlight build 12).
   /^\/api\/v[12]\/vocabulary$/,
-  /^\/api\/v1\/meetings\/online\?day=[0-6]$/,
-  new RegExp(`^/api/v1/meetings/${UUID}$`),
+  // /api/v2 from 1.1 (every fellowship); /api/v1 for builds before it.
+  /^\/api\/v[12]\/meetings\/online\?day=[0-6]$/,
+  new RegExp(`^/api/v[12]/meetings/${UUID}$`),
 ];
-const SEARCH_PATH = "/api/v1/meetings/search";
+const SEARCH_PATHS = ["/api/v1/meetings/search", "/api/v2/meetings/search"];
 // Exactly the rounded point and radius, nothing more.
 const SearchBody = z.strictObject(MeetingSearchRequest.shape);
 
@@ -311,7 +312,7 @@ export function auditHar(har: Har, options: AuditOptions): AuditReport {
       flag(`sends a body on a ${request.method} request`);
     }
 
-    if (request.method === "POST" && matchPath === SEARCH_PATH) {
+    if (request.method === "POST" && SEARCH_PATHS.includes(matchPath)) {
       sawSearch = true;
       if (!isExactlyTheAppsBody(SearchBody, request))
         flag("search body isn't exactly a rounded lat, lng and radiusKm");

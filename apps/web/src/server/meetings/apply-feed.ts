@@ -1,7 +1,8 @@
+import type { Fellowship } from "@mymeetingapp/shared";
 import { eq, sql } from "drizzle-orm";
 
 import { db, type Executor } from "@/db/client";
-import { conferenceKey, feedMeetings, meetings } from "@/db/schema";
+import { conferenceKey, feedMeetings, feeds, meetings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
 import type { FeedMeeting } from "@/server/feeds/normalize";
 import {
@@ -19,8 +20,9 @@ import { splitUnmatchedListings } from "@/server/meetings/split";
 // under another slug now (sameFeedConflict "active": unlike the merge pass, which counts every listing ever
 // seen, a renamed slug keeps its meeting). Archived meetings can match, so a meeting returning to a feed
 // keeps its id, but an active one wins.
-async function findMatchingMeeting(tx: Executor, feedId: number, row: FeedMeeting) {
+async function findMatchingMeeting(tx: Executor, feedId: number, fellowship: Fellowship, row: FeedMeeting) {
   const rowSide: MatchSide = {
+    fellowship: sql`${fellowship}::text`,
     day: sql`${row.day}::smallint`,
     time: sql`${row.time}::text`,
     location:
@@ -49,6 +51,8 @@ async function findMatchingMeeting(tx: Executor, feedId: number, row: FeedMeetin
 // meetings that now match another stored meeting.
 export async function applyFeedSnapshot(feedId: number, rows: FeedMeeting[]): Promise<void> {
   await db.transaction(async (tx) => {
+    const [feed] = await tx.select({ fellowship: feeds.fellowship }).from(feeds).where(eq(feeds.id, feedId));
+    if (feed === undefined) throw new Error(`applyFeedSnapshot: no feed ${String(feedId)}`);
     const seenAt = new Date();
     const existing = await tx
       .select({
@@ -76,11 +80,11 @@ export async function applyFeedSnapshot(feedId: number, rows: FeedMeeting[]): Pr
       const key = `${row.sourceSlug}|${String(row.day)}`;
       let meetingId = meetingByKey.get(key);
       if (meetingId === undefined) {
-        meetingId = await findMatchingMeeting(tx, feedId, row);
+        meetingId = await findMatchingMeeting(tx, feedId, feed.fellowship, row);
         if (meetingId === undefined) {
           const [created] = await tx
             .insert(meetings)
-            .values({ day: row.day, time: row.time })
+            .values({ day: row.day, time: row.time, fellowship: feed.fellowship })
             .returning({ id: meetings.id });
           meetingId = created?.id;
         }

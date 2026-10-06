@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { MeetingSearchRequest, MeetingSummary, OnlineMeetingsQuery } from "../src/index";
+import {
+  isV1MeetingType,
+  MeetingSearchRequest,
+  MeetingDetailResponse,
+  OnlineMeetingsQuery,
+  V1MeetingSummary,
+} from "../src/index";
 
 const summary = {
   id: "0f8fad5b-d9cb-469f-a165-70867728950e",
@@ -48,9 +54,9 @@ describe("MeetingSearchRequest", () => {
   });
 });
 
-describe("MeetingSummary", () => {
+describe("V1MeetingSummary (builds before 1.1)", () => {
   it("accepts a well-formed meeting", () => {
-    expect(MeetingSummary.parse(summary)).toEqual(summary);
+    expect(V1MeetingSummary.parse(summary)).toEqual(summary);
   });
 
   it.each([
@@ -60,15 +66,42 @@ describe("MeetingSummary", () => {
     { attendance: "inactive" },
     { conferenceUrl: "javascript:alert(1)" },
   ])("rejects %j", (change) => {
-    expect(MeetingSummary.safeParse({ ...summary, ...change }).success).toBe(false);
+    expect(V1MeetingSummary.safeParse({ ...summary, ...change }).success).toBe(false);
   });
 
   it.each([{ tags: [{ slug: "laid-back", count: 0 }] }, { tags: [{ slug: "Laid Back", count: 3 }] }])(
     "rejects tag counts that aren't a slug with a positive count: %j",
     (change) => {
-      expect(MeetingSummary.safeParse({ ...summary, ...change }).success).toBe(false);
+      expect(V1MeetingSummary.safeParse({ ...summary, ...change }).success).toBe(false);
     },
   );
+});
+
+describe("the v1 types", () => {
+  it("still refuses a type 1.0 has never heard of", () => {
+    expect(V1MeetingSummary.safeParse({ ...summary, types: ["JFT"] }).success).toBe(false);
+  });
+
+  it("names exactly the v1 types", () => {
+    expect(isV1MeetingType("O")).toBe(true);
+    expect(isV1MeetingType("JFT")).toBe(false);
+  });
+});
+
+describe("a meeting at /api/v2", () => {
+  const read = (meeting: object) => MeetingDetailResponse.parse({ meeting }).meeting;
+
+  it("reads a type and a fellowship this build has never heard of", () => {
+    expect(read({ ...summary, types: ["XYZ"], fellowship: "al-anon" })).toMatchObject({
+      types: ["XYZ"],
+      fellowship: "al-anon",
+    });
+  });
+
+  // A copy 1.0 saved has no fellowship, and every meeting 1.0 saw was AA's.
+  it("reads a 1.0-era meeting, with no fellowship, as AA's", () => {
+    expect(read(summary).fellowship).toBe("aa");
+  });
 });
 
 describe("OnlineMeetingsQuery", () => {

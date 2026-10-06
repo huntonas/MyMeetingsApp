@@ -1,3 +1,4 @@
+import { FELLOWSHIPS, type Fellowship } from "@mymeetingapp/shared";
 import { and, asc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
@@ -25,13 +26,20 @@ interface Metrics {
     nearMeetingThisWeek: number;
     meetings: number;
     meetingsWithTags: number;
+    meetingsByFellowship: Record<Fellowship, number>;
   };
   submissionsPerDay: { day: string; count: number }[];
   topTags: { label: string; submissions: number }[];
   vocabulary: { active: number; retired: number };
   pendingSuggestions: number;
   openSwings: number;
-  feeds: { total: number; optedOut: number; waiting: number; needingAttention: number };
+  feeds: {
+    total: number;
+    optedOut: number;
+    waiting: number;
+    needingAttention: number;
+    byFellowship: Record<Fellowship, number>;
+  };
 }
 
 interface FeedAttention {
@@ -138,11 +146,41 @@ async function readTopTags(): Promise<{ label: string; submissions: number }[]> 
   return rows;
 }
 
+// Every fellowship, with 0 for one that has none.
+function byFellowship(rows: { fellowship: Fellowship; count: number }[]): Record<Fellowship, number> {
+  const counts: Record<Fellowship, number> = { aa: 0, na: 0 };
+  for (const fellowship of FELLOWSHIPS) {
+    counts[fellowship] = rows.find((row) => row.fellowship === fellowship)?.count ?? 0;
+  }
+  return counts;
+}
+
+async function readFeedsByFellowship(): Promise<Record<Fellowship, number>> {
+  return byFellowship(
+    await db
+      .select({ fellowship: feeds.fellowship, count: sql<number>`count(*)::int` })
+      .from(feeds)
+      .groupBy(feeds.fellowship),
+  );
+}
+
+async function readMeetingsByFellowship(): Promise<Record<Fellowship, number>> {
+  return byFellowship(
+    await db
+      .select({ fellowship: meetings.fellowship, count: sql<number>`count(*)::int` })
+      .from(meetings)
+      .where(isNull(meetings.archivedAt))
+      .groupBy(meetings.fellowship),
+  );
+}
+
 export async function readMetrics(): Promise<Metrics> {
-  const [totals, submissionsPerDay, topTags] = await Promise.all([
+  const [totals, submissionsPerDay, topTags, feedsByFellowship, meetingsByFellowship] = await Promise.all([
     readTotals(),
     readSubmissionsPerDay(),
     readTopTags(),
+    readFeedsByFellowship(),
+    readMeetingsByFellowship(),
   ]);
   return {
     devices: {
@@ -157,6 +195,7 @@ export async function readMetrics(): Promise<Metrics> {
       nearMeetingThisWeek: totals.nearMeetingThisWeek,
       meetings: totals.meetings,
       meetingsWithTags: totals.meetingsWithTags,
+      meetingsByFellowship,
     },
     submissionsPerDay,
     topTags,
@@ -168,6 +207,7 @@ export async function readMetrics(): Promise<Metrics> {
       optedOut: totals.optedOutFeeds,
       waiting: totals.waitingFeeds,
       needingAttention: totals.feedsNeedingAttention,
+      byFellowship: feedsByFellowship,
     },
   };
 }

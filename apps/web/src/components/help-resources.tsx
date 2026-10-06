@@ -1,4 +1,4 @@
-import { AA_MEETING_FINDER, HELP_LINES } from "@mymeetingapp/shared";
+import { AA_MEETING_FINDER, HELP_LINES, NA_MEETING_FINDER } from "@mymeetingapp/shared";
 
 // Spec §8: 988 and the SAMHSA National Helpline are always reachable, on the site as in the app (HELP_LINES).
 export function HelpResources() {
@@ -14,6 +14,9 @@ export function HelpResources() {
         ))}
         <li>
           Alcoholics Anonymous has its own meeting finder at <a href={AA_MEETING_FINDER}>aa.org</a>.
+        </li>
+        <li>
+          Narcotics Anonymous has its own meeting finder at <a href={NA_MEETING_FINDER}>na.org</a>.
         </li>
       </ul>
     </section>

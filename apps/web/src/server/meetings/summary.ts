@@ -1,5 +1,5 @@
-import type { TagCount } from "@mymeetingapp/shared";
-import { eq, sql } from "drizzle-orm";
+import type { Fellowship, TagCount } from "@mymeetingapp/shared";
+import { eq, type SQL, sql } from "drizzle-orm";
 
 import { feedMeetings, meetings } from "@/db/schema";
 
@@ -27,6 +27,7 @@ export const summaryColumns = {
   time: meetings.time,
   endTime: feedMeetings.endTime,
   timezone: meetings.timezone,
+  fellowship: meetings.fellowship,
   types: feedMeetings.types,
   attendance: feedMeetings.attendance,
   locationName: feedMeetings.locationName,
@@ -47,3 +48,8 @@ export const summaryColumns = {
 
 // Written once: every meeting-summary query joins a meeting to the feed_meetings row that is its primary source.
 export const primarySourceJoin = eq(feedMeetings.id, meetings.primaryFeedMeetingId);
+
+// null is every fellowship (/api/v2); /api/v1 asks for "aa" (V1MeetingSummary). `and()` ignores undefined.
+export function inFellowship(fellowship: Fellowship | null): SQL | undefined {
+  return fellowship === null ? undefined : eq(meetings.fellowship, fellowship);
+}

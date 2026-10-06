@@ -1,4 +1,4 @@
-import type { MeetingSummary } from "@mymeetingapp/shared";
+import type { V1MeetingSummary } from "@mymeetingapp/shared";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
 
@@ -24,7 +24,7 @@ afterEach(async () => {
   await api.close();
 });
 
-const online = (id: string, change: Partial<MeetingSummary>) =>
+const online = (id: string, change: Partial<V1MeetingSummary>) =>
   meeting({ id, attendance: "online", conferenceUrl: "https://zoom.us/j/1", locationName: null, ...change });
 
 // Every fixture meeting carries the fixture's one tag, which its card reads out after its name and time.
@@ -43,12 +43,12 @@ const NIGHT_OWLS = online("33333333-3333-4333-8333-333333333333", {
   endTime: null,
 });
 
-function replyDay(day: number, meetings: MeetingSummary[]) {
+function replyDay(day: number, meetings: V1MeetingSummary[]) {
   api.reply(`/api/v1/meetings/online?day=${String(day)}`, { meetings });
 }
 
 // The phone's yesterday, today and tomorrow: a meeting's own weekday can differ from the phone's by one.
-function replyDays(monday: MeetingSummary[]) {
+function replyDays(monday: V1MeetingSummary[]) {
   replyDay(0, []);
   replyDay(1, monday);
   replyDay(2, []);

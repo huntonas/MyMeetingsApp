@@ -1,0 +1,138 @@
+{
+  "meetings": [
+    {
+      "id_bigint": "1525",
+      "weekday_tinyint": "1",
+      "venue_type": "1",
+      "start_time": "09:00:00",
+      "duration_time": "01:00:00",
+      "time_zone": "",
+      "formats": "C,O,D,LT,H",
+      "longitude": "-85.8471107",
+      "latitude": "35.7064197",
+      "root_server_uri": "https://natennessee.org/main_server",
+      "meeting_name": "Recovery Is Possible",
+      "location_text": "Temple Baptist Church",
+      "location_info": "(Meeting meets in the basement)",
+      "location_street": "34 Oak Tree Drive",
+      "location_municipality": "McMinnville",
+      "location_province": "TN",
+      "location_postal_code_1": "37110",
+      "comments": "",
+      "virtual_meeting_link": "",
+      "phone_meeting_number": ""
+    },
+    {
+      "id_bigint": "1481",
+      "weekday_tinyint": "1",
+      "venue_type": "1",
+      "start_time": "09:00:00",
+      "duration_time": "01:15:00",
+      "time_zone": "",
+      "formats": "O,D,H",
+      "longitude": "-85.291737",
+      "latitude": "34.9973649",
+      "root_server_uri": "https://natennessee.org/main_server",
+      "meeting_name": "Gift of Desperation",
+      "location_text": "Metropolitan Ministries",
+      "location_info": "",
+      "location_street": "4001 Rossville Blvd",
+      "location_municipality": "Chattanooga",
+      "location_province": "TN",
+      "location_postal_code_1": "37407",
+      "comments": "",
+      "virtual_meeting_link": "",
+      "phone_meeting_number": ""
+    },
+    {
+      "id_bigint": "985",
+      "weekday_tinyint": "1",
+      "venue_type": "1",
+      "start_time": "10:00:00",
+      "duration_time": "01:00:00",
+      "time_zone": "",
+      "formats": "C,D,H,SP",
+      "longitude": "-86.3911602",
+      "latitude": "35.8383822",
+      "root_server_uri": "https://natennessee.org/main_server",
+      "meeting_name": "Spiritual Solutions",
+      "location_text": "Cumberland Heights IOP Facility",
+      "location_info": "",
+      "location_street": "745 S Church St Suite 505",
+      "location_municipality": "Murfreesboro",
+      "location_province": "TN",
+      "location_postal_code_1": "37130",
+      "comments": "",
+      "virtual_meeting_link": "",
+      "phone_meeting_number": ""
+    }
+  ],
+  "formats": [
+    {
+      "key_string": "BT",
+      "name_string": "Basic Text",
+      "world_id": "BT",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "C",
+      "name_string": "Closed",
+      "world_id": "CLOSED",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "D",
+      "name_string": "Discussion",
+      "world_id": "DISC",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "JT",
+      "name_string": "Just for Today",
+      "world_id": "JFT",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "O",
+      "name_string": "Open",
+      "world_id": "OPEN",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "SG",
+      "name_string": "Step Working Guide",
+      "world_id": "SWG",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "LT",
+      "name_string": "Literature study",
+      "world_id": "LIT",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "H",
+      "name_string": "Handicapped accessible",
+      "world_id": "WCHR",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "SP",
+      "name_string": "Spiritual Principle",
+      "world_id": "TOP",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "TC",
+      "name_string": "Temporary Closure",
+      "world_id": "TC",
+      "root_server_uri": "https://natennessee.org/main_server"
+    },
+    {
+      "key_string": "VM",
+      "name_string": "Virtual Meeting",
+      "world_id": "VM",
+      "root_server_uri": "https://natennessee.org/main_server"
+    }
+  ]
+}

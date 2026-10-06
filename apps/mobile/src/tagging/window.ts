@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, type MeetingSummary } from "@mymeetingapp/shared";
+import { ERROR_MESSAGES, type V1MeetingSummary } from "@mymeetingapp/shared";
 
 import type { LatLng } from "@/location/geo";
 import { lastOccurrence, type Occurrence, occurrenceEnd, type Scheduled } from "@/meetings/schedule";
@@ -39,7 +39,7 @@ export function attendanceOccurrence(meeting: Scheduled, now: Date): Occurrence 
 // Where an attendance check can look: an in-person or hybrid meeting with a map point. An online meeting has nowhere
 // to be near, even when its listing gives a point.
 export function checkablePlace(
-  meeting: Pick<MeetingSummary, "attendance" | "latitude" | "longitude">,
+  meeting: Pick<V1MeetingSummary, "attendance" | "latitude" | "longitude">,
 ): LatLng | null {
   if (meeting.attendance === "online" || meeting.latitude === null || meeting.longitude === null) return null;
   return { latitude: meeting.latitude, longitude: meeting.longitude };
@@ -49,7 +49,7 @@ export function checkablePlace(
 // meeting" and Nearby's "Went to a meeting? Tag it". "" means there's nothing worth saying (What people say already
 // explains an opted-out group; a phone that tagged this week edits instead).
 export function whyNoNewTags(
-  meeting: MeetingSummary,
+  meeting: V1MeetingSummary,
   record: MyTags | null,
   now: Date,
   tagging: boolean,

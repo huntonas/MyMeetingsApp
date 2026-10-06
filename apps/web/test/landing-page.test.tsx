@@ -39,11 +39,17 @@ describe("the home page", () => {
       "SAMHSA National Helpline",
       "1-800-662-4357",
       "Alcoholics Anonymous has its own meeting finder at aa.org",
+      "Narcotics Anonymous has its own meeting finder at na.org",
     ]) {
       expect(text).toContain(words);
     }
     const html = renderToStaticMarkup(<HomePage />);
-    for (const href of ["tel:988", "tel:18006624357", "https://www.aa.org/find-aa"]) {
+    for (const href of [
+      "tel:988",
+      "tel:18006624357",
+      "https://www.aa.org/find-aa",
+      "https://na.org/meetingsearch/",
+    ]) {
       expect(html).toContain(`href="${href}"`);
     }
   });

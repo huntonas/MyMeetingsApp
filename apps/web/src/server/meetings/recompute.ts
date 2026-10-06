@@ -1,9 +1,9 @@
-import tzlookup from "@photostructure/tz-lookup";
 import { and, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 
 import { db, type Executor } from "@/db/client";
 import { meetings } from "@/db/schema";
 import { sqlArray } from "@/db/sql";
+import { zoneAt } from "@/server/meetings/time-zone";
 
 // Spec §3: a canonical meeting shows its highest-priority active source and is archived once none remain.
 // Coordinates come from that source, then its address's geocode, then the highest-priority active source
@@ -66,7 +66,7 @@ export async function recomputeMeetings(meetingIds: string[], executor: Executor
   for (const row of missingZone) {
     if (row.latitude === null || row.longitude === null) continue;
     await executor.execute(
-      sql`update meetings set timezone = ${tzlookup(row.latitude, row.longitude)} where id = ${row.id}`,
+      sql`update meetings set timezone = ${zoneAt(row.latitude, row.longitude)} where id = ${row.id}`,
     );
   }
 }

@@ -34,6 +34,15 @@ describe("upsertFeed", () => {
     expect((await feedRow("sd"))?.priority).toBe(priority);
   });
 
+  // Its meetings took its fellowship when they were made, and never change: a feed that changed fellowship would serve
+  // NA meetings as AA's to builds before 1.1, or fork its own meetings in two.
+  it("never changes an existing feed's fellowship", async () => {
+    const id = await upsertFeed(input);
+    expect(await upsertFeed({ ...input, fellowship: "na" })).toBe(id);
+    const [row] = await db.select({ fellowship: feeds.fellowship }).from(feeds).where(eq(feeds.id, id));
+    expect(row).toEqual({ fellowship: "aa" });
+  });
+
   it("updates an existing feed by slug but never changes its opt-out", async () => {
     const id = await upsertFeed(input);
     await db.update(feeds).set({ optedOut: true }).where(eq(feeds.id, id));

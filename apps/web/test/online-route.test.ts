@@ -1,7 +1,8 @@
-import { OnlineMeetingsResponse } from "@mymeetingapp/shared";
+import { OnlineMeetingsResponse, V1OnlineMeetingsResponse } from "@mymeetingapp/shared";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { GET } from "@/app/api/v1/meetings/online/route";
+import { GET as getV2 } from "@/app/api/v2/meetings/online/route";
 import { db, pool } from "@/db/client";
 import { seedVocabulary } from "@/db/seed-vocabulary";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
@@ -25,6 +26,20 @@ const online = {
 function get(query: string) {
   return GET(new Request(`http://test/api/v1/meetings/online${query}`));
 }
+
+describe("an NA online meeting", () => {
+  it("is listed only by v2, with its fellowship", async () => {
+    await applyFeedSnapshot(await seedFeed("na", "region", "na"), [
+      feedMeeting({ ...online, day: 1, conferenceUrl: "https://zoom.us/j/1", types: ["JFT"] }),
+    ]);
+    expect(V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
+    const res = await getV2(new Request("http://test/api/v2/meetings/online?day=1"));
+    expect(res.headers.get("cache-control")).toBe("public, s-maxage=900, stale-while-revalidate=3600");
+    expect(OnlineMeetingsResponse.parse(await res.json()).meetings).toEqual([
+      expect.objectContaining({ fellowship: "na", types: ["JFT"] }),
+    ]);
+  });
+});
 
 describe("GET /api/v1/meetings/online", () => {
   it("returns that day's online and hybrid meetings by time, cacheable for 15 minutes", async () => {
@@ -56,7 +71,7 @@ describe("GET /api/v1/meetings/online", () => {
     const res = await get("?day=1");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("public, s-maxage=900, stale-while-revalidate=3600");
-    expect(OnlineMeetingsResponse.parse(await res.json()).meetings.map((m) => m.name)).toEqual([
+    expect(V1OnlineMeetingsResponse.parse(await res.json()).meetings.map((m) => m.name)).toEqual([
       "Early",
       "Hybrid",
       "Late",
@@ -67,7 +82,7 @@ describe("GET /api/v1/meetings/online", () => {
     const feedId = await seedFeed("a");
     await applyFeedSnapshot(feedId, [feedMeeting({ ...online, conferenceUrl: "https://zoom.us/j/1" })]);
     await applyFeedSnapshot(feedId, []);
-    expect(OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
+    expect(V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings).toEqual([]);
   });
 
   it("includes each meeting's tag counts", async () => {
@@ -75,11 +90,11 @@ describe("GET /api/v1/meetings/online", () => {
     await applyFeedSnapshot(await seedFeed("a"), [
       feedMeeting({ ...online, sourceSlug: "early", time: "07:00", name: "Early" }),
     ]);
-    const before = OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
+    const before = V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
     const id = before[0]?.id ?? "";
     await insertSubmission(id, ["lively"]);
     await recountTags([id], db);
-    const [first] = OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
+    const [first] = V1OnlineMeetingsResponse.parse(await (await get("?day=1")).json()).meetings;
     expect(first?.tags).toEqual([{ slug: "lively", count: 1 }]);
   });
 

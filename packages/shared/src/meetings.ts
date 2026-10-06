@@ -99,7 +99,22 @@ const ClockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const Text = z.string().nullable();
 const WebUrl = z.url({ protocol: /^https?$/ }).nullable();
 
-export const MeetingSummary = z.object({
+// Spec §1: the fellowships whose meetings the app lists (owner decision, 2026-10-05).
+export const FELLOWSHIPS = ["aa", "na"] as const;
+export type Fellowship = (typeof FELLOWSHIPS)[number];
+
+type V1MeetingTypeCode = (typeof MEETING_TYPE_CODES)[number];
+// Meeting Guide's codes, and NA's literature formats, which have none (BMLT names them by NAWS world_id): Basic Text,
+// Just for Today, It Works: How and Why, Step Working Guide.
+export type MeetingTypeCode = V1MeetingTypeCode | "BT" | "JFT" | "IW" | "SWG";
+
+export function isV1MeetingType(code: string): code is V1MeetingTypeCode {
+  return MEETING_TYPE_CODES.some((known) => known === code);
+}
+
+// For builds before 1.1, which refuse a whole answer over a type they don't know: /api/v1/meetings serves only AA
+// meetings, through this frozen contract. Remove it once the minimum supported version reads /api/v2.
+export const V1MeetingSummary = z.object({
   id: z.uuid(),
   name: z.string(),
   day: z.number().int().min(0).max(6),
@@ -124,7 +139,7 @@ export const MeetingSummary = z.object({
   tagsDisabled: z.boolean(),
   tags: z.array(TagCount),
 });
-export type MeetingSummary = z.infer<typeof MeetingSummary>;
+export type V1MeetingSummary = z.infer<typeof V1MeetingSummary>;
 
 // Spec §2: the phone rounds to 2 decimals (about 1 km) before sending; anything more precise is refused.
 const roundedCoordinate = (limit: number) =>
@@ -141,10 +156,10 @@ export const MeetingSearchRequest = z.object({
 });
 export type MeetingSearchRequest = z.infer<typeof MeetingSearchRequest>;
 
-export const MeetingSearchResponse = z.object({
-  meetings: z.array(MeetingSummary.extend({ distanceKm: z.number() })),
+export const V1MeetingSearchResponse = z.object({
+  meetings: z.array(V1MeetingSummary.extend({ distanceKm: z.number() })),
 });
-export type MeetingSearchResponse = z.infer<typeof MeetingSearchResponse>;
+export type V1MeetingSearchResponse = z.infer<typeof V1MeetingSearchResponse>;
 
 export const OnlineMeetingsQuery = z.object({
   day: z
@@ -153,6 +168,27 @@ export const OnlineMeetingsQuery = z.object({
     .transform(Number),
 });
 export type OnlineMeetingsQuery = z.infer<typeof OnlineMeetingsQuery>;
+
+export const V1OnlineMeetingsResponse = z.object({ meetings: z.array(V1MeetingSummary) });
+export type V1OnlineMeetingsResponse = z.infer<typeof V1OnlineMeetingsResponse>;
+
+export const V1MeetingDetailResponse = z.object({ meeting: V1MeetingSummary });
+export type V1MeetingDetailResponse = z.infer<typeof V1MeetingDetailResponse>;
+
+// /api/v2: types and fellowships are open-ended, so the server can add one without breaking the apps reading it.
+const MeetingSummary = V1MeetingSummary.extend({
+  types: z.array(z.string().min(1).max(20)),
+  // A copy 1.0 saved has none, and every meeting 1.0 saw was AA's.
+  fellowship: z
+    .string()
+    .regex(/^[a-z0-9-]{1,20}$/)
+    .default("aa"),
+});
+
+export const MeetingSearchResponse = z.object({
+  meetings: z.array(MeetingSummary.extend({ distanceKm: z.number() })),
+});
+export type MeetingSearchResponse = z.infer<typeof MeetingSearchResponse>;
 
 export const OnlineMeetingsResponse = z.object({ meetings: z.array(MeetingSummary) });
 export type OnlineMeetingsResponse = z.infer<typeof OnlineMeetingsResponse>;

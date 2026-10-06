@@ -9,6 +9,7 @@ import { feedMeetings, feeds } from "@/db/schema";
 import { logError } from "@/lib/log";
 import { fetchFeed } from "@/server/feeds/fetch-feed";
 import { FeedFormatError, normalizeFeed } from "@/server/feeds/normalize";
+import { normalizeBmlt } from "@/server/feeds/normalize-bmlt";
 import { applyFeedSnapshot } from "@/server/meetings/apply-feed";
 import { geocodePendingAddresses } from "@/server/meetings/geocode";
 import { recomputeMeetings } from "@/server/meetings/recompute";
@@ -49,6 +50,11 @@ function feedAddress(feed: Feed): string {
   return address.href;
 }
 
+// feeds.format says how the answer is read (spec §4).
+function normalized(feed: Feed, body: unknown) {
+  return feed.format === "bmlt" ? normalizeBmlt(body, feed.url) : normalizeFeed(body);
+}
+
 async function syncFeed(feed: Feed, throttle: HostThrottle): Promise<Outcome> {
   await db.update(feeds).set({ lastAttemptAt: new Date() }).where(eq(feeds.id, feed.id));
   const fetched = await fetchFeed(
@@ -64,7 +70,7 @@ async function syncFeed(feed: Feed, throttle: HostThrottle): Promise<Outcome> {
 
   let rows;
   try {
-    rows = normalizeFeed(fetched.body).meetings;
+    rows = normalized(feed, fetched.body).meetings;
   } catch (error) {
     if (error instanceof FeedFormatError) return recordFailure(feed, error.message);
     throw error;

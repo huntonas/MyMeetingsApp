@@ -1,6 +1,6 @@
 export const BRAND = {
   // What a person reads: the website, the app's words and its home-screen name.
-  name: "My Meeting App",
+  name: "My Meetings App",
   // The technical identifier: the feed User-Agent, the native app's name (and so its iOS User-Agent), the Expo slug.
   slug: "mymeetingapp",
   domain: "mymeetings.app",

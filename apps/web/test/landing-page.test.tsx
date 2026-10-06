@@ -11,7 +11,7 @@ import { renderText } from "./render";
 describe("the home page", () => {
   it("says the app is coming soon", () => {
     const text = renderText(<HomePage />);
-    expect(text).toContain("My Meeting App");
+    expect(text).toContain("My Meetings App");
     expect(text).toContain("Coming soon.");
   });
 
@@ -26,7 +26,7 @@ describe("the home page", () => {
   });
 
   it("is the canonical home page, titled coming soon", () => {
-    expect(metadata.title).toBe("Coming soon · My Meeting App");
+    expect(metadata.title).toBe("Coming soon · My Meetings App");
     expect(metadata.description).toBe(SITE_DESCRIPTION);
     expect(metadata.alternates?.canonical).toBe("/");
   });

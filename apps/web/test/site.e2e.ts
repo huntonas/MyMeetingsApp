@@ -10,10 +10,10 @@ describe("the public site", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain(
-      "My Meeting App<!-- --> is not affiliated with or endorsed by Alcoholics Anonymous",
+      "My Meetings App<!-- --> is not affiliated with or endorsed by Alcoholics Anonymous",
     );
-    expect(html).toContain('<meta name="application-name" content="My Meeting App"/>');
-    expect(html).toContain('<a class="wordmark" href="/">My Meeting App</a>');
+    expect(html).toContain('<meta name="application-name" content="My Meetings App"/>');
+    expect(html).toContain('<a class="wordmark" href="/">My Meetings App</a>');
     expect(html).toMatch(/<link[^>]+href="\/_next\/static\/media\/[^"]+\.woff2"/);
     expect(html).not.toContain("fonts.googleapis.com");
   });
@@ -52,7 +52,7 @@ describe("search engine files and links", () => {
       const url = `https://mymeetingapp.test${path === "/" ? "" : path}`;
       expect(html).toContain(`<link rel="canonical" href="${url}"/>`);
       expect(html).toContain(`<meta property="og:url" content="${url}"/>`);
-      expect(html).toContain('<meta property="og:site_name" content="My Meeting App"/>');
+      expect(html).toContain('<meta property="og:site_name" content="My Meetings App"/>');
     },
   );
 });

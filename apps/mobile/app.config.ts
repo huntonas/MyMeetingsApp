@@ -10,7 +10,7 @@ const BOLD = `${FONTS}/700Bold/AtkinsonHyperlegible_700Bold.ttf`;
 // stays the slug: it also names the Xcode project and the executable, which iOS puts at the front of the app's
 // User-Agent (the network audit pins it). Only the name under the icon is the display name.
 const APP_SLUG = "mymeetingapp";
-const DISPLAY_NAME = "My Meeting App";
+const DISPLAY_NAME = "My Meetings App";
 
 // The icon art (assets/mark.svg, rendered by `pnpm --filter mobile icons`) sits on ACCENT, the light palette's `accent`
 // in src/theme/colors.ts; the mark itself is that palette's `bg`. This file can't import colors.ts, which pulls in

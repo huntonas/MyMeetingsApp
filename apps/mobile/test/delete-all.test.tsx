@@ -92,7 +92,7 @@ describe("Delete all my tags", () => {
     await deleteAll();
     expect(
       await screen.findByText(
-        "We couldn't reach My Meeting App to finish deleting. Check your connection and try again.",
+        "We couldn't reach My Meetings App to finish deleting. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
   });

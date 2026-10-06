@@ -211,14 +211,14 @@ describe("the app config", () => {
     expect(config.android.package).toBe("com.goodersoftware.mymeetingapp");
   });
 
-  it("shows the brand's name, My Meeting App, under the icon on both platforms", () => {
-    expect(BRAND.name).toBe("My Meeting App");
-    expect(Config.parse(appConfig(CONTEXT)).ios.infoPlist.CFBundleDisplayName).toBe("My Meeting App");
+  it("shows the brand's name, My Meetings App, under the icon on both platforms", () => {
+    expect(BRAND.name).toBe("My Meetings App");
+    expect(Config.parse(appConfig(CONTEXT)).ios.infoPlist.CFBundleDisplayName).toBe("My Meetings App");
     const native = nativeConfig();
-    expect(native.ios.infoPlist.CFBundleDisplayName).toBe("My Meeting App");
+    expect(native.ios.infoPlist.CFBundleDisplayName).toBe("My Meetings App");
     expect(native.android.strings.resources.string).toContainEqual({
       $: { name: "app_name" },
-      _: "My Meeting App",
+      _: "My Meetings App",
     });
   }, 30_000);
 
@@ -251,7 +251,7 @@ describe("the app config", () => {
     ]);
     expect(config.android.blockedPermissions).toContain("android.permission.ACCESS_BACKGROUND_LOCATION");
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
-    expect(options.locationWhenInUsePermission).toMatch(/^My Meeting App /);
+    expect(options.locationWhenInUsePermission).toMatch(/^My Meetings App /);
     expect(options.locationWhenInUsePermission).toContain("rounded to about 1 km");
     // Spec §8: the attendance check uses the same permission, so its purpose string names it too.
     expect(options.locationWhenInUsePermission).toContain("check you're near a meeting you tag");
@@ -262,14 +262,14 @@ describe("the app config", () => {
   it("carries an honest motion purpose string, saying the app never uses motion data", () => {
     const config = Config.parse(appConfig(CONTEXT));
     const [, options] = LocationPlugin.parse(config.plugins.find((plugin) => plugin[0] === "expo-location"));
-    expect(options.motionUsagePermission).toMatch(/^My Meeting App /);
+    expect(options.motionUsagePermission).toMatch(/^My Meetings App /);
     expect(options.motionUsagePermission).toContain("never");
   });
 
   it("explains the attendance check's one-time request for full accuracy (spec §8, §11)", () => {
     const config = Config.parse(appConfig(CONTEXT));
     expect(config.ios.infoPlist.NSLocationTemporaryUsageDescriptionDictionary.AttendanceCheck).toBe(
-      "My Meeting App checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.",
+      "My Meetings App checks that you're near the meeting, to stop spam, while the app is open. Your location never leaves your phone.",
     );
   });
 

@@ -295,7 +295,7 @@ describe("the attendance check", () => {
         setLocationPermission("undetermined");
         setPermissionAnswer("denied");
       },
-      "Location isn't allowed for My Meeting App, so your tags will go without the check.",
+      "Location isn't allowed for My Meetings App, so your tags will go without the check.",
     ],
     [
       "only approximate location is shared",

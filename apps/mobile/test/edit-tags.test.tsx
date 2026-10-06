@@ -185,7 +185,7 @@ describe("a meeting this phone tagged", () => {
     await remove();
     expect(
       await screen.findByText(
-        "We couldn't reach My Meeting App, so we can't tell whether your tags were removed. Check your connection and try again.",
+        "We couldn't reach My Meetings App, so we can't tell whether your tags were removed. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
     expect(await myTagsOn(ID)).toMatchObject({ tags: ["welcoming"] });
@@ -199,7 +199,7 @@ describe("a meeting this phone tagged", () => {
     await remove();
     expect(
       await screen.findByText(
-        "We couldn't reach My Meeting App, so we can't tell whether your tags were removed. Check your connection and try again.",
+        "We couldn't reach My Meetings App, so we can't tell whether your tags were removed. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
     api.reply(

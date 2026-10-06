@@ -245,7 +245,7 @@ A long-lived backend for the TestFlight build to talk to, separate from Preview 
 
 ### The Apple account
 
-Team `PVCZBLDJ73`, being converted from individual to Gooder Software LLC (owner decision 1, 2026-10-02). App Store Connect app `6817873804`, named "My Meeting App: Meeting Finder" (claimed 2026-10-02), bundle ID `com.goodersoftware.mymeetingapp`. EAS submits with the App Store Connect API key `ZG2Z6A5JY3`.
+Team `PVCZBLDJ73`, being converted from individual to Gooder Software LLC (owner decision 1, 2026-10-02). App Store Connect app `6817873804`, named "My Meetings App" (claimed 2026-10-02), bundle ID `com.goodersoftware.mymeetingapp`. EAS submits with the App Store Connect API key `ZG2Z6A5JY3`.
 
 Conversion checks (Task 1 Step 2): _not yet recorded_.
 

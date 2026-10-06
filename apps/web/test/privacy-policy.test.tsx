@@ -297,9 +297,9 @@ describe("the privacy policy page", () => {
   });
 
   it("names the app and who makes it", () => {
-    expect(text).toContain("My Meeting App is made by Gooder Software LLC, a Tennessee company.");
+    expect(text).toContain("My Meetings App is made by Gooder Software LLC, a Tennessee company.");
     expect(metadata.description).toBe(
-      "Everything My Meeting App stores, why, for how long, and who else receives it.",
+      "Everything My Meetings App stores, why, for how long, and who else receives it.",
     );
   });
 

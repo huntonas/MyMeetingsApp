@@ -8,7 +8,7 @@ export const metadata = pageMetadata({ path: "/", title: "Coming soon", descript
 export default function HomePage() {
   return (
     <div className="coming-soon">
-      <h1>My Meeting App</h1>
+      <h1>My Meetings App</h1>
       <p className="lede">Coming soon.</p>
       <HelpResources />
     </div>

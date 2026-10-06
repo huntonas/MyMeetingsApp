@@ -178,7 +178,7 @@ describe("the Saved tab", () => {
     expect(await screen.findByRole("button", { name: /^Nooners, Mon 12:00 PM/ })).toBeOnTheScreen();
     expect(
       screen.getByText(
-        "Showing the copy saved yesterday at 3:00 PM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing the copy saved yesterday at 3:00 PM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     api = await startApi();

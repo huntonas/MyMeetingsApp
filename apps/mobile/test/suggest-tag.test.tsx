@@ -108,7 +108,7 @@ describe("Suggest a tag", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Suggest a tag" }));
     expect(screen.getByRole("button", { name: "Send" })).toHaveProp(
       "accessibilityHint",
-      "Sends only these words to My Meeting App",
+      "Sends only these words to My Meetings App",
     );
   });
 
@@ -180,7 +180,7 @@ describe("Suggest a tag", () => {
     await openPicker();
     await suggest("Candlelight");
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach My Meeting App, so we can't tell whether your suggestion arrived. Try again.",
+      "We couldn't reach My Meetings App, so we can't tell whether your suggestion arrived. Try again.",
     );
   });
 

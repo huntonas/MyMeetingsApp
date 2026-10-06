@@ -7,14 +7,14 @@ describe("pageMetadata", () => {
     expect(
       pageMetadata({ path: "/privacy", title: "Privacy policy", description: "How we handle data." }),
     ).toEqual({
-      title: "Privacy policy · My Meeting App",
+      title: "Privacy policy · My Meetings App",
       description: "How we handle data.",
       alternates: { canonical: "/privacy" },
       openGraph: {
-        title: "Privacy policy · My Meeting App",
+        title: "Privacy policy · My Meetings App",
         description: "How we handle data.",
         url: "/privacy",
-        siteName: "My Meeting App",
+        siteName: "My Meetings App",
         type: "website",
         locale: "en_US",
       },

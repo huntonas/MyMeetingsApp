@@ -24,9 +24,9 @@ describe("the terms of use", () => {
   });
 
   it("name the app they cover", () => {
-    expect(text).toContain("These terms cover the My Meeting App app and this website");
-    expect(text).toContain("My Meeting App is an independent app.");
-    expect(termsMetadata.description).toBe("The terms for using the My Meeting App app and website.");
+    expect(text).toContain("These terms cover the My Meetings App app and this website");
+    expect(text).toContain("My Meetings App is an independent app.");
+    expect(termsMetadata.description).toBe("The terms for using the My Meetings App app and website.");
   });
 });
 
@@ -34,9 +34,9 @@ describe("the support page", () => {
   const text = renderText(<SupportPage />);
 
   it("names the app", () => {
-    expect(text).toContain("don't want My Meeting App to use it");
+    expect(text).toContain("don't want My Meetings App to use it");
     expect(supportMetadata.description).toBe(
-      "Help with My Meeting App, and how intergroups and groups can opt out.",
+      "Help with My Meetings App, and how intergroups and groups can opt out.",
     );
   });
 

@@ -279,7 +279,7 @@ describe("the meeting page", () => {
     await renderApp(`/meeting/${ID}`);
     expect(
       await screen.findByText(
-        "We couldn't reach My Meeting App, and this isn't saved on your phone yet. Check your connection and try again.",
+        "We couldn't reach My Meetings App, and this isn't saved on your phone yet. Check your connection and try again.",
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByRole("button", { name: "Join online" })).toBeNull();
@@ -368,7 +368,7 @@ describe("the meeting page", () => {
     await renderApp(`/meeting/${ID}`);
     expect(
       await screen.findByText(
-        "Showing the copy saved today at 3:00 PM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing the copy saved today at 3:00 PM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText(WHEN)).toBeOnTheScreen();

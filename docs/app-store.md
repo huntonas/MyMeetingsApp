@@ -1,6 +1,6 @@
 # The App Store: what's entered by hand
 
-The listing itself (name "My Meeting App: Meeting Finder", subtitle "Recovery meetings near you", description, keywords, the support, privacy-policy and marketing URLs on `https://mymeetings.app`, categories, copyright, release) lives in `apps/mobile/store.config.json` and is pushed with `eas metadata:push`. Everything here is entered in App Store Connect by the owner, because the API doesn't cover it or it holds the owner's phone number.
+The listing itself (name "My Meetings App", subtitle "Recovery meetings near you", description, keywords, the support, privacy-policy and marketing URLs on `https://mymeetings.app`, categories, copyright, release) lives in `apps/mobile/store.config.json` and is pushed with `eas metadata:push`. Everything here is entered in App Store Connect by the owner, because the API doesn't cover it or it holds the owner's phone number.
 
 ## App Privacy
 
@@ -72,7 +72,7 @@ App Store Connect → the version → App Review Information.
 - **Notes** (paste exactly):
 
 ```
-Thank you for reviewing My Meeting App.
+Thank you for reviewing My Meetings App.
 
 Nothing to sign into: the app has no accounts, so there is no demo account. Everything works from the first launch.
 
@@ -90,7 +90,7 @@ Trying tags: tags can be added from a meeting's start until 36 hours after it, b
 
 User content: tags are chosen from a fixed list of neutral words (35 at launch). People can suggest a new word; we screen and review each suggestion before anyone else sees it. There is no free text, profile, messaging or rating.
 
-Health and safety: this is a meeting finder, not a medical or treatment app, and it gives no medical advice. Every screen has a Help button with the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline. My Meeting App is not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services; meeting listings come from public lists that local service offices publish in the open Meeting Guide format.
+Health and safety: this is a meeting finder, not a medical or treatment app, and it gives no medical advice. Every screen has a Help button with the 988 Suicide & Crisis Lifeline and the SAMHSA National Helpline. My Meetings App is not affiliated with or endorsed by Alcoholics Anonymous or A.A. World Services; meeting listings come from public lists that local service offices publish in the open Meeting Guide format.
 
 Publisher: Gooder Software LLC. Contact: admin@goodersoftwarellc.com.
 ```

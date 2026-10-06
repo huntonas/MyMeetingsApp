@@ -228,10 +228,10 @@ describe("Tag this meeting", () => {
     api.reply(PATH, { error: { code: "server_error", message: "Something went wrong." } }, 500);
     api.reply("/api/v1/tags", { meetingId: ID, tags: COUNTS }, 201, "POST");
     await openMeeting();
-    expect(screen.getByText(/My Meeting App is having trouble right now/)).toBeOnTheScreen();
+    expect(screen.getByText(/My Meetings App is having trouble right now/)).toBeOnTheScreen();
     await tag("Welcoming", "Coffee");
     expect(await screen.findByLabelText("Welcoming 15 people")).toBeOnTheScreen();
-    expect(screen.getByText(/My Meeting App is having trouble right now/)).toBeOnTheScreen();
+    expect(screen.getByText(/My Meetings App is having trouble right now/)).toBeOnTheScreen();
   });
 
   it("still offers tagging when the phone's own record can't be read", async () => {
@@ -400,7 +400,7 @@ describe("Tag this meeting", () => {
     await openMeeting();
     await tag("Quiet");
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach My Meeting App, so we can't tell whether your tags were saved. Check your connection and try again.",
+      "We couldn't reach My Meetings App, so we can't tell whether your tags were saved. Check your connection and try again.",
     );
     expect(screen.getByRole("checkbox", { name: "Quiet" })).toBeChecked();
     expect(await myTagsOn(ID)).toBeNull();

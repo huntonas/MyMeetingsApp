@@ -248,7 +248,7 @@ describe("Nearby without location", () => {
     await api.close();
     await fireEvent.press(screen.getByRole("button", { name: "Use my location" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach My Meeting App, and this isn't saved on your phone yet. Check your connection and try again.",
+      "We couldn't reach My Meetings App, and this isn't saved on your phone yet. Check your connection and try again.",
     );
     api = await startApi();
   });
@@ -371,7 +371,7 @@ describe("Nearby with location", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(
       await screen.findByText(
-        "Location is off for My Meeting App. Search by city, zip code or address instead, or turn location on in Settings.",
+        "Location is off for My Meetings App. Search by city, zip code or address instead, or turn location on in Settings.",
       ),
     ).toBeOnTheScreen();
     const settings = screen.getByRole("button", { name: "Open Settings" });
@@ -390,7 +390,7 @@ describe("Nearby with location", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Open Settings" }));
     expect(
       await screen.findByText(
-        "This phone couldn't open Settings. You can turn location on for My Meeting App in the Settings app.",
+        "This phone couldn't open Settings. You can turn location on for My Meetings App in the Settings app.",
       ),
     ).toBeOnTheScreen();
   });
@@ -1186,7 +1186,7 @@ describe("results", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
     expect(
       await screen.findByText(
-        "Showing the copy saved today at 6:00 AM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing the copy saved today at 6:00 AM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Group")).toBeOnTheScreen();
@@ -1205,7 +1205,7 @@ describe("results", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Maryville, TN" }));
     expect(
       await screen.findByText(
-        "Showing the copy saved today at 3:00 PM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing the copy saved today at 3:00 PM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("No in-person meetings within 16 miles of Maryville, TN.")).toBeOnTheScreen();
@@ -1216,7 +1216,7 @@ describe("results", () => {
     await launchNearby();
     await searchFor("Maryville, TN");
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "We couldn't reach My Meeting App, and this isn't saved on your phone yet. Check your connection and try again.",
+      "We couldn't reach My Meetings App, and this isn't saved on your phone yet. Check your connection and try again.",
     );
     expect(screen.getByRole("button", { name: "Change place" })).toBeOnTheScreen();
   });
@@ -1233,7 +1233,7 @@ describe("results", () => {
     await fireEvent.press(await screen.findByRole("button", { name: "Use my location" }));
     expect(
       await screen.findByText(
-        "Showing your last search, near Maryville, TN, saved today at 6:40 AM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing your last search, near Maryville, TN, saved today at 6:40 AM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near Maryville, TN")).toBeOnTheScreen();
@@ -1273,7 +1273,7 @@ describe("results", () => {
     await searchFor("Maryville, TN");
     expect(
       await screen.findByText(
-        "Showing your last search, near your earlier location, saved today at 6:40 AM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing your last search, near your earlier location, saved today at 6:40 AM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText("Near your earlier location")).toBeOnTheScreen();
@@ -1391,7 +1391,7 @@ describe("Search farther", () => {
     await fireEvent.press(button);
     expect(
       await screen.findByText(
-        "Showing your last search, near Maryville, TN, saved today at 5:30 AM. We couldn't reach My Meeting App, so it may be out of date.",
+        "Showing your last search, near Maryville, TN, saved today at 5:30 AM. We couldn't reach My Meetings App, so it may be out of date.",
       ),
     ).toBeOnTheScreen();
     expect(screen.getByText(NONE_NEAR)).toBeOnTheScreen();

@@ -255,13 +255,13 @@ On-device storage: `expo-sqlite` for personal data and cached results; `expo-sec
 
 Public pages, statically rendered, fast, and accessible:
 
-- **Landing page:** headline, store buttons, an example meeting card showing descriptive tags, explanation of "descriptions, not ratings," privacy summary, help resources.
+- **Home page, until launch** (owner decision, 2026-10-06): "Coming soon" and the help resources, with no marketing. The privacy policy, terms and support page stay, because the App Store listing links to them. At launch it becomes the landing page: headline, store buttons, an example meeting card showing descriptive tags, explanation of "descriptions, not ratings," privacy summary, help resources (git history holds the version shown before 2026-10-06).
 - **Privacy policy, support page with FAQ, terms of use.**
   - Terms state the app is not affiliated with or endorsed by AA or A.A. World Services, that listings may be out of date, that it isn't medical advice, and Tennessee governing law.
   - The privacy policy matches the data inventory in section 13 exactly, including the third parties in section 2 and that deleted data may persist in database backups for up to the Neon point-in-time-restore window.
   - The support page explains how entities and groups can opt out.
 - Footer on every page: non-affiliation statement.
-- `robots.txt` (disallow `/metrics`, `/api/`), sitemap, Open Graph tags, `MobileApplication` structured data, iOS Smart App Banner once live.
+- Until launch, `robots.txt` disallows every path and every page says `noindex` (owner decision, 2026-10-06), with no sitemap or structured data. At launch: `robots.txt` (disallow `/metrics`, `/api/`), sitemap, Open Graph tags, `MobileApplication` structured data, iOS Smart App Banner.
 - **Later SEO:** statically regenerated city pages like "newcomer-friendly meetings in [city]" built from aggregate tags.
 
 Design direction: calm, plain, highly legible (Atkinson Hyperlegible, self-hosted via `next/font`), light and dark mode, left-aligned single column, no stock-template look.

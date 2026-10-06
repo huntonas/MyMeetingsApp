@@ -1,11 +1,6 @@
 import type { MetadataRoute } from "next";
 
-import { siteUrl } from "@/lib/site-url";
-
-// Spec §9. Built once at build time from SITE_URL.
+// Owner decision, 2026-10-06: until launch, no crawler reads any page; every page also says noindex (proxy.ts).
 export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: { userAgent: "*", allow: "/", disallow: ["/metrics", "/api/"] },
-    sitemap: `${siteUrl()}/sitemap.xml`,
-  };
+  return { rules: { userAgent: "*", disallow: "/" } };
 }

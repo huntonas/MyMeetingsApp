@@ -63,7 +63,7 @@ Preview deployments are protected, so use `vercel curl` (or a deployment protect
 - `/api/v1/config` returns 200 with the configured versions and switches.
 - In the Neon console, `preview`'s parent is `seed` and its last restore is the build's time.
 - `/`, `/privacy`, `/terms` and `/support` return 200 and set no cookie.
-- `/robots.txt` disallows `/metrics` and `/api/`.
+- `/robots.txt` disallows every path, and every page answers `X-Robots-Tag: noindex, nofollow` (until launch, owner decision 2026-10-06).
 - `/metrics` returns 401 without credentials and 200 with them.
 
 Staging (`https://mymeetingapp-staging.vercel.app`) is public, so plain `curl` works — no `vercel curl` bypass needed:

@@ -169,9 +169,9 @@ describe("proxy for the rest of the site (everything but /api/)", () => {
   });
 });
 
-describe("indexing outside production", () => {
-  // Fails closed: a deployment missing its target isn't production, and local builds get noindex too.
-  it.each(["staging", "preview", undefined])(
+// Owner decision, 2026-10-06: until launch, no page is indexed, production included.
+describe("indexing", () => {
+  it.each(["production", "staging", "preview", undefined])(
     "marks public pages noindex when the target is %j",
     async (target) => {
       vi.stubEnv("VERCEL_TARGET_ENV", target);
@@ -180,9 +180,4 @@ describe("indexing outside production", () => {
       expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     },
   );
-
-  it("leaves production's public pages indexable", async () => {
-    vi.stubEnv("VERCEL_TARGET_ENV", "production");
-    expect((await proxy(request({ path: "/privacy" }))).headers.get("x-robots-tag")).toBeNull();
-  });
 });

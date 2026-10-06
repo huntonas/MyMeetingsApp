@@ -29,39 +29,20 @@ describe("the public site", () => {
     },
   );
 
-  // They're sized for the web already (public/screenshots), so Next serves the files as they are.
-  it("serves the app screenshots from this site, as they are", async () => {
+  it("serves the coming-soon home page, with no screenshots or structured data", async () => {
     const html = await (await fetch(`${E2E_URL}/`)).text();
-    const sources = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((match) => match[1] ?? "");
-    expect(sources).toEqual([
-      "/screenshots/1-nearby.webp",
-      "/screenshots/2-map.webp",
-      "/screenshots/3-meeting.webp",
-      "/screenshots/4-tag-picker.webp",
-      "/screenshots/5-me.webp",
-    ]);
-    for (const source of sources) {
-      const res = await fetch(`${E2E_URL}${source}`);
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("image/webp");
-    }
-  });
-
-  it("builds the structured data with the site URL", async () => {
-    const html = await (await fetch(`${E2E_URL}/`)).text();
-    expect(html).toContain('"@type":"MobileApplication"');
-    expect(html).toContain('"url":"https://mymeetingapp.test"');
+    expect(html).toContain("Coming soon.");
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("application/ld+json");
   });
 });
 
 describe("search engine files and links", () => {
-  it("serves robots.txt and the sitemap built with SITE_URL", async () => {
+  it("serves a robots.txt that keeps crawlers out of everything, and no sitemap", async () => {
     const robotsTxt = await (await fetch(`${E2E_URL}/robots.txt`)).text();
-    expect(robotsTxt).toContain("Disallow: /metrics");
-    expect(robotsTxt).toContain("Disallow: /api/");
-    expect(robotsTxt).toContain("Sitemap: https://mymeetingapp.test/sitemap.xml");
-    const sitemapXml = await (await fetch(`${E2E_URL}/sitemap.xml`)).text();
-    expect(sitemapXml).toContain("<loc>https://mymeetingapp.test/privacy</loc>");
+    expect(robotsTxt).toContain("Disallow: /");
+    expect(robotsTxt).not.toContain("Sitemap:");
+    expect((await fetch(`${E2E_URL}/sitemap.xml`)).status).toBe(404);
   });
 
   it.each(["/", "/privacy", "/terms", "/support"])(
